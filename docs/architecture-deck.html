@@ -405,6 +405,76 @@
     svg.system-map[data-trust-mode="active"] [data-trust-tier="high"]         .node-shape { fill: var(--trust-high);         stroke: #34522F; }
     svg.system-map[data-trust-mode="active"] [data-trust-tier] .node-label    { fill: #FFFFFF; }
     svg.system-map[data-trust-mode="active"] [data-trust-tier] .node-label.sub { fill: rgba(255,255,255,0.78); }
+
+    /* === Lifecycle overlay (U3) === */
+    svg.system-map[data-active-step] .edge[data-lifecycle-active] {
+      stroke: var(--teal-accent);
+      stroke-width: 2.6;
+      opacity: 1 !important;
+    }
+    svg.system-map[data-active-step] [data-component-id][data-lifecycle-active] .node-shape {
+      stroke: var(--teal-accent);
+      stroke-width: 2.4;
+      opacity: 1 !important;
+    }
+    svg.system-map[data-active-step]:not([data-hover-active]) [data-component-id]:not([data-lifecycle-active]) .node-shape,
+    svg.system-map[data-active-step]:not([data-hover-active]) [data-component-id]:not([data-lifecycle-active]) .node-label,
+    svg.system-map[data-active-step]:not([data-hover-active]) .edge:not([data-lifecycle-active]),
+    svg.system-map[data-active-step]:not([data-hover-active]) .group-rect,
+    svg.system-map[data-active-step]:not([data-hover-active]) .group-label {
+      opacity: 0.4;
+    }
+
+    /* === Canvas toolbar (U3 F3 spec) === */
+    svg.system-map .canvas-toolbar { font-family: "Inter", sans-serif; font-size: 12px; }
+    svg.system-map .canvas-toolbar rect.toolbar-bg {
+      fill: var(--bg-canvas);
+      stroke: var(--rule);
+      stroke-width: 1;
+      rx: 4; ry: 4;
+    }
+    svg.system-map .tool-btn { cursor: pointer; }
+    svg.system-map .tool-btn rect.btn-bg {
+      fill: var(--bg-canvas);
+      stroke: var(--ink-muted);
+      stroke-width: 1;
+      rx: 3; ry: 3;
+      transition: fill 150ms, stroke 150ms;
+    }
+    svg.system-map .tool-btn[data-active] rect.btn-bg {
+      fill: var(--teal);
+      stroke: var(--teal-accent);
+    }
+    svg.system-map .tool-btn text { fill: var(--ink); pointer-events: none; }
+    svg.system-map .tool-btn[data-active] text { fill: #FFFFFF; }
+    svg.system-map .tool-btn:hover rect.btn-bg { stroke: var(--teal-accent); }
+    svg.system-map .step-counter {
+      fill: var(--ink-muted);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      pointer-events: none;
+    }
+    svg.system-map .step-icon {
+      fill: var(--ink);
+      stroke: none;
+      pointer-events: none;
+    }
+    svg.system-map .tool-btn[data-active] .step-icon { fill: #FFFFFF; }
+
+    /* Trust legend overlay (visible when trust-tier mode active) */
+    svg.system-map .trust-legend { display: none; }
+    svg.system-map[data-trust-mode="active"] .trust-legend { display: block; }
+    svg.system-map .trust-legend rect.legend-bg {
+      fill: var(--bg-canvas);
+      stroke: var(--rule);
+      stroke-width: 1;
+      rx: 4; ry: 4;
+    }
+    svg.system-map .trust-legend text {
+      font-family: "Inter", sans-serif;
+      font-size: 10px;
+      fill: var(--ink);
+    }
   </style>
 </head>
 <body>
@@ -610,6 +680,37 @@
             <rect class="node-shape" x="1060" y="585" width="150" height="60"/>
             <text class="node-label" x="1135" y="610">Logfire /</text>
             <text class="node-label sub" x="1135" y="627">OpenTelemetry</text>
+          </g>
+
+          <!-- === Canvas toolbar (top-right) === -->
+          <g class="canvas-toolbar" transform="translate(950, 0)">
+            <rect class="toolbar-bg" x="0" y="6" width="280" height="32"/>
+            <!-- Trust-tier toggle (Base / Tiers) -->
+            <g class="tool-btn" id="toggle-trust" role="button" tabindex="0" aria-label="Toggle trust tiers (T)">
+              <rect class="btn-bg" x="8" y="11" width="60" height="22"/>
+              <text x="38" y="26" text-anchor="middle">Base</text>
+            </g>
+            <!-- Step counter -->
+            <text class="step-counter" x="146" y="26" text-anchor="middle" id="step-counter">— / 13</text>
+            <!-- Step-forward button (arrow icon; transitions to Replay at step 13) -->
+            <g class="tool-btn" id="step-forward" role="button" tabindex="0" aria-label="Advance lifecycle step (→)">
+              <rect class="btn-bg" x="206" y="11" width="64" height="22"/>
+              <text x="232" y="26" text-anchor="end" font-size="11">Step</text>
+              <path class="step-icon" id="step-icon" d="M250,17 L260,22 L250,27 Z"/>
+            </g>
+          </g>
+
+          <!-- Trust legend (visible only in trust-tier mode) -->
+          <g class="trust-legend" transform="translate(40, 680)">
+            <rect class="legend-bg" x="0" y="0" width="640" height="28"/>
+            <g transform="translate(12, 14)">
+              <rect width="10" height="10" y="-5" fill="var(--trust-untrusted)"/><text x="16" y="3">Untrusted</text>
+              <rect width="10" height="10" x="100" y="-5" fill="var(--trust-low)"/><text x="116" y="3">Low</text>
+              <rect width="10" height="10" x="180" y="-5" fill="var(--trust-medium-low)"/><text x="196" y="3">Med-low</text>
+              <rect width="10" height="10" x="280" y="-5" fill="var(--trust-medium)"/><text x="296" y="3">Medium</text>
+              <rect width="10" height="10" x="370" y="-5" fill="var(--trust-high)"/><text x="386" y="3">High</text>
+              <text x="450" y="3" fill="var(--ink-faint)" font-size="9">five-tier trust palette (R17)</text>
+            </g>
           </g>
         </svg>
       </div>
@@ -1013,6 +1114,131 @@
         }
       });
     })();
+
+    /* === U3: lifecycle overlay + step controls + trust-tier toggle === */
+
+    /* Lifecycle steps mapped to component-IDs + edge-IDs (per ARCHITECTURE.md
+       ## Inter-Agent Coordination 13-step lifecycle). Each step highlights
+       the nodes + edges involved in that step's handoff. */
+    const LIFECYCLE_STEPS = [
+      { n: 1,  label: "Operator requests campaign",        nodes: ["operator", "security-console"],                        edges: ["op-console"] },
+      { n: 2,  label: "Safety Gate validates",              nodes: ["security-console", "fastapi", "safety-gate"],          edges: ["console-api", "api-sg"] },
+      { n: 3,  label: "Slack approval requested",          nodes: ["safety-gate", "slack"],                                edges: ["sg-slack"] },
+      { n: 4,  label: "Operator decides via Slack",         nodes: ["slack", "safety-gate"],                                edges: ["slack-sg"] },
+      { n: 5,  label: "Safety Gate revalidates scope",      nodes: ["safety-gate", "audit-ledger"],                         edges: ["sg-audit"] },
+      { n: 6,  label: "Coverage Scoring returns gaps",      nodes: ["campaign-runner", "coverage-scoring"],                 edges: ["runner-cov"] },
+      { n: 7,  label: "Orchestrator emits task packets",    nodes: ["coverage-scoring", "orchestrator"],                    edges: ["cov-orch"] },
+      { n: 8,  label: "Red Team generates AttackCase",      nodes: ["orchestrator", "red-team"],                            edges: ["orch-rt"] },
+      { n: 9,  label: "Target Adapter executes",            nodes: ["red-team", "target-adapter", "clinical-copilot"],      edges: ["rt-ta", "ta-target", "target-ta"] },
+      { n: 10, label: "Judge evaluates",                    nodes: ["target-adapter", "judge"],                             edges: ["ta-judge"] },
+      { n: 11, label: "Regression promotion",               nodes: ["judge", "regression-promotion", "artifact-store"],     edges: ["judge-rp", "rp-artifacts"] },
+      { n: 12, label: "Documentation drafts report",        nodes: ["judge", "documentation", "artifact-store"],            edges: ["judge-doc", "doc-artifacts"] },
+      { n: 13, label: "Observability records the run",      nodes: ["observability", "logfire"],                            edges: ["obs-logfire"] }
+    ];
+
+    function applyLifecycleStep(step) {
+      const svg = document.querySelector('section[data-slide="2"] svg.system-map');
+      if (!svg) return;
+      // Clear previous active markers
+      svg.querySelectorAll('[data-lifecycle-active]').forEach(el => el.removeAttribute('data-lifecycle-active'));
+      if (step === null || step < 1 || step > 13) {
+        svg.removeAttribute('data-active-step');
+        document.getElementById('step-counter').textContent = '— / 13';
+        // Reset step-icon to forward arrow
+        document.getElementById('step-icon').setAttribute('d', 'M250,17 L260,22 L250,27 Z');
+        return;
+      }
+      svg.setAttribute('data-active-step', String(step));
+      const cfg = LIFECYCLE_STEPS[step - 1];
+      cfg.nodes.forEach(id => {
+        const node = svg.querySelector(`[data-component-id="${id}"]`);
+        if (node) node.setAttribute('data-lifecycle-active', '');
+      });
+      cfg.edges.forEach(id => {
+        const edge = svg.querySelector(`.edge[data-edge-id="${id}"]`);
+        if (edge) edge.setAttribute('data-lifecycle-active', '');
+      });
+      document.getElementById('step-counter').textContent = (step === 13 ? 'Done' : `${step} / 13`);
+      // At step 13, swap arrow icon for circular-arrow (Replay) shape
+      const iconEl = document.getElementById('step-icon');
+      if (step === 13) {
+        iconEl.setAttribute('d', 'M256,22 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 M250,17 L246,21 L250,22 Z');
+      } else {
+        iconEl.setAttribute('d', 'M250,17 L260,22 L250,27 Z');
+      }
+    }
+
+    function advanceLifecycle() {
+      if (state.active_step === null) {
+        state.active_step = 1;
+      } else if (state.active_step < 13) {
+        state.active_step += 1;
+      } else {
+        state.active_step = null; // Replay at 13 resets to no step
+      }
+      applyLifecycleStep(state.active_step);
+    }
+
+    function reverseLifecycle() {
+      if (state.active_step === null || state.active_step <= 1) {
+        state.active_step = null;
+      } else {
+        state.active_step -= 1;
+      }
+      applyLifecycleStep(state.active_step);
+    }
+
+    function toggleTrustMode() {
+      const svg = document.querySelector('section[data-slide="2"] svg.system-map');
+      const btn = document.getElementById('toggle-trust');
+      if (state.trust_mode === 'base') {
+        state.trust_mode = 'trust_tiers';
+        svg.setAttribute('data-trust-mode', 'active');
+        btn.setAttribute('data-active', '');
+        btn.querySelector('text').textContent = 'Tiers';
+      } else {
+        state.trust_mode = 'base';
+        svg.removeAttribute('data-trust-mode');
+        btn.removeAttribute('data-active');
+        btn.querySelector('text').textContent = 'Base';
+      }
+    }
+
+    /* Wire toolbar buttons */
+    document.getElementById('toggle-trust').addEventListener('click', toggleTrustMode);
+    document.getElementById('step-forward').addEventListener('click', advanceLifecycle);
+
+    /* Slide-2 keyboard hooks (R5 right-arrow precedence; T toggle).
+       The base ArrowLeft/Right handler in the slide-nav block treats both as
+       slide-nav globally; this listener intercepts when on Slide 2 in capture
+       phase and stops propagation if lifecycle should advance instead. */
+    document.addEventListener('keydown', (e) => {
+      if (state.current_slide !== 2) {
+        // Only Escape (locked-target release in U11) matters off-slide-2
+        return;
+      }
+      if (e.key === 'T' || e.key === 't') {
+        e.preventDefault();
+        toggleTrustMode();
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        if (state.active_step === null || state.active_step < 13) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          advanceLifecycle();
+        }
+        // else fall through to slide-nav (advance to slide 3)
+      }
+      if (e.key === 'ArrowLeft') {
+        if (state.active_step !== null && state.active_step >= 1) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          reverseLifecycle();
+        }
+        // else fall through to slide-nav (back to slide 1)
+      }
+    }, true /* capture phase so we run before the global slide-nav handler */);
 
     /* === Click handlers on slide-index === */
     document.querySelectorAll('#slide-index button').forEach(btn => {
