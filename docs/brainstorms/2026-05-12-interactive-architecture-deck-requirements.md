@@ -152,6 +152,8 @@ The deck is specified in 16 requirements grouped into five concerns: Deliverable
 - **Clean-academic visual style anchored to arXiv preprint typography.** Source Serif Pro (or similar transitional serif) headings, Inter (or similar humanist sans) body, JetBrains Mono identifiers. Motion is opacity-only, max 150ms. Frames the deck as defensible engineering rather than marketing.
 - **Highlight + side panel hover behavior with panel-persistence-into-rail and click-to-lock.** Maximizes information density per slide. Panel push-shrinks the canvas to 720px minimum; below that, docks below the canvas. Click-to-lock pins the current panel for keyboard accessibility.
 - **Two content sources with explicit roles (per R3).** ARCHITECTURE.md is the canonical source for textual content (component purpose, inputs/outputs, tools, failure modes); FIX_PLAN.md is the canonical source for diagram structure (Figure 1/2 split, node shapes, trust palette, sequence diagram) until the relevant WUs land in ARCHITECTURE.md. During the gap, the deck leads ARCHITECTURE.md on diagrams.
+- **WU-25a classification (resolved 2026-05-12).** Safety Gate, Coverage Scoring, and Regression Promotion are all deterministic Platform Services (hexagon nodes on Slide 2), matching the current ARCHITECTURE.md. The four agents (Orchestrator, Red Team, Judge, Documentation) render as rectangles. ARCHITECTURE.md was already restructured during the round-1 architecture review to reflect this — the deck inherits it directly.
+- **Version-stamp commits (resolved 2026-05-12).** The first deck version stamps both sources to `security-auto` commit `4f09569` (initial commit, contains ARCHITECTURE.md + FIX_PLAN.md post round-1 architecture review and round-2 brainstorm review). Diagram-source authority at stamp time: FIX_PLAN.md (the WU sequence has not yet landed in ARCHITECTURE.md). Subsequent deck rebuilds will re-stamp to whichever commits are current; subsequent re-stamping is a maintenance task, not a brainstorm decision.
 
 ---
 
@@ -169,9 +171,7 @@ The deck is specified in 16 requirements grouped into five concerns: Deliverable
 
 ### Resolve Before Planning
 
-- [Affects R5, R17][User decision] WU-25a classification verdict — for each of Safety Gate, Coverage Scoring, and Regression Promotion, decide whether it is an LLM agent (rectangle node on the canvas) or a deterministic service (hexagon node). The deck's Slide 2 node shapes depend on this. Planning cannot proceed without it.
-- [Affects R3, AE6, Dependencies][User decision] ARCHITECTURE.md commit SHA to stamp into the version-stamp comment block at the top of the deck file. The textual-sync success criterion is scoped to this commit.
-- [Affects R3, Dependencies][User decision] FIX_PLAN.md commit SHA to stamp into the same comment block. The diagram-source authority is scoped to this commit until the WU sequence lands in ARCHITECTURE.md.
+- None. All three previously-blocking items resolved 2026-05-12 — see Key Decisions for the resolutions.
 
 ### Deferred to Planning
 
