@@ -392,6 +392,118 @@
       ry: 6;
     }
 
+    /* === Slide 5: Threat Coverage heat map === */
+    section[data-slide="5"] { padding: 24px 32px; }
+    section[data-slide="5"] .canvas-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    section[data-slide="5"] .slide-caption {
+      font-size: 12px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    section[data-slide="5"] .slide-caption strong {
+      color: var(--teal);
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 600;
+    }
+    section[data-slide="5"] svg.threat-coverage {
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      display: block;
+    }
+    svg.threat-coverage .t0-header {
+      font-family: "Source Serif Pro", "Iowan Old Style", Georgia, serif;
+      font-size: 18px;
+      font-weight: 600;
+      fill: var(--ink);
+      text-anchor: middle;
+    }
+    svg.threat-coverage .t0-sub {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      fill: var(--ink-faint);
+      text-anchor: middle;
+    }
+    svg.threat-coverage .heat-cell {
+      cursor: pointer;
+    }
+    svg.threat-coverage .heat-cell rect {
+      stroke-width: 1.4;
+      rx: 4; ry: 4;
+      transition: stroke-width 150ms;
+    }
+    svg.threat-coverage .heat-cell[data-state="not-covered"] rect {
+      fill: #EEEAE3;
+      stroke: #BDB6A8;
+    }
+    svg.threat-coverage .heat-cell[data-state="partial"] rect {
+      fill: #F4E4B4;
+      stroke: #C9A658;
+    }
+    svg.threat-coverage .heat-cell[data-state="covered"] rect {
+      fill: #D6E5C4;
+      stroke: #6B8C4E;
+    }
+    svg.threat-coverage .heat-cell-name {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--ink);
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    svg.threat-coverage .heat-cell-state {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 9px;
+      fill: var(--ink-muted);
+      text-anchor: middle;
+      pointer-events: none;
+      letter-spacing: 0.04em;
+    }
+    svg.threat-coverage[data-hover-active] .heat-cell:not([data-hover-self]) rect,
+    svg.threat-coverage[data-hover-active] .heat-cell:not([data-hover-self]) text {
+      opacity: 0.4;
+    }
+    svg.threat-coverage .heat-cell[data-hover-self] rect {
+      stroke: var(--teal);
+      stroke-width: 2.4;
+    }
+    svg.threat-coverage .projected-legend rect.legend-bg {
+      fill: var(--bg-canvas);
+      stroke: var(--rule);
+      stroke-width: 1;
+      rx: 4; ry: 4;
+    }
+    svg.threat-coverage .projected-legend text {
+      font-family: "Inter", sans-serif;
+      font-size: 10px;
+      fill: var(--ink-muted);
+    }
+    svg.threat-coverage .projected-legend .legend-title {
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--ink);
+    }
+    svg.threat-coverage .footnote {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      fill: var(--ink-faint);
+      font-style: italic;
+    }
+    svg.threat-coverage .ref-link {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 10px;
+      fill: var(--teal);
+    }
+
     /* === Slide 4: Target Attack Surface === */
     section[data-slide="4"] { padding: 24px 32px; }
     section[data-slide="4"] .canvas-wrap {
@@ -1257,7 +1369,110 @@
     </section>
 
     <section data-slide="5" data-title="Threat Coverage">
-      <div class="placeholder">[U6 — Threat coverage heat map]</div>
+      <div class="canvas-wrap">
+        <div class="slide-caption">Slide 5 &mdash; <strong>Threat Coverage</strong> &middot; 10-category heat map. Hover a cell for the Initial defense signal from ARCHITECTURE.md.</div>
+        <svg class="threat-coverage" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" aria-label="Threat-model coverage heat map at T0">
+          <!-- T0 baseline header (per F6 — bake the framing into the slide itself) -->
+          <text class="t0-header" x="500" y="56">Coverage at T0 — pre-eval-suite</text>
+          <text class="t0-sub"    x="500" y="76">Phase 6 populates · commit 4f09569 · eval suite has not been built yet</text>
+
+          <!-- 5x2 grid of cells; cell box ~180x140; gap 20px -->
+          <!-- Row 1 (y=110) -->
+          <g class="heat-cell" data-cell-id="direct-prompt-injection" data-state="not-covered">
+            <rect x="60" y="110" width="180" height="140"/>
+            <text class="heat-cell-name" x="150" y="155">Direct prompt</text>
+            <text class="heat-cell-name" x="150" y="171">injection</text>
+            <text class="heat-cell-state" x="150" y="225">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="indirect-prompt-injection" data-state="not-covered">
+            <rect x="260" y="110" width="180" height="140"/>
+            <text class="heat-cell-name" x="350" y="155">Indirect prompt</text>
+            <text class="heat-cell-name" x="350" y="171">injection</text>
+            <text class="heat-cell-state" x="350" y="225">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="multi-turn-manipulation" data-state="not-covered">
+            <rect x="460" y="110" width="180" height="140"/>
+            <text class="heat-cell-name" x="550" y="155">Multi-turn</text>
+            <text class="heat-cell-name" x="550" y="171">manipulation</text>
+            <text class="heat-cell-state" x="550" y="225">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="phi-leakage" data-state="not-covered">
+            <rect x="660" y="110" width="180" height="140"/>
+            <text class="heat-cell-name" x="750" y="155">PHI leakage</text>
+            <text class="heat-cell-state" x="750" y="225">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="cross-patient-exposure" data-state="not-covered">
+            <rect x="860" y="110" width="180" height="140"/>
+            <text class="heat-cell-name" x="950" y="155">Cross-patient</text>
+            <text class="heat-cell-name" x="950" y="171">exposure</text>
+            <text class="heat-cell-state" x="950" y="225">NOT-COVERED</text>
+          </g>
+
+          <!-- Row 2 (y=270) -->
+          <g class="heat-cell" data-cell-id="authz-bypass" data-state="not-covered">
+            <rect x="60" y="270" width="180" height="140"/>
+            <text class="heat-cell-name" x="150" y="310">Authorization</text>
+            <text class="heat-cell-name" x="150" y="326">bypass + resource</text>
+            <text class="heat-cell-name" x="150" y="342">enumeration</text>
+            <text class="heat-cell-state" x="150" y="385">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="state-corruption" data-state="not-covered">
+            <rect x="260" y="270" width="180" height="140"/>
+            <text class="heat-cell-name" x="350" y="315">State corruption</text>
+            <text class="heat-cell-state" x="350" y="385">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="tool-misuse" data-state="not-covered">
+            <rect x="460" y="270" width="180" height="140"/>
+            <text class="heat-cell-name" x="550" y="315">Tool misuse</text>
+            <text class="heat-cell-state" x="550" y="385">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="recursive-tool-use" data-state="not-covered">
+            <rect x="660" y="270" width="180" height="140"/>
+            <text class="heat-cell-name" x="750" y="315">Recursive tool</text>
+            <text class="heat-cell-name" x="750" y="331">use (DoS / DoW)</text>
+            <text class="heat-cell-state" x="750" y="385">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="token-exhaustion" data-state="not-covered">
+            <rect x="860" y="270" width="180" height="140"/>
+            <text class="heat-cell-name" x="950" y="315">Token exhaustion</text>
+            <text class="heat-cell-state" x="950" y="385">NOT-COVERED</text>
+          </g>
+
+          <!-- Persona-hijacking footnote (per F8 — 12px below grid) -->
+          <text class="footnote" x="60" y="445">
+            ¹ Persona hijacking (low-priority): largely neutralized by session-bound identity at app/auth/scope.py; rendered as footnote rather than primary cell.
+          </text>
+
+          <!-- Projected-state legend to the right (per F6) -->
+          <g class="projected-legend" transform="translate(1060, 110)">
+            <rect class="legend-bg" x="0" y="0" width="180" height="300"/>
+            <text class="legend-title" x="14" y="26">Phase 6 target</text>
+            <text x="14" y="50">projected when eval suite populates</text>
+
+            <rect x="14" y="74" width="20" height="14" fill="#D6E5C4" stroke="#6B8C4E"/>
+            <text x="42" y="86">4 covered</text>
+
+            <rect x="14" y="102" width="20" height="14" fill="#F4E4B4" stroke="#C9A658"/>
+            <text x="42" y="114">4 partial</text>
+
+            <rect x="14" y="130" width="20" height="14" fill="#EEEAE3" stroke="#BDB6A8"/>
+            <text x="42" y="142">2 not-covered</text>
+
+            <text x="14" y="180" style="font-style: italic;">Heat-map demonstrates</text>
+            <text x="14" y="195" style="font-style: italic;">the tracking concept;</text>
+            <text x="14" y="210" style="font-style: italic;">today all 10 cells = T0</text>
+            <text x="14" y="225" style="font-style: italic;">baseline (Not-covered)</text>
+            <text x="14" y="240" style="font-style: italic;">since evals/ has not</text>
+            <text x="14" y="255" style="font-style: italic;">been built yet.</text>
+          </g>
+
+          <!-- Reference link at bottom -->
+          <text class="ref-link" x="60" y="500">Full table → ARCHITECTURE.md §Threat Model Scope</text>
+          <text class="footnote" x="60" y="520">
+            Category list authoritative at commit 4f09569 (10 primary categories + 1 low-priority footnote).
+          </text>
+        </svg>
+      </div>
     </section>
 
     <section data-slide="6" data-title="Data Contracts">
@@ -2027,6 +2242,205 @@
             panel.removeAttribute('data-locked');
             pinUse.setAttribute('href', '#pin-outline');
             renderParticipantHover(state.hover_target);
+          }
+        }
+      });
+    })();
+
+    /* === U6: Slide 5 — Threat Coverage cell content + hover ===
+       Per F8: panel shows category + Initial defense signal sourced from
+       ARCHITECTURE.md §Threat Model Scope. NO rationale text duplicated. */
+    const THREAT_CELL_CONTENT = {
+      "direct-prompt-injection": {
+        name: "Direct prompt injection",
+        meta: "Threat category",
+        trust_tier: "medium",
+        attack_surface: "Chat input (/conversation SSE)",
+        potential_impact: "Scope escape, unsafe advice, hidden instruction disclosure",
+        difficulty: "Low",
+        initial_defense_signal: "System prompt, refusal policy, role checks",
+        coverage_state: "NOT-COVERED — Phase 6 will introduce direct-injection seed cases"
+      },
+      "indirect-prompt-injection": {
+        name: "Indirect prompt injection",
+        meta: "Threat category",
+        trust_tier: "medium",
+        attack_surface: "Uploaded files, retrieved notes, patient docs",
+        potential_impact: "Assistant follows malicious document instructions",
+        difficulty: "Medium",
+        initial_defense_signal: "Retrieval sanitization, source isolation",
+        coverage_state: "NOT-COVERED — Phase 6 uploads via Playwright UI path"
+      },
+      "multi-turn-manipulation": {
+        name: "Multi-turn manipulation",
+        meta: "Threat category",
+        trust_tier: "medium",
+        attack_surface: "Conversation history",
+        potential_impact: "Gradual erosion of safeguards across turns",
+        difficulty: "Medium",
+        initial_defense_signal: "Context window policy, state summaries",
+        coverage_state: "NOT-COVERED — Judge requires structured attack_intent (per R12 + F19)"
+      },
+      "phi-leakage": {
+        name: "PHI leakage",
+        meta: "Threat category",
+        trust_tier: "high",
+        attack_surface: "Chart summaries, search, notes",
+        potential_impact: "Unauthorized disclosure of synthetic or real PHI",
+        difficulty: "High",
+        initial_defense_signal: "Authz checks, row-level filtering",
+        coverage_state: "NOT-COVERED — synthetic-only PHI for MVP"
+      },
+      "cross-patient-exposure": {
+        name: "Cross-patient exposure",
+        meta: "Threat category",
+        trust_tier: "high",
+        attack_surface: "Patient lookup and chart context",
+        potential_impact: "Data from patient B shown in patient A session",
+        difficulty: "High",
+        initial_defense_signal: "Tenant / patient scoping checks",
+        coverage_state: "NOT-COVERED"
+      },
+      "authz-bypass": {
+        name: "Authorization bypass and resource enumeration",
+        meta: "Threat category — added per F32",
+        trust_tier: "high",
+        attack_surface: "/copilot/documents/* source-document endpoint; document-UUID fetch; bbox / source metadata",
+        potential_impact: "Cross-patient document fetch, source-chip leakage, metadata tampering, direct-HTTP enumeration outside agent loop",
+        difficulty: "High",
+        initial_defense_signal: "Server-side authz on document UUIDs, session-bound document scope",
+        coverage_state: "NOT-COVERED — covered as a primary category since F32 swap"
+      },
+      "state-corruption": {
+        name: "State corruption",
+        meta: "Threat category",
+        trust_tier: "medium",
+        attack_surface: "Memory, summaries, cached context",
+        potential_impact: "Future responses influenced by poisoned state",
+        difficulty: "Medium",
+        initial_defense_signal: "Memory write restrictions, provenance",
+        coverage_state: "NOT-COVERED"
+      },
+      "tool-misuse": {
+        name: "Tool misuse",
+        meta: "Threat category",
+        trust_tier: "high",
+        attack_surface: "OpenEMR operations, retrieval tools (Pydantic AI supervisor tools)",
+        potential_impact: "Unintended invocation, parameter tampering",
+        difficulty: "High",
+        initial_defense_signal: "Tool schemas, server-side authz",
+        coverage_state: "NOT-COVERED — Judge-only grading per F12 (tool traces internal to target)"
+      },
+      "recursive-tool-use": {
+        name: "Recursive tool use (DoS / Denial of Wallet)",
+        meta: "Threat category",
+        trust_tier: "medium",
+        attack_surface: "Retrieval or agent loops",
+        potential_impact: "Cost amplification and latency DoS",
+        difficulty: "Medium",
+        initial_defense_signal: "Iteration limits, budget controls",
+        coverage_state: "NOT-COVERED — deterministic low-signal stop covers some cases per F29"
+      },
+      "token-exhaustion": {
+        name: "Token exhaustion",
+        meta: "Threat category",
+        trust_tier: "low",
+        attack_surface: "Long input, uploaded content, chained prompts",
+        potential_impact: "Denial of service and runaway cost",
+        difficulty: "Low",
+        initial_defense_signal: "Token caps, chunking, early abort",
+        coverage_state: "NOT-COVERED — $0.50 per-attempt frontier-model cap per F29"
+      }
+    };
+
+    function renderThreatPanel(cellId) {
+      const panel = document.getElementById('panel');
+      const data = THREAT_CELL_CONTENT[cellId];
+      if (!data) {
+        panel.setAttribute('data-mode', 'hidden');
+        return;
+      }
+      const header = panel.querySelector('.panel-header');
+      header.setAttribute('data-trust-tier', data.trust_tier || '');
+      header.querySelector('.name').textContent = data.name;
+      header.querySelector('.meta').textContent = data.meta || '';
+
+      const body = panel.querySelector('.panel-body');
+      body.innerHTML = '';
+      [
+        { key: 'attack_surface',         label: 'Attack surface' },
+        { key: 'potential_impact',       label: 'Potential impact' },
+        { key: 'difficulty',             label: 'Difficulty' },
+        { key: 'initial_defense_signal', label: 'Initial defense signal' },
+        { key: 'coverage_state',         label: 'Coverage state' }
+      ].forEach(f => {
+        if (data[f.key] === undefined) return;
+        const dt = document.createElement('dt');
+        dt.textContent = f.label;
+        body.appendChild(dt);
+        const dd = document.createElement('dd');
+        dd.textContent = data[f.key];
+        body.appendChild(dd);
+      });
+      panel.setAttribute('data-mode', 'open');
+    }
+
+    (function wireSlideFive() {
+      const svg = document.querySelector('section[data-slide="5"] svg.threat-coverage');
+      if (!svg) return;
+
+      function renderCellHover(activeId) {
+        if (activeId) {
+          svg.setAttribute('data-hover-active', activeId);
+          svg.querySelectorAll('[data-cell-id]').forEach(cell => {
+            if (cell.dataset.cellId === activeId) cell.setAttribute('data-hover-self', '');
+            else cell.removeAttribute('data-hover-self');
+          });
+          renderThreatPanel(activeId);
+        } else {
+          svg.removeAttribute('data-hover-active');
+          svg.querySelectorAll('[data-hover-self]').forEach(c => c.removeAttribute('data-hover-self'));
+          document.getElementById('panel').setAttribute('data-mode', 'hidden');
+        }
+      }
+
+      svg.addEventListener('mouseover', (e) => {
+        if (state.locked_target) return;
+        const cell = e.target.closest('[data-cell-id]');
+        if (cell) {
+          state.hover_target = cell.dataset.cellId;
+          renderCellHover(state.hover_target);
+        }
+      });
+      svg.addEventListener('mouseout', (e) => {
+        if (state.locked_target) return;
+        const cell = e.target.closest('[data-cell-id]');
+        if (!cell) return;
+        const goingTo = e.relatedTarget && e.relatedTarget.closest
+          ? e.relatedTarget.closest('[data-cell-id], #panel')
+          : null;
+        if (!goingTo) {
+          state.hover_target = null;
+          renderCellHover(null);
+        }
+      });
+      svg.addEventListener('click', (e) => {
+        const cell = e.target.closest('[data-cell-id]');
+        if (cell) {
+          state.locked_target = cell.dataset.cellId;
+          const panel = document.getElementById('panel');
+          const pinUse = document.getElementById('pin-icon-use');
+          panel.setAttribute('data-locked', '');
+          pinUse.setAttribute('href', '#pin-solid');
+          renderThreatPanel(state.locked_target);
+        } else {
+          if (state.locked_target) {
+            state.locked_target = null;
+            const panel = document.getElementById('panel');
+            const pinUse = document.getElementById('pin-icon-use');
+            panel.removeAttribute('data-locked');
+            pinUse.setAttribute('href', '#pin-outline');
+            renderCellHover(state.hover_target);
           }
         }
       });
