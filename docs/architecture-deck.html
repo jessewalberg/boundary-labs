@@ -392,6 +392,79 @@
       ry: 6;
     }
 
+    /* === Slide 4: Target Attack Surface === */
+    section[data-slide="4"] { padding: 24px 32px; }
+    section[data-slide="4"] .canvas-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    section[data-slide="4"] .slide-caption {
+      font-size: 12px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    section[data-slide="4"] .slide-caption strong {
+      color: var(--teal);
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 600;
+    }
+    section[data-slide="4"] svg.attack-surface {
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      display: block;
+    }
+    svg.attack-surface .surface-card {
+      cursor: pointer;
+    }
+    svg.attack-surface .surface-card rect {
+      fill: var(--bg-canvas);
+      stroke: var(--ink);
+      stroke-width: 1.4;
+      rx: 6; ry: 6;
+      transition: stroke 150ms, stroke-width 150ms;
+    }
+    svg.attack-surface .surface-name {
+      font-family: "Source Serif Pro", "Iowan Old Style", Georgia, serif;
+      font-size: 15px;
+      font-weight: 600;
+      fill: var(--ink);
+      text-anchor: start;
+      pointer-events: none;
+    }
+    svg.attack-surface .surface-path {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 10px;
+      fill: var(--teal);
+      pointer-events: none;
+    }
+    svg.attack-surface .surface-desc {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      fill: var(--ink-muted);
+      pointer-events: none;
+    }
+    svg.attack-surface .surface-warn {
+      font-family: "Inter", sans-serif;
+      font-size: 10px;
+      fill: var(--trust-untrusted);
+      font-style: italic;
+      pointer-events: none;
+    }
+    svg.attack-surface[data-hover-active] .surface-card:not([data-hover-self]) rect,
+    svg.attack-surface[data-hover-active] .surface-card:not([data-hover-self]) text {
+      opacity: 0.4;
+    }
+    svg.attack-surface .surface-card[data-hover-self] rect {
+      stroke: var(--teal);
+      stroke-width: 2.4;
+    }
+
     /* === Slide 6: Data Contracts === */
     section[data-slide="6"] { padding: 24px 32px; }
     section[data-slide="6"] .canvas-wrap {
@@ -1094,7 +1167,93 @@
     </section>
 
     <section data-slide="4" data-title="Target Attack Surface">
-      <div class="placeholder">[U5 — Target attack surface map]</div>
+      <div class="canvas-wrap">
+        <div class="slide-caption">Slide 4 &mdash; <strong>Target Attack Surface</strong> &middot; Clinical Co-Pilot endpoints from ARCHITECTURE.md §Target-Specific Attack Surface From Repo Research.</div>
+        <svg class="attack-surface" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" aria-label="Clinical Co-Pilot attack surface map">
+          <!-- 3 columns × 2 rows grid; card box ~360×220 -->
+
+          <!-- Row 1 -->
+          <g class="surface-card" data-surface-id="conversation-sse">
+            <rect x="60" y="60" width="380" height="280"/>
+            <text class="surface-name" x="78" y="92">/conversation (SSE)</text>
+            <text class="surface-path" x="78" y="110">clinical-copilot/app/routers/conversation.py</text>
+            <text class="surface-desc" x="78" y="138">Streams agent / verifier / critic / answer events</text>
+            <text class="surface-desc" x="78" y="156">to the Co-Pilot UI. The primary chat-input boundary.</text>
+            <text class="surface-warn" x="78" y="190">Attacks: multi-turn prompt injection, malformed q,</text>
+            <text class="surface-warn" x="78" y="206">patient-binding mismatch, verifier strip-all,</text>
+            <text class="surface-warn" x="78" y="222">critic bypass.</text>
+            <text class="surface-desc" x="78" y="312" style="fill: var(--ink-faint);">Trust: untrusted output</text>
+          </g>
+
+          <g class="surface-card" data-surface-id="copilot-ingest">
+            <rect x="450" y="60" width="380" height="280"/>
+            <text class="surface-name" x="468" y="92">/copilot/ingest</text>
+            <text class="surface-path" x="468" y="110">app/routers/ingest.py + ingest/orchestrator.py</text>
+            <text class="surface-desc" x="468" y="138">Document ingestion. Calls into OpenEMR's</text>
+            <text class="surface-desc" x="468" y="156">new-documents and binary routes via</text>
+            <text class="surface-desc" x="468" y="174">X-Copilot-Internal-Token (boundary at right).</text>
+            <text class="surface-warn" x="468" y="208">Attacks: malicious uploaded content, MIME</text>
+            <text class="surface-warn" x="468" y="224">mismatch, oversized payload, quote-verification</text>
+            <text class="surface-warn" x="468" y="240">bypass, cached extraction poisoning.</text>
+            <text class="surface-desc" x="468" y="312" style="fill: var(--ink-faint);">Trust: untrusted input</text>
+          </g>
+
+          <g class="surface-card" data-surface-id="copilot-documents">
+            <rect x="840" y="60" width="380" height="280"/>
+            <text class="surface-name" x="858" y="92">/copilot/documents/*</text>
+            <text class="surface-path" x="858" y="110">app/routers/documents.py + source resolver</text>
+            <text class="surface-desc" x="858" y="138">Source-document file endpoint. Resolves</text>
+            <text class="surface-desc" x="858" y="156">UUIDs to PDFs / binaries for source-chip links.</text>
+            <text class="surface-warn" x="858" y="190">Attacks: cross-patient document fetch via UUID</text>
+            <text class="surface-warn" x="858" y="206">guessing, stale UUID reuse, source-chip leakage,</text>
+            <text class="surface-warn" x="858" y="222">bbox / source-metadata tampering.</text>
+            <text class="surface-desc" x="858" y="312" style="fill: var(--ink-faint);">Trust: authz boundary</text>
+          </g>
+
+          <!-- Row 2 -->
+          <g class="surface-card" data-surface-id="smart-launch">
+            <rect x="60" y="370" width="380" height="280"/>
+            <text class="surface-name" x="78" y="402">SMART launch + session</text>
+            <text class="surface-path" x="78" y="420">app/auth/smart_session.py + scope.py</text>
+            <text class="surface-desc" x="78" y="448">EHR-launch flow: iss + launch params, OAuth2</text>
+            <text class="surface-desc" x="78" y="466">callback with PKCE, copilot_smart_session</text>
+            <text class="surface-desc" x="78" y="484">cookie minted post-token-exchange.</text>
+            <text class="surface-warn" x="78" y="518">Attacks: missing scope, stale / invalid session,</text>
+            <text class="surface-warn" x="78" y="534">patient mismatch, scope downgrade,</text>
+            <text class="surface-warn" x="78" y="550">prompts to bypass SMART auth.</text>
+            <text class="surface-desc" x="78" y="622" style="fill: var(--ink-faint);">Trust: session-bound identity</text>
+          </g>
+
+          <g class="surface-card" data-surface-id="pydantic-ai-tools">
+            <rect x="450" y="370" width="380" height="280"/>
+            <text class="surface-name" x="468" y="402">Pydantic AI supervisor tools</text>
+            <text class="surface-path" x="468" y="420">app/agent/pydantic_loop.py</text>
+            <text class="surface-desc" x="468" y="448">Tool registrations: FHIR getters,</text>
+            <text class="surface-desc" x="468" y="466">extract_document, retrieve_evidence,</text>
+            <text class="surface-desc" x="468" y="484">guideline retrieval.</text>
+            <text class="surface-warn" x="468" y="518">Attacks: tool-selection manipulation, forbidden</text>
+            <text class="surface-warn" x="468" y="534">tool success, repeated recoverable scope_missing,</text>
+            <text class="surface-warn" x="468" y="550">tool-call count exhaustion.</text>
+            <text class="surface-desc" x="468" y="600" style="fill: var(--trust-untrusted); font-style: italic;">Limitation: tool traces are</text>
+            <text class="surface-desc" x="468" y="616" style="fill: var(--trust-untrusted); font-style: italic;">internal spans not exposed across</text>
+            <text class="surface-desc" x="468" y="632" style="fill: var(--trust-untrusted); font-style: italic;">separation boundary; MVP grades</text>
+            <text class="surface-desc" x="468" y="648" style="fill: var(--trust-untrusted); font-style: italic;">tool-misuse semantically via Judge.</text>
+          </g>
+
+          <g class="surface-card" data-surface-id="internal-token">
+            <rect x="840" y="370" width="380" height="280"/>
+            <text class="surface-name" x="858" y="402">Internal OpenEMR API token</text>
+            <text class="surface-path" x="858" y="420">InternalAuth (X-Copilot-Internal-Token)</text>
+            <text class="surface-desc" x="858" y="448">Header-bearer boundary between Clinical</text>
+            <text class="surface-desc" x="858" y="466">Co-Pilot and OpenEMR's custom-module</text>
+            <text class="surface-desc" x="858" y="484">routes.</text>
+            <text class="surface-warn" x="858" y="518">Attacks: ensure security app does NOT receive</text>
+            <text class="surface-warn" x="858" y="534">the token. Internal endpoints only probed</text>
+            <text class="surface-warn" x="858" y="550">when explicitly in authorized scope.</text>
+            <text class="surface-desc" x="858" y="622" style="fill: var(--ink-faint);">Trust: secret boundary</text>
+          </g>
+        </svg>
+      </div>
     </section>
 
     <section data-slide="5" data-title="Threat Coverage">
@@ -1868,6 +2027,166 @@
             panel.removeAttribute('data-locked');
             pinUse.setAttribute('href', '#pin-outline');
             renderParticipantHover(state.hover_target);
+          }
+        }
+      });
+    })();
+
+    /* === U5: Slide 4 — Target Attack Surface card content + hover === */
+    const SURFACE_PANEL_CONTENT = {
+      "conversation-sse": {
+        name: "/conversation (SSE)",
+        meta: "Primary chat-input boundary",
+        trust_tier: "untrusted",
+        endpoint: "/conversation (Server-Sent Events stream)",
+        evidence: "clinical-copilot/app/routers/conversation.py — streams agent / verifier / critic / answer events to the Co-Pilot UI",
+        test_focus: ["multi-turn prompt injection", "malformed or long q parameter", "patient-binding mismatch (session vs requested patient)", "request-id correlation across SSE events", "verifier strip-all behavior (refused event)", "critic bypass (medical-recommendation paraphrases)"],
+        limitations: "Stream timeout (10s inter-event / 60s total) → JudgeVerdict invalid. refused event → blocked. error event → invalid."
+      },
+      "copilot-ingest": {
+        name: "/copilot/ingest",
+        meta: "Document ingestion",
+        trust_tier: "untrusted",
+        endpoint: "/copilot/ingest (multipart upload)",
+        evidence: "clinical-copilot/app/routers/ingest.py + app/ingest/orchestrator.py — calls into OpenEMR's new-documents and binary routes via X-Copilot-Internal-Token",
+        test_focus: ["malicious uploaded content (indirect injection)", "MIME mismatch", "oversized payload (DoS)", "quote-verification bypass", "partial writeback", "cached extraction poisoning"],
+        limitations: "Security app does NOT receive the OpenEMR internal token. Indirect-injection-via-upload tests use Playwright to drive OpenEMR's authenticated upload UI (per Target Adapter Indirect Injection Upload Path)."
+      },
+      "copilot-documents": {
+        name: "/copilot/documents/*",
+        meta: "Source-document file endpoint",
+        trust_tier: "untrusted",
+        endpoint: "/copilot/documents/<uuid>",
+        evidence: "clinical-copilot/app/routers/documents.py + module source resolver — resolves UUIDs to PDFs / binaries for source-chip links in the Co-Pilot UI",
+        test_focus: ["cross-patient document fetch via UUID guessing", "stale document UUID reuse", "source-chip leakage (UUID exposed in response without authz re-check)", "bbox / source-metadata tampering"],
+        limitations: "This surface is the Authorization-bypass-and-resource-enumeration category from the threat model (Slide 5)."
+      },
+      "smart-launch": {
+        name: "SMART launch + session",
+        meta: "Session-bound identity",
+        trust_tier: "medium",
+        endpoint: "/launch + /oauth/callback (SMART-on-FHIR EHR Launch flow)",
+        evidence: "clinical-copilot/app/auth/smart_session.py + app/auth/scope.py — iss + launch params required; OAuth2 callback with PKCE; copilot_smart_session cookie minted post token exchange",
+        test_focus: ["missing scope (e.g., patient/Patient.rs absent)", "stale or invalid session token", "patient mismatch (session patient ≠ requested patient)", "scope downgrade attempt", "prompt-based attempts to bypass SMART auth"],
+        limitations: "Persona-hijacking attacks are largely neutralized by session-bound identity at the auth layer (per threat-model footnote)."
+      },
+      "pydantic-ai-tools": {
+        name: "Pydantic AI supervisor tools",
+        meta: "Tool-call boundary",
+        trust_tier: "untrusted",
+        endpoint: "Internal — Pydantic AI agent tool registrations",
+        evidence: "clinical-copilot/app/agent/pydantic_loop.py — registers FHIR tools plus extract_document and retrieve_evidence",
+        test_focus: ["tool-selection manipulation", "forbidden tool success", "repeated recoverable scope_missing", "tool-call count exhaustion"],
+        limitations: "Tool traces are internal OpenTelemetry spans NOT exposed across the separation boundary. MVP grades tool-misuse cases semantically via the Judge agent rather than via deterministic tool-trace assertions (per F12 in plan + AI-vs-Deterministic table in ARCHITECTURE.md)."
+      },
+      "internal-token": {
+        name: "Internal OpenEMR API token",
+        meta: "Secret boundary",
+        trust_tier: "high",
+        endpoint: "Header: X-Copilot-Internal-Token (InternalAuth in oe-module-clinical-copilot)",
+        evidence: "interface/modules/custom_modules/oe-module-clinical-copilot/src/Internal/InternalAuth.php — bearer-token boundary between Clinical Co-Pilot and the OpenEMR custom-module routes",
+        test_focus: ["ensure security app does NOT receive the token", "test unauthorized internal calls only when explicitly in authorized campaign scope", "verify no leakage of the token into logs / traces / agent prompts"],
+        limitations: "Internal endpoints (new-documents, binary, audit dispatch) only probed when explicitly in the campaign's allowlisted target scope."
+      }
+    };
+
+    function renderSurfacePanel(surfaceId) {
+      const panel = document.getElementById('panel');
+      const data = SURFACE_PANEL_CONTENT[surfaceId];
+      if (!data) {
+        panel.setAttribute('data-mode', 'hidden');
+        return;
+      }
+      const header = panel.querySelector('.panel-header');
+      header.setAttribute('data-trust-tier', data.trust_tier || '');
+      header.querySelector('.name').textContent = data.name;
+      header.querySelector('.meta').textContent = data.meta || '';
+
+      const body = panel.querySelector('.panel-body');
+      body.innerHTML = '';
+      [
+        { key: 'endpoint',    label: 'Endpoint' },
+        { key: 'evidence',    label: 'Evidence in target repo' },
+        { key: 'test_focus',  label: 'Security-app test focus' },
+        { key: 'limitations', label: 'Known limitations' }
+      ].forEach(f => {
+        if (data[f.key] === undefined) return;
+        const dt = document.createElement('dt');
+        dt.textContent = f.label;
+        body.appendChild(dt);
+        const dd = document.createElement('dd');
+        if (Array.isArray(data[f.key])) {
+          const ul = document.createElement('ul');
+          data[f.key].forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            ul.appendChild(li);
+          });
+          dd.appendChild(ul);
+        } else {
+          dd.textContent = data[f.key];
+        }
+        body.appendChild(dd);
+      });
+      panel.setAttribute('data-mode', 'open');
+    }
+
+    (function wireSlideFour() {
+      const svg = document.querySelector('section[data-slide="4"] svg.attack-surface');
+      if (!svg) return;
+
+      function renderSurfaceHover(activeId) {
+        if (activeId) {
+          svg.setAttribute('data-hover-active', activeId);
+          svg.querySelectorAll('[data-surface-id]').forEach(card => {
+            if (card.dataset.surfaceId === activeId) card.setAttribute('data-hover-self', '');
+            else card.removeAttribute('data-hover-self');
+          });
+          renderSurfacePanel(activeId);
+        } else {
+          svg.removeAttribute('data-hover-active');
+          svg.querySelectorAll('[data-hover-self]').forEach(c => c.removeAttribute('data-hover-self'));
+          document.getElementById('panel').setAttribute('data-mode', 'hidden');
+        }
+      }
+
+      svg.addEventListener('mouseover', (e) => {
+        if (state.locked_target) return;
+        const card = e.target.closest('[data-surface-id]');
+        if (card) {
+          state.hover_target = card.dataset.surfaceId;
+          renderSurfaceHover(state.hover_target);
+        }
+      });
+      svg.addEventListener('mouseout', (e) => {
+        if (state.locked_target) return;
+        const card = e.target.closest('[data-surface-id]');
+        if (!card) return;
+        const goingTo = e.relatedTarget && e.relatedTarget.closest
+          ? e.relatedTarget.closest('[data-surface-id], #panel')
+          : null;
+        if (!goingTo) {
+          state.hover_target = null;
+          renderSurfaceHover(null);
+        }
+      });
+      svg.addEventListener('click', (e) => {
+        const card = e.target.closest('[data-surface-id]');
+        if (card) {
+          state.locked_target = card.dataset.surfaceId;
+          const panel = document.getElementById('panel');
+          const pinUse = document.getElementById('pin-icon-use');
+          panel.setAttribute('data-locked', '');
+          pinUse.setAttribute('href', '#pin-solid');
+          renderSurfacePanel(state.locked_target);
+        } else {
+          if (state.locked_target) {
+            state.locked_target = null;
+            const panel = document.getElementById('panel');
+            const pinUse = document.getElementById('pin-icon-use');
+            panel.removeAttribute('data-locked');
+            pinUse.setAttribute('href', '#pin-outline');
+            renderSurfaceHover(state.hover_target);
           }
         }
       });
