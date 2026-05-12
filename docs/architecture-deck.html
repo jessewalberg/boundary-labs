@@ -392,6 +392,112 @@
       ry: 6;
     }
 
+    /* === Slide 6: Data Contracts === */
+    section[data-slide="6"] { padding: 24px 32px; }
+    section[data-slide="6"] .canvas-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    section[data-slide="6"] .slide-caption {
+      font-size: 12px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    section[data-slide="6"] .slide-caption strong {
+      color: var(--teal);
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 600;
+    }
+    section[data-slide="6"] svg.data-contracts {
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      display: block;
+    }
+    svg.data-contracts .envelope-frame {
+      fill: rgba(17, 122, 101, 0.04);
+      stroke: var(--teal);
+      stroke-width: 1.6;
+      stroke-dasharray: 4 4;
+      rx: 12; ry: 12;
+    }
+    svg.data-contracts .envelope-label {
+      font-family: "Source Serif Pro", "Iowan Old Style", Georgia, serif;
+      font-size: 14px;
+      font-weight: 600;
+      fill: var(--teal);
+    }
+    svg.data-contracts .contract-card {
+      cursor: pointer;
+    }
+    svg.data-contracts .contract-card rect {
+      fill: var(--bg-canvas);
+      stroke: var(--ink);
+      stroke-width: 1.4;
+      rx: 6; ry: 6;
+      transition: stroke 150ms, stroke-width 150ms;
+    }
+    svg.data-contracts .agent-card rect {
+      fill: var(--bg);
+      stroke: var(--ink-muted);
+      stroke-width: 1;
+      rx: 4; ry: 4;
+    }
+    svg.data-contracts .contract-name {
+      font-family: "Source Serif Pro", "Iowan Old Style", Georgia, serif;
+      font-size: 18px;
+      font-weight: 600;
+      fill: var(--ink);
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    svg.data-contracts .contract-desc {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      fill: var(--ink-muted);
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    svg.data-contracts .agent-name {
+      font-family: "Inter", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      fill: var(--ink);
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    svg.data-contracts .arrow-line {
+      stroke: var(--ink-muted);
+      stroke-width: 1.4;
+      fill: none;
+    }
+    svg.data-contracts[data-hover-active] .contract-card:not([data-hover-self]) rect,
+    svg.data-contracts[data-hover-active] .agent-card:not([data-hover-self]) rect {
+      opacity: 0.4;
+    }
+    svg.data-contracts[data-hover-active] .contract-card:not([data-hover-self]) .contract-name,
+    svg.data-contracts[data-hover-active] .contract-card:not([data-hover-self]) .contract-desc,
+    svg.data-contracts[data-hover-active] .agent-card:not([data-hover-self]) .agent-name {
+      opacity: 0.4;
+    }
+    svg.data-contracts .contract-card[data-hover-self] rect,
+    svg.data-contracts .agent-card[data-hover-self] rect {
+      stroke: var(--teal);
+      stroke-width: 2.4;
+    }
+    /* Transparent overlay rect for Envelope frame hover (per F15) */
+    svg.data-contracts .envelope-hit {
+      fill: transparent;
+      stroke: none;
+      pointer-events: all;
+      cursor: pointer;
+    }
+
     /* === Slide 3: Approval Flow sequence diagram === */
     section[data-slide="3"] { padding: 24px 32px; }
     section[data-slide="3"] .canvas-wrap {
@@ -996,7 +1102,75 @@
     </section>
 
     <section data-slide="6" data-title="Data Contracts">
-      <div class="placeholder">[U7 — Data contracts linear chain]</div>
+      <div class="canvas-wrap">
+        <div class="slide-caption">Slide 6 &mdash; <strong>Data Contracts</strong> &middot; linear chain wrapped by Message Envelope. Hover a card for the contract role + ARCHITECTURE.md reference.</div>
+        <svg class="data-contracts" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" aria-label="Data contracts linear chain">
+          <defs>
+            <marker id="dc-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--ink-muted)"/>
+            </marker>
+          </defs>
+
+          <!-- Message Envelope frame (surrounds all five cards) -->
+          <rect class="envelope-frame" x="80" y="160" width="1120" height="400"/>
+          <text class="envelope-label" x="100" y="190">Message Envelope</text>
+          <text class="contract-desc" x="100" y="208" text-anchor="start" fill="var(--teal)" style="font-size: 10px;">wraps every inter-agent handoff with msg_id, type, campaign_id, case_id, from_agent, to_agent, trace_id, payload_ref</text>
+
+          <!-- Transparent hit-target for envelope (12px inset from frame, per F15) -->
+          <rect class="envelope-hit" data-card-id="envelope" x="92" y="172" width="1096" height="376"/>
+
+          <!-- Arrows on top row (between contract cards) -->
+          <line class="arrow-line" x1="320" y1="320" x2="500" y2="320" marker-end="url(#dc-arrow)"/>
+          <line class="arrow-line" x1="780" y1="320" x2="960" y2="320" marker-end="url(#dc-arrow)"/>
+
+          <!-- Top row: contract cards -->
+          <g class="contract-card" data-card-id="attack-case">
+            <rect x="120" y="260" width="200" height="120"/>
+            <text class="contract-name" x="220" y="305">AttackCase</text>
+            <text class="contract-desc" x="220" y="328">a test case the Red Team</text>
+            <text class="contract-desc" x="220" y="343">executes against the target</text>
+            <text class="contract-desc" x="220" y="362" style="fill: var(--teal); font-size: 10px;">YAML, regression-stable</text>
+          </g>
+          <g class="contract-card" data-card-id="attack-attempt">
+            <rect x="540" y="260" width="240" height="120"/>
+            <text class="contract-name" x="660" y="305">AttackAttempt</text>
+            <text class="contract-desc" x="660" y="328">one execution transcript</text>
+            <text class="contract-desc" x="660" y="343">(inputs, outputs, tool trace, cost)</text>
+            <text class="contract-desc" x="660" y="362" style="fill: var(--teal); font-size: 10px;">JSON, immutable</text>
+          </g>
+          <g class="contract-card" data-card-id="judge-verdict">
+            <rect x="1000" y="260" width="180" height="120"/>
+            <text class="contract-name" x="1090" y="305">JudgeVerdict</text>
+            <text class="contract-desc" x="1090" y="328">independent grading</text>
+            <text class="contract-desc" x="1090" y="343">(status, severity, evidence)</text>
+            <text class="contract-desc" x="1090" y="362" style="fill: var(--teal); font-size: 10px;">JSON, append-only</text>
+          </g>
+
+          <!-- Middle row: agent cards (consume/produce relationships) -->
+          <g class="agent-card" data-card-id="red-team-agent">
+            <rect x="370" y="430" width="100" height="50"/>
+            <text class="agent-name" x="420" y="453">Red Team</text>
+            <text class="contract-desc" x="420" y="470">executes</text>
+          </g>
+          <g class="agent-card" data-card-id="judge-agent">
+            <rect x="810" y="430" width="100" height="50"/>
+            <text class="agent-name" x="860" y="453">Judge</text>
+            <text class="contract-desc" x="860" y="470">grades</text>
+          </g>
+
+          <!-- Connector lines: Red Team consumes AttackCase, produces AttackAttempt -->
+          <path class="arrow-line" d="M 220 380 Q 220 410 370 455" fill="none"/>
+          <path class="arrow-line" d="M 470 455 Q 580 420 660 380" fill="none" marker-end="url(#dc-arrow)"/>
+          <!-- Judge consumes AttackAttempt, produces JudgeVerdict -->
+          <path class="arrow-line" d="M 660 380 Q 700 410 810 455" fill="none"/>
+          <path class="arrow-line" d="M 910 455 Q 1010 420 1090 380" fill="none" marker-end="url(#dc-arrow)"/>
+
+          <!-- Reference line at bottom -->
+          <text class="contract-desc" x="640" y="595" text-anchor="middle" style="font-size: 12px; fill: var(--ink-faint);">
+            Full schemas in ARCHITECTURE.md §Data Contracts
+          </text>
+        </svg>
+      </div>
     </section>
   </main>
 
@@ -1694,6 +1868,142 @@
             panel.removeAttribute('data-locked');
             pinUse.setAttribute('href', '#pin-outline');
             renderParticipantHover(state.hover_target);
+          }
+        }
+      });
+    })();
+
+    /* === U7: Slide 6 — Data Contracts card schema + hover === */
+    const CONTRACT_PANEL_CONTENT = {
+      "envelope": {
+        name: "Message Envelope",
+        meta: "Inter-agent handoff wrapper",
+        trust_tier: "medium",
+        role: "Wraps every inter-agent handoff between Orchestrator → Red Team → Judge → Documentation. Carries IDs (msg_id, campaign_id, case_id, from_agent, to_agent, target_version, trace_id) and a payload_ref to the artifact-store entry.",
+        reference: "ARCHITECTURE.md §Data Contracts → Message Envelope"
+      },
+      "attack-case": {
+        name: "AttackCase",
+        meta: "Versioned test case",
+        trust_tier: "medium",
+        role: "A test case the Red Team executes — category, subcategory, target_roles, preconditions, sequence of turns, expected_safe_behavior, success_criteria (prohibited_outcomes), severity_hint, regression_candidate flag.",
+        reference: "ARCHITECTURE.md §Data Contracts → AttackCase"
+      },
+      "attack-attempt": {
+        name: "AttackAttempt",
+        meta: "Single execution transcript",
+        trust_tier: "medium",
+        role: "One execution of an AttackCase: attempt_id, case_id, campaign_id, target_url, target_version, started_at, completed_at, inputs_ref / outputs_ref / tool_trace_ref artifact:// URIs, cost breakdown (red_team_tokens, target_tokens, judge_tokens, usd), status.",
+        reference: "ARCHITECTURE.md §Data Contracts → AttackAttempt"
+      },
+      "judge-verdict": {
+        name: "JudgeVerdict",
+        meta: "Independent grading",
+        trust_tier: "medium",
+        role: "The Judge's evaluation of an AttackAttempt: verdict_id, attempt_id, status (pass/fail/partial/blocked/invalid/uncertain), confidence (0-1), severity, exploitability, impact, evidence_refs, deterministic_checks results, recommended_action, requires_human_review.",
+        reference: "ARCHITECTURE.md §Data Contracts → JudgeVerdict"
+      },
+      "red-team-agent": {
+        name: "Red Team Agent",
+        meta: "Consumes AttackCase → produces AttackAttempt",
+        trust_tier: "untrusted",
+        role: "Reads category-specific seed AttackCases, generates / mutates them, executes through the Target Adapter, and produces AttackAttempt transcripts for the Judge.",
+        reference: "ARCHITECTURE.md §Agent Roles → Red Team Agent"
+      },
+      "judge-agent": {
+        name: "Judge Agent",
+        meta: "Consumes AttackAttempt → produces JudgeVerdict",
+        trust_tier: "medium",
+        role: "Independently grades each AttackAttempt using rubric + golden calibration; never sees Red Team's free-text reasoning (only structured attack_intent for multi-turn cases).",
+        reference: "ARCHITECTURE.md §Agent Roles → Judge Agent"
+      }
+    };
+
+    function renderContractPanel(cardId) {
+      const panel = document.getElementById('panel');
+      const data = CONTRACT_PANEL_CONTENT[cardId];
+      if (!data) {
+        panel.setAttribute('data-mode', 'hidden');
+        return;
+      }
+      const header = panel.querySelector('.panel-header');
+      header.setAttribute('data-trust-tier', data.trust_tier || '');
+      header.querySelector('.name').textContent = data.name;
+      header.querySelector('.meta').textContent = data.meta || '';
+
+      const body = panel.querySelector('.panel-body');
+      body.innerHTML = '';
+      [
+        { key: 'role',      label: 'Role' },
+        { key: 'reference', label: 'Full schema' }
+      ].forEach(f => {
+        if (data[f.key] === undefined) return;
+        const dt = document.createElement('dt');
+        dt.textContent = f.label;
+        body.appendChild(dt);
+        const dd = document.createElement('dd');
+        dd.textContent = data[f.key];
+        body.appendChild(dd);
+      });
+      panel.setAttribute('data-mode', 'open');
+    }
+
+    (function wireSlideSix() {
+      const svg = document.querySelector('section[data-slide="6"] svg.data-contracts');
+      if (!svg) return;
+
+      function renderCardHover(activeId) {
+        if (activeId) {
+          svg.setAttribute('data-hover-active', activeId);
+          svg.querySelectorAll('[data-card-id]').forEach(card => {
+            if (card.dataset.cardId === activeId) card.setAttribute('data-hover-self', '');
+            else card.removeAttribute('data-hover-self');
+          });
+          renderContractPanel(activeId);
+        } else {
+          svg.removeAttribute('data-hover-active');
+          svg.querySelectorAll('[data-hover-self]').forEach(c => c.removeAttribute('data-hover-self'));
+          document.getElementById('panel').setAttribute('data-mode', 'hidden');
+        }
+      }
+
+      svg.addEventListener('mouseover', (e) => {
+        if (state.locked_target) return;
+        const card = e.target.closest('[data-card-id]');
+        if (card) {
+          state.hover_target = card.dataset.cardId;
+          renderCardHover(state.hover_target);
+        }
+      });
+      svg.addEventListener('mouseout', (e) => {
+        if (state.locked_target) return;
+        const card = e.target.closest('[data-card-id]');
+        if (!card) return;
+        const goingTo = e.relatedTarget && e.relatedTarget.closest
+          ? e.relatedTarget.closest('[data-card-id], #panel')
+          : null;
+        if (!goingTo) {
+          state.hover_target = null;
+          renderCardHover(null);
+        }
+      });
+      svg.addEventListener('click', (e) => {
+        const card = e.target.closest('[data-card-id]');
+        if (card) {
+          state.locked_target = card.dataset.cardId;
+          const panel = document.getElementById('panel');
+          const pinUse = document.getElementById('pin-icon-use');
+          panel.setAttribute('data-locked', '');
+          pinUse.setAttribute('href', '#pin-solid');
+          renderContractPanel(state.locked_target);
+        } else {
+          if (state.locked_target) {
+            state.locked_target = null;
+            const panel = document.getElementById('panel');
+            const pinUse = document.getElementById('pin-icon-use');
+            panel.removeAttribute('data-locked');
+            pinUse.setAttribute('href', '#pin-outline');
+            renderCardHover(state.hover_target);
           }
         }
       });
