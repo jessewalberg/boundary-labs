@@ -134,22 +134,99 @@
     }
     #slide-index button[data-current] .num { color: var(--teal); }
 
-    /* === Side panel (placeholder; U9/U10 will populate) === */
+    /* === Side panel === */
     #panel {
       position: fixed;
       top: 0;
       right: 0;
       bottom: var(--strip-height);
-      width: 360px;
+      width: 380px;
       background: var(--bg-canvas);
       border-left: 1px solid var(--rule);
-      padding: 32px 24px;
+      padding: 28px 28px 32px;
       transform: translateX(100%);
       transition: transform 150ms;
       overflow-y: auto;
       z-index: 5;
     }
     #panel[data-mode="open"] { transform: translateX(0); }
+    #panel .panel-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--rule);
+      margin-bottom: 16px;
+    }
+    #panel .panel-header .tier-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      margin-top: 5px;
+      border: 1px solid rgba(0,0,0,0.12);
+    }
+    #panel .panel-header .name {
+      font-family: "Source Serif Pro", "Iowan Old Style", Georgia, serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.2;
+      margin: 0;
+    }
+    #panel .panel-header .meta {
+      font-size: 11px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+    #panel dl { margin: 0; }
+    #panel dt {
+      font-size: 11px;
+      color: var(--ink-faint);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-top: 16px;
+      margin-bottom: 4px;
+    }
+    #panel dt:first-of-type { margin-top: 0; }
+    #panel dd {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--ink);
+    }
+    #panel dd ul {
+      margin: 0;
+      padding-left: 16px;
+    }
+    #panel dd li { margin-bottom: 3px; }
+    #panel dd code {
+      background: rgba(17, 122, 101, 0.08);
+      padding: 1px 4px;
+      border-radius: 2px;
+      color: var(--teal);
+    }
+    #panel .panel-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--ink-faint);
+      font-style: italic;
+      font-size: 13px;
+      text-align: center;
+      padding: 0 16px;
+    }
+
+    /* Trust-tier swatch colors via data attribute */
+    #panel .panel-header[data-trust-tier="untrusted"]   .tier-swatch { background: var(--trust-untrusted); }
+    #panel .panel-header[data-trust-tier="low"]         .tier-swatch { background: var(--trust-low); }
+    #panel .panel-header[data-trust-tier="medium-low"]  .tier-swatch { background: var(--trust-medium-low); }
+    #panel .panel-header[data-trust-tier="medium"]      .tier-swatch { background: var(--trust-medium); }
+    #panel .panel-header[data-trust-tier="high"]        .tier-swatch { background: var(--trust-high); }
 
     /* === Docked-mode rule (R11 + U1 F2 fix) === */
     @media (max-width: 720px) {
@@ -534,10 +611,221 @@
   </nav>
 
   <aside id="panel" data-mode="hidden" aria-label="Component detail panel">
-    <!-- U9 populates panel content; U10/U11 wire interactions -->
+    <div class="panel-header" data-trust-tier="">
+      <span class="tier-swatch" aria-hidden="true"></span>
+      <div>
+        <h2 class="name"></h2>
+        <div class="meta"></div>
+      </div>
+    </div>
+    <dl class="panel-body"></dl>
   </aside>
 
   <script>
+    /* === COMPONENT_PANEL_CONTENT ===
+       R12 schema for system-map components. Sourced from ARCHITECTURE.md @ security-auto:4f09569.
+       Per-component panel renders via renderPanel() in U10. */
+    const COMPONENT_PANEL_CONTENT = {
+      "operator": {
+        name: "Operator",
+        meta: "Human actor",
+        type: "human",
+        trust_tier: "medium",
+        purpose: "Launches and oversees adversarial campaigns; reviews findings; approves high-risk actions via Slack.",
+        inputs: ["campaign requests", "approval-card responses (via Slack)"],
+        outputs: ["campaign start signals", "approval / reject decisions", "review notes on findings"]
+      },
+      "security-console": {
+        name: "Security Console",
+        meta: "FastAPI-served UI",
+        type: "surface",
+        trust_tier: "medium",
+        purpose: "Operator's primary surface for launching campaigns, triaging findings, viewing approval queue, and inspecting artifacts.",
+        inputs: ["operator clicks / form submits", "campaign-state polls"],
+        outputs: ["campaign-launch API calls", "finding triage decisions"],
+        failure_modes: ["JS error breaks current view — reload restores from server state"]
+      },
+      "slack": {
+        name: "Slack Approval Channels",
+        meta: "Async HITL surface",
+        type: "surface",
+        trust_tier: "medium",
+        purpose: "Routes high/critical approval cards (target add, real-PHI use, scope expansion, budget increase, external disclosure) and surfaces incident alerts.",
+        inputs: ["approval cards from Safety Gate Service", "callbacks from operator clicks"],
+        outputs: ["signed approval callbacks → FastAPI", "comment capture stored on approval record"],
+        failure_modes: ["TTL expires before approval → auto-reject, abort campaign", "signature mismatch on callback → reject, log incident"]
+      },
+      "safety-gate": {
+        name: "Safety Gate Service",
+        meta: "Deterministic Platform Service",
+        type: "service",
+        trust_tier: "high",
+        purpose: "Enforces platform safety, authorization, PHI restrictions, budget ceilings, and approval gates before any campaign or high-impact action proceeds.",
+        inputs: ["requested campaign + target URL + operator identity", "target allowlist + authorization record", "PHI policy + data-handling mode", "approval-ledger record (on revalidation)"],
+        outputs: ["approval_granted / approval_required / blocked decision", "human-approval payload (when required)", "audit event explaining the decision"],
+        deterministic_checks: ["allowlist URL exact match", "PHI data-mode flag check", "budget remaining > requested budget", "approval-record status lookup"],
+        failure_modes: ["approval expires → auto-reject → graph aborts", "callback signature mismatch → reject + audit"]
+      },
+      "fastapi": {
+        name: "FastAPI Control Plane",
+        meta: "Service entry point",
+        type: "service",
+        trust_tier: "medium",
+        purpose: "Hosts the Security Console, exposes campaign-launch + approval-callback endpoints, persists campaign state and artifact references.",
+        inputs: ["console clicks / form submits", "Slack approval callbacks", "campaign-runner heartbeats"],
+        outputs: ["campaign-launch dispatch to Campaign Runner", "approval-decision writes to Audit Ledger", "console state queries"],
+        failure_modes: ["operator JWT expires → re-auth required", "rate-limit hit → request rejected with retry-after"]
+      },
+      "campaign-runner": {
+        name: "Campaign Runner",
+        meta: "pydantic_graph.Graph",
+        type: "service",
+        trust_tier: "medium",
+        purpose: "Executes campaign lifecycles as Pydantic Graph runs; coordinates between Safety Gate, Coverage Scoring, Orchestrator, Red Team, Target Adapter, Judge, Regression Promotion, and Documentation.",
+        inputs: ["campaign request from FastAPI", "Safety Gate approval", "graph-state on resume"],
+        outputs: ["per-step node invocations", "graph-state persistence", "completion / abort signal back to FastAPI"],
+        failure_modes: ["graph paused at SlackApprovalWaitNode persists state via SQLite", "schema_version mismatch on resume → refuse with clear operator message", "no deploy while any graph is paused (/readyz check)"]
+      },
+      "coverage-scoring": {
+        name: "Coverage Scoring Service",
+        meta: "Deterministic Platform Service",
+        type: "service",
+        trust_tier: "medium-low",
+        purpose: "Maintains the threat-model coverage map and translates gaps into testable coverage objectives for the Orchestrator.",
+        inputs: ["THREAT_MODEL.md (parsed)", "evals/ inventory (file enumeration)", "campaign results + vulnerability reports (DB query)"],
+        outputs: ["coverage matrix (Pydantic model)", "ranked list of recommended next coverage gaps", "proposed THREAT_MODEL.md update diffs"],
+        deterministic_checks: ["pure function over inputs — no LLM step"]
+      },
+      "orchestrator": {
+        name: "Orchestrator Agent",
+        meta: "LLM agent",
+        type: "agent",
+        trust_tier: "medium",
+        purpose: "Decides what the platform should test next and when to stop, redirect, or trigger regression.",
+        inputs: ["threat-model coverage map", "open findings + severity", "prior campaign outcomes", "regression history", "cost + rate-limit telemetry", "target version / deployment event"],
+        outputs: ["campaign plans", "attack category priorities", "Red Team task packets", "Judge task packets", "regression trigger events", "stop / pause / redirect decisions"],
+        allowed_tools: ["read coverage matrix", "read findings + regression history", "emit task packets"],
+        denied_tools: ["generate payloads directly", "judge attack success", "publish reports", "expand scope without Safety Gate"],
+        failure_modes: ["flat coverage scores / stale data → run regression suite, ask Coverage Scoring for gaps", "low-signal campaigns → halt automatically per deterministic stop rule (fail_rate < 5% ∧ uncertain_rate > 40% over rolling 20 attempts ∧ cumulative_cost > 25% of budget)"]
+      },
+      "red-team": {
+        name: "Red Team Agent",
+        meta: "LLM agent — untrusted",
+        type: "agent",
+        trust_tier: "untrusted",
+        purpose: "Generates novel adversarial inputs, mutates partially-successful attacks, and executes authorized campaigns against the live target through the Target Adapter.",
+        inputs: ["Orchestrator campaign packet", "category-specific seed cases", "allowed patient fixtures + roles", "prior failed / partial / successful attempts", "target capability map"],
+        outputs: ["AttackCase drafts", "AttackAttempt transcripts", "mutation lineage", "candidate exploit evidence for Judge review"],
+        allowed_tools: ["create attack draft", "mutate attack draft", "execute attack through Target Adapter", "read allowed seed cases", "read prior attempts for the same campaign", "complete task with summary"],
+        denied_tools: ["direct network access outside the allowlisted target", "access to secrets or real PHI", "judge its own attacks", "write vulnerability reports or regression cases directly", "change target defenses"],
+        failure_modes: ["low novelty / repeated invalid cases → redirect category, change seed strategy, lower budget", "frontier-model dollar cap per attempt ($0.50) prevents runaway"]
+      },
+      "judge": {
+        name: "Judge Agent",
+        meta: "LLM agent — independent grader",
+        type: "agent",
+        trust_tier: "medium",
+        purpose: "Independently determines whether an attack succeeded, failed, partially succeeded, was blocked, or is uncertain.",
+        inputs: ["attack category + success criteria", "expected safe behavior", "sanitized attack transcript (Evidence Wrapper)", "target response + tool trace", "policy / rubric for the category", "historical judge calibration examples", "structured attack_intent for multi-turn cases (subcategory, boundary_being_tested, expected_violation)"],
+        outputs: ["JudgeVerdict with status, confidence, evidence spans, severity, exploitability, recommended action", "escalation request for human review when uncertainty is high or clinical impact severe"],
+        allowed_tools: ["read attack transcript", "fetch tool-trace metadata (sanitized)", "emit JudgeVerdict"],
+        denied_tools: ["file reports externally", "modify regression suite files alone", "approve remediation", "see Red Team's free-text reasoning (only structured attack_intent is allowed)"],
+        failure_modes: ["calibration drift → disable judge version, require human review", "agrees with everything → high fail rate on known-safe set triggers audit"]
+      },
+      "documentation": {
+        name: "Documentation Agent",
+        meta: "LLM agent — drafts reports",
+        type: "agent",
+        trust_tier: "low",
+        purpose: "Turns confirmed exploits into professional, reproducible vulnerability reports.",
+        inputs: ["confirmed / human-approved JudgeVerdict", "reproducible attack sequence", "observed vs expected behavior", "severity + exploitability assessment", "regression-case link", "fix-validation history"],
+        outputs: ["vulnerability report in reports/vulnerabilities/", "executive-summary entry for the dashboard", "remediation recommendation draft"],
+        allowed_tools: ["read JudgeVerdict + attack artifacts", "draft markdown report", "request human review for high/critical"],
+        denied_tools: ["publish high/critical reports externally without approval", "recommend production remediation without operator sign-off", "modify target defenses"],
+        failure_modes: ["report false positive → human review rejects → update judge rubric + golden dataset"]
+      },
+      "target-adapter": {
+        name: "Target Adapter",
+        meta: "Controlled boundary",
+        type: "adapter",
+        trust_tier: "untrusted",
+        purpose: "The only component that talks to the Clinical Co-Pilot. Provides start_session / send_turn / upload_test_file / end_session primitives. Wraps target responses in the Evidence Wrapper before agents see them.",
+        inputs: ["agent primitive calls (start_session, send_turn, etc.)", "synthetic patient fixtures", "SMART session token (held in-memory only)"],
+        outputs: ["sanitized target responses to Judge", "raw responses as untrusted artifacts in Artifact Store", "tool-trace stubs (full traces not exposed across separation boundary)"],
+        allowed_tools: ["HTTP/SSE calls to allowlisted target URL", "Playwright UI flows for SMART launch + document upload"],
+        denied_tools: ["network egress outside allowlisted target", "share session secrets / SMART client secret / internal token with agents", "import target Python modules"],
+        failure_modes: ["target unavailable → pause campaign + alert operator", "SSE stream timeout (10s inter-event / 60s total) → JudgeVerdict invalid", "session TTL expires mid-campaign → refresh via session-mint mechanism"]
+      },
+      "clinical-copilot": {
+        name: "Clinical Co-Pilot",
+        meta: "Target System (OpenEMR)",
+        type: "target",
+        trust_tier: "untrusted",
+        purpose: "FastAPI service exposing /conversation (SSE), /copilot/ingest, /copilot/documents/*, SMART launch endpoints; uses Pydantic AI supervisor + FHIR tools + guideline RAG.",
+        inputs: ["SMART-launched session", "user turns via /conversation", "uploaded documents via /copilot/ingest"],
+        outputs: ["SSE event stream (agent / verifier / critic / answer / refused / error)", "extracted document JSON", "audit events to OpenEMR"],
+        failure_modes: ["refused event → JudgeVerdict blocked", "error event → JudgeVerdict invalid", "audit_unavailable event mid-stream → JudgeVerdict invalid (degraded)"]
+      },
+      "regression-promotion": {
+        name: "Regression Promotion Service",
+        meta: "Deterministic Platform Service",
+        type: "service",
+        trust_tier: "medium-low",
+        purpose: "Converts confirmed exploits into deterministic, repeatable tests under evals/cases/ per the Regression Harness rules.",
+        inputs: ["confirmed JudgeVerdict", "minimal reproducible attack sequence", "target version + configuration", "human approval payload (high / critical)"],
+        outputs: ["versioned eval case under evals/cases/regression/ (or stochastic/)", "regression metadata in the run ledger", "baseline expected result", "validation status"],
+        deterministic_checks: ["only promote fail or high-confidence partial", "strip nonessential content", "synthetic identifiers only", "capture temperature / rerank model / seed for stochastic tier"]
+      },
+      "security-app-db": {
+        name: "Security App DB",
+        meta: "SQLite (MVP)",
+        type: "storage",
+        trust_tier: "medium",
+        purpose: "Persists campaigns, findings, approvals, costs, reports. Also backs SQLite-based pydantic_graph persistence for Slack-paused nodes.",
+        retention: "build duration; no PHI persisted by default"
+      },
+      "artifact-store": {
+        name: "Artifact Store",
+        meta: "JSONL + evals/",
+        type: "storage",
+        trust_tier: "medium",
+        purpose: "Stores attack-attempt transcripts, judge verdicts, vulnerability reports, eval cases (regression + stochastic). artifact:// URIs reference entries.",
+        retention: "kept for the build; PHI auto-redacted at write per Security Controls"
+      },
+      "audit-ledger": {
+        name: "Audit Ledger",
+        meta: "Approval + audit records",
+        type: "storage",
+        trust_tier: "medium",
+        purpose: "Append-only record of approvals (15-field schema incl. containment_plan_ref for real-PHI) and Safety Gate decisions.",
+        retention: "build duration + post-defense archive"
+      },
+      "queue": {
+        name: "Queue",
+        meta: "Post-MVP (Redis / RQ / Celery)",
+        type: "queue",
+        trust_tier: "medium",
+        purpose: "Worker queue for long-running overnight campaigns. Synchronous CLI is sufficient for MVP; queue introduced as scale grows.",
+        retention: "ephemeral"
+      },
+      "observability": {
+        name: "Observability Layer",
+        meta: "Traces + cost ledger",
+        type: "service",
+        trust_tier: "medium",
+        purpose: "Captures campaign / case / attempt / verdict / report IDs, agent + model + prompt versions, tool calls, latencies, token usage, model costs, evidence-artifact refs.",
+        outputs: ["per-attempt trace events", "cost-ledger rows", "dashboard data"]
+      },
+      "logfire": {
+        name: "Logfire / OpenTelemetry",
+        meta: "Trace backend",
+        type: "service",
+        trust_tier: "medium",
+        purpose: "Separate Logfire project from the target's. Receives security-app traces with PHI redaction allowlist + secret scrubbing applied before emission.",
+        retention: "per Logfire project policy"
+      }
+    };
+
     /* === Page-level state object ===
        Slide-2 fields (active_step, hover_target, locked_target, trust_mode) are wired in U3/U10/U11.
        U1 only manages slide navigation. */
