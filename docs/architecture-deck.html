@@ -392,6 +392,99 @@
       ry: 6;
     }
 
+    /* === Slide 3: Approval Flow sequence diagram === */
+    section[data-slide="3"] { padding: 24px 32px; }
+    section[data-slide="3"] .canvas-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    section[data-slide="3"] .slide-caption {
+      font-size: 12px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    section[data-slide="3"] .slide-caption strong {
+      color: var(--teal);
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 600;
+    }
+    section[data-slide="3"] svg.sequence-diagram {
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      display: block;
+    }
+    svg.sequence-diagram .lifeline-bg {
+      fill: var(--bg-canvas);
+      stroke: var(--ink);
+      stroke-width: 1.4;
+      rx: 4; ry: 4;
+      cursor: pointer;
+    }
+    svg.sequence-diagram .lifeline-line {
+      stroke: var(--ink-muted);
+      stroke-width: 1;
+      stroke-dasharray: 2 3;
+    }
+    svg.sequence-diagram .lifeline-label {
+      font-family: "Inter", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      fill: var(--ink);
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+    }
+    svg.sequence-diagram .seq-step {
+      stroke: var(--ink-muted);
+      stroke-width: 1.4;
+      fill: none;
+    }
+    svg.sequence-diagram .seq-step.async { stroke-dasharray: 4 3; }
+    svg.sequence-diagram .seq-step.alt-path {
+      stroke: var(--trust-untrusted);
+      stroke-dasharray: 3 3;
+    }
+    svg.sequence-diagram .seq-label {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      fill: var(--ink);
+      pointer-events: none;
+    }
+    svg.sequence-diagram .seq-num {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 10px;
+      font-weight: 600;
+      fill: var(--teal);
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    svg.sequence-diagram .seq-num-bg {
+      fill: var(--bg);
+      stroke: var(--teal);
+      stroke-width: 1;
+      pointer-events: none;
+    }
+    /* Hover/lock on participant lifelines */
+    svg.sequence-diagram[data-hover-active] .lifeline:not([data-hover-self]) { opacity: 0.35; }
+    svg.sequence-diagram[data-hover-active] .seq-step:not([data-hover-related]) { opacity: 0.18; }
+    svg.sequence-diagram[data-hover-active] .seq-label:not([data-hover-related]) { opacity: 0.25; }
+    svg.sequence-diagram[data-hover-active] .seq-num-group:not([data-hover-related]) { opacity: 0.25; }
+    svg.sequence-diagram .lifeline[data-hover-self] .lifeline-bg {
+      stroke: var(--teal);
+      stroke-width: 2.4;
+    }
+    svg.sequence-diagram .seq-step[data-hover-related] {
+      stroke-width: 2.2;
+    }
+    svg.sequence-diagram .seq-step.async[data-hover-related] { stroke: var(--teal-accent); }
+    svg.sequence-diagram .seq-step:not(.async):not(.alt-path)[data-hover-related] { stroke: var(--teal-accent); }
+
     /* === Hover-dim + connection-highlight (U10) === */
     svg.system-map [data-component-id]      { cursor: pointer; }
     svg.system-map .edge                    { pointer-events: stroke; }
@@ -734,7 +827,164 @@
     </section>
 
     <section data-slide="3" data-title="Approval Flow">
-      <div class="placeholder">[U4 — Approval flow sequence diagram]</div>
+      <!--
+        U4 PARTICIPANT CONTENT-MAP (per F9 sub-deliverable, AE6 carveout — synthesized from the
+        10 numbered steps below, NOT verbatim from ARCHITECTURE.md).
+        Maps each of 6 participants × 5 schema fields (role, messages_sent, messages_received,
+        decision_criteria, ttl_failure_behavior) to step numbers and ARCHITECTURE.md sections:
+
+        Operator      → role from §Users; sends step 4; receives nothing; decides
+                        via Slack card content; failure: no decision → step-10 alt-path TTL.
+        Slack         → role from §Slack HITL; sends step 5; receives step 3 + step 4;
+                        decision criteria: any channel member may approve (MVP); TTL 24h.
+        API           → role from §Recommended Stack / FastAPI; sends step 6+7; receives
+                        step 5; decision: signature + approval-ID + expiration validation.
+        Safety Gate   → role from §Platform Services > Safety Gate; sends step 2+3+8+9 and
+                        alt-path steps; receives step 1+7; decision criteria: allowlist URL
+                        match, PHI mode, budget, approval-record status; TTL alt-path.
+        Campaign Run. → role from §Inter-Agent Coordination; sends step 1; receives step 9
+                        / alt-path abort; decision: none (graph runner persists/resumes).
+        Audit Ledger  → role from §Security Controls; sends nothing; receives step 2+6 +
+                        alt-path auto-reject; decision: append-only writes; failure: write
+                        failure surfaces as failure-mode (per ARCHITECTURE.md Failure Modes).
+      -->
+      <div class="canvas-wrap">
+        <div class="slide-caption">Slide 3 &mdash; <strong>Approval Flow</strong> &middot; 10 numbered steps + TTL alt-path (per FIX_PLAN.md WU-23). Hover a participant to highlight its messages.</div>
+        <svg class="sequence-diagram" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" aria-label="Slack-HITL approval flow sequence diagram">
+          <defs>
+            <marker id="seq-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--ink-muted)"/>
+            </marker>
+            <marker id="seq-arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--teal-accent)"/>
+            </marker>
+            <marker id="seq-arrow-alt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--trust-untrusted)"/>
+            </marker>
+          </defs>
+
+          <!-- Lifelines (vertical dashed lines from y=80 down to y=680) -->
+          <line class="lifeline-line" x1="120"  y1="100" x2="120"  y2="680"/>
+          <line class="lifeline-line" x1="340"  y1="100" x2="340"  y2="680"/>
+          <line class="lifeline-line" x1="560"  y1="100" x2="560"  y2="680"/>
+          <line class="lifeline-line" x1="780"  y1="100" x2="780"  y2="680"/>
+          <line class="lifeline-line" x1="1000" y1="100" x2="1000" y2="680"/>
+          <line class="lifeline-line" x1="1220" y1="100" x2="1220" y2="680"/>
+
+          <!-- Participant headers (clickable lifelines) -->
+          <g class="lifeline" data-participant-id="operator">
+            <rect class="lifeline-bg" x="60"   y="60" width="120" height="40"/>
+            <text class="lifeline-label" x="120" y="83">Operator</text>
+          </g>
+          <g class="lifeline" data-participant-id="slack">
+            <rect class="lifeline-bg" x="280"  y="60" width="120" height="40"/>
+            <text class="lifeline-label" x="340" y="83">Slack</text>
+          </g>
+          <g class="lifeline" data-participant-id="api">
+            <rect class="lifeline-bg" x="500"  y="60" width="120" height="40"/>
+            <text class="lifeline-label" x="560" y="83">FastAPI</text>
+          </g>
+          <g class="lifeline" data-participant-id="safety-gate">
+            <rect class="lifeline-bg" x="720"  y="60" width="120" height="40"/>
+            <text class="lifeline-label" x="780" y="83">Safety Gate</text>
+          </g>
+          <g class="lifeline" data-participant-id="campaign-runner">
+            <rect class="lifeline-bg" x="940"  y="60" width="120" height="40"/>
+            <text class="lifeline-label" x="1000" y="83">Campaign Runner</text>
+          </g>
+          <g class="lifeline" data-participant-id="audit-ledger">
+            <rect class="lifeline-bg" x="1160" y="60" width="120" height="40"/>
+            <text class="lifeline-label" x="1220" y="83">Audit Ledger</text>
+          </g>
+
+          <!-- Step 1: Campaign Runner → Safety Gate (y=140) -->
+          <g class="seq-num-group" data-seq-num="1">
+            <line class="seq-step" data-seq-num="1" data-source="campaign-runner" data-target="safety-gate" x1="1000" y1="140" x2="780" y2="140" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="1" x="890" y="135" text-anchor="middle">campaign requires approval</text>
+            <circle class="seq-num-bg" cx="890" cy="152" r="9"/>
+            <text class="seq-num" data-seq-num="1" x="890" y="156">1</text>
+          </g>
+
+          <!-- Step 2: Safety Gate → Audit Ledger (y=185) -->
+          <g class="seq-num-group" data-seq-num="2">
+            <line class="seq-step" data-seq-num="2" data-source="safety-gate" data-target="audit-ledger" x1="780" y1="185" x2="1220" y2="185" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="2" x="1000" y="180" text-anchor="middle">write approval-request record</text>
+            <circle class="seq-num-bg" cx="1000" cy="197" r="9"/>
+            <text class="seq-num" data-seq-num="2" x="1000" y="201">2</text>
+          </g>
+
+          <!-- Step 3: Safety Gate → Slack (y=230, async) -->
+          <g class="seq-num-group" data-seq-num="3">
+            <line class="seq-step async" data-seq-num="3" data-source="safety-gate" data-target="slack" x1="780" y1="230" x2="340" y2="230" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="3" x="560" y="225" text-anchor="middle">post approval card (async)</text>
+            <circle class="seq-num-bg" cx="560" cy="242" r="9"/>
+            <text class="seq-num" data-seq-num="3" x="560" y="246">3</text>
+          </g>
+
+          <!-- Step 4: Operator → Slack (y=290, async) -->
+          <g class="seq-num-group" data-seq-num="4">
+            <line class="seq-step async" data-seq-num="4" data-source="operator" data-target="slack" x1="120" y1="290" x2="340" y2="290" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="4" x="230" y="285" text-anchor="middle">approve / reject / comment</text>
+            <circle class="seq-num-bg" cx="230" cy="302" r="9"/>
+            <text class="seq-num" data-seq-num="4" x="230" y="306">4</text>
+          </g>
+
+          <!-- Step 5: Slack → API (y=340, async) -->
+          <g class="seq-num-group" data-seq-num="5">
+            <line class="seq-step async" data-seq-num="5" data-source="slack" data-target="api" x1="340" y1="340" x2="560" y2="340" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="5" x="450" y="335" text-anchor="middle">signed callback</text>
+            <circle class="seq-num-bg" cx="450" cy="352" r="9"/>
+            <text class="seq-num" data-seq-num="5" x="450" y="356">5</text>
+          </g>
+
+          <!-- Step 6: API → Audit Ledger (y=390) -->
+          <g class="seq-num-group" data-seq-num="6">
+            <line class="seq-step" data-seq-num="6" data-source="api" data-target="audit-ledger" x1="560" y1="390" x2="1220" y2="390" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="6" x="890" y="385" text-anchor="middle">write decision record</text>
+            <circle class="seq-num-bg" cx="890" cy="402" r="9"/>
+            <text class="seq-num" data-seq-num="6" x="890" y="406">6</text>
+          </g>
+
+          <!-- Step 7: API → Safety Gate (y=435) -->
+          <g class="seq-num-group" data-seq-num="7">
+            <line class="seq-step" data-seq-num="7" data-source="api" data-target="safety-gate" x1="560" y1="435" x2="780" y2="435" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="7" x="670" y="430" text-anchor="middle">notify decision</text>
+            <circle class="seq-num-bg" cx="670" cy="447" r="9"/>
+            <text class="seq-num" data-seq-num="7" x="670" y="451">7</text>
+          </g>
+
+          <!-- Step 8: Safety Gate → Safety Gate (self-loop at y=475) -->
+          <g class="seq-num-group" data-seq-num="8">
+            <path class="seq-step" data-seq-num="8" data-source="safety-gate" data-target="safety-gate" d="M780,475 C835,475 835,505 780,505" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="8" x="845" y="495" text-anchor="start">revalidate scope</text>
+            <circle class="seq-num-bg" cx="819" cy="490" r="9"/>
+            <text class="seq-num" data-seq-num="8" x="819" y="494">8</text>
+          </g>
+
+          <!-- Step 9: Safety Gate → Campaign Runner (y=545) -->
+          <g class="seq-num-group" data-seq-num="9">
+            <line class="seq-step" data-seq-num="9" data-source="safety-gate" data-target="campaign-runner" x1="780" y1="545" x2="1000" y2="545" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="9" x="890" y="540" text-anchor="middle">resume OR abort</text>
+            <circle class="seq-num-bg" cx="890" cy="557" r="9"/>
+            <text class="seq-num" data-seq-num="9" x="890" y="561">9</text>
+          </g>
+
+          <!-- Step 10 (alt-path): TTL expires before step 5 → SG → Audit + SG → Runner (abort) -->
+          <g class="seq-num-group" data-seq-num="10">
+            <line class="seq-step alt-path" data-seq-num="10" data-source="safety-gate" data-target="audit-ledger" x1="780" y1="620" x2="1220" y2="620" marker-end="url(#seq-arrow-alt)"/>
+            <text class="seq-label" data-seq-num="10" x="1000" y="615" text-anchor="middle" fill="var(--trust-untrusted)">alt: TTL expires → auto-reject</text>
+            <line class="seq-step alt-path" data-seq-num="10" data-source="safety-gate" data-target="campaign-runner" x1="780" y1="650" x2="1000" y2="650" marker-end="url(#seq-arrow-alt)"/>
+            <text class="seq-label" data-seq-num="10" x="890" y="645" text-anchor="middle" fill="var(--trust-untrusted)">alt: abort campaign</text>
+            <circle class="seq-num-bg" cx="780" cy="635" r="9" stroke="var(--trust-untrusted)"/>
+            <text class="seq-num" data-seq-num="10" x="780" y="639" fill="var(--trust-untrusted)">10</text>
+          </g>
+
+          <!-- Legend at the bottom -->
+          <g transform="translate(40, 700)">
+            <text class="seq-label" x="0" y="0" fill="var(--ink-faint)">— solid: synchronous     —— async: dotted     ⋯ red: alt-path (TTL expires)</text>
+          </g>
+        </svg>
+      </div>
     </section>
 
     <section data-slide="4" data-title="Target Attack Surface">
@@ -1252,6 +1502,202 @@
     /* Wire toolbar buttons */
     document.getElementById('toggle-trust').addEventListener('click', toggleTrustMode);
     document.getElementById('step-forward').addEventListener('click', advanceLifecycle);
+
+    /* === U4: Slide 3 — Approval Flow participants + panel schema ===
+       PARTICIPANT_PANEL_CONTENT uses a different schema from COMPONENT_PANEL_CONTENT:
+       role / messages_sent / messages_received / decision_criteria / ttl_failure.
+       Per F9 AE6 carveout: synthesized from the 10 numbered steps, not verbatim. */
+    const PARTICIPANT_PANEL_CONTENT = {
+      "operator": {
+        name: "Operator",
+        meta: "Human approver",
+        trust_tier: "medium",
+        role: "Reviews the approval card and decides approve / reject / comment.",
+        messages_sent: ["Step 4: approve / reject / comment → Slack (async)"],
+        messages_received: ["(none — Operator polls Slack on their own time)"],
+        decision_criteria: "Reads the card's risk level, target URL, data mode, budget impact, sanitized evidence summary; decides per organizational policy.",
+        ttl_failure: "If Operator never decides, Step-10 alt-path fires: 24h TTL expires → Safety Gate auto-rejects → campaign aborts."
+      },
+      "slack": {
+        name: "Slack",
+        meta: "Async approval surface",
+        trust_tier: "medium",
+        role: "Hosts approval cards in SECURITY_SLACK_CHANNEL (normal) or SECURITY_INCIDENT_SLACK_CHANNEL (high/critical). Captures Operator decisions.",
+        messages_sent: ["Step 5: signed callback → FastAPI (async)"],
+        messages_received: ["Step 3: approval card payload ← Safety Gate", "Step 4: Operator decision (click)"],
+        decision_criteria: "MVP: any channel member may approve (acknowledged limitation from brainstorm F4 Skip — no requester≠approver enforcement).",
+        ttl_failure: "Approval cards expire after configurable TTL (default 24h per FIX_PLAN.md D7); expired → Step-10 alt-path."
+      },
+      "api": {
+        name: "FastAPI Control Plane",
+        meta: "Callback handler",
+        trust_tier: "medium",
+        role: "Receives Slack callback, validates signature + approval-ID + expiration, writes decision to Audit Ledger, notifies Safety Gate.",
+        messages_sent: ["Step 6: write decision record → Audit Ledger", "Step 7: notify decision → Safety Gate"],
+        messages_received: ["Step 5: signed callback ← Slack"],
+        decision_criteria: "Accept callback only if signature valid AND approval-ID matches a pending record AND expiration not passed AND current graph state expects it.",
+        ttl_failure: "Stale callbacks (signature mismatch / expired / unknown approval-ID) are rejected and logged to platform-side observables."
+      },
+      "safety-gate": {
+        name: "Safety Gate Service",
+        meta: "Deterministic policy enforcer",
+        trust_tier: "high",
+        role: "Validates the campaign at request time and on every decision callback. Owns the alt-path TTL auto-reject branch.",
+        messages_sent: ["Step 2: write approval-request record → Audit Ledger", "Step 3: post approval card → Slack (async)", "Step 8: self-loop revalidate scope", "Step 9: resume OR abort → Campaign Runner", "Step 10 (alt-path): auto-reject → Audit Ledger; abort → Campaign Runner"],
+        messages_received: ["Step 1: campaign requires approval ← Campaign Runner", "Step 7: notify decision ← FastAPI"],
+        decision_criteria: "allowlist URL exact match; PHI data-mode flag check; budget remaining > requested; approval-record status lookup. All deterministic — no LLM judgment.",
+        ttl_failure: "If approval expires before Step 5, alt-path fires: auto-reject the approval, abort the campaign, write reason to Audit Ledger."
+      },
+      "campaign-runner": {
+        name: "Campaign Runner",
+        meta: "pydantic_graph.Graph runner",
+        trust_tier: "medium",
+        role: "Initiates approval flow for high-risk campaigns, then pauses graph at SlackApprovalWaitNode awaiting Safety Gate's resume/abort signal.",
+        messages_sent: ["Step 1: campaign requires approval → Safety Gate"],
+        messages_received: ["Step 9: resume OR abort ← Safety Gate", "Step 10 (alt-path): abort ← Safety Gate"],
+        decision_criteria: "None directly — graph runner persists state via SQLite and resumes / aborts based on Safety Gate signal.",
+        ttl_failure: "Graph state persisted across the pause; no deploy while paused per /readyz check; schema_version guard prevents resume across incompatible code changes."
+      },
+      "audit-ledger": {
+        name: "Audit Ledger",
+        meta: "Append-only record",
+        trust_tier: "medium",
+        role: "Receives approval-request records, decision records, and alt-path auto-reject events. Source of truth for who decided what, when, with which TTL.",
+        messages_sent: ["(none — Audit Ledger is write-only from the approval-flow perspective)"],
+        messages_received: ["Step 2: approval-request record ← Safety Gate", "Step 6: decision record ← FastAPI", "Step 10 (alt-path): auto-reject event ← Safety Gate"],
+        decision_criteria: "Append-only writes; no decision logic. Schema includes containment_plan_ref for real-PHI approvals.",
+        ttl_failure: "Write failures surface as platform-side observables (per Security Controls Observables Table 2) and trigger operator alert."
+      }
+    };
+
+    function renderParticipantPanel(participantId) {
+      const panel = document.getElementById('panel');
+      const data = PARTICIPANT_PANEL_CONTENT[participantId];
+      if (!data) {
+        panel.setAttribute('data-mode', 'hidden');
+        return;
+      }
+      const header = panel.querySelector('.panel-header');
+      header.setAttribute('data-trust-tier', data.trust_tier || '');
+      header.querySelector('.name').textContent = data.name;
+      header.querySelector('.meta').textContent = data.meta || '';
+
+      const body = panel.querySelector('.panel-body');
+      body.innerHTML = '';
+      const fields = [
+        { key: 'role',              label: 'Role' },
+        { key: 'messages_sent',     label: 'Messages sent' },
+        { key: 'messages_received', label: 'Messages received' },
+        { key: 'decision_criteria', label: 'Decision criteria' },
+        { key: 'ttl_failure',       label: 'TTL / failure' }
+      ];
+      for (const f of fields) {
+        if (data[f.key] === undefined) continue;
+        const dt = document.createElement('dt');
+        dt.textContent = f.label;
+        body.appendChild(dt);
+        const dd = document.createElement('dd');
+        if (Array.isArray(data[f.key])) {
+          const ul = document.createElement('ul');
+          data[f.key].forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            ul.appendChild(li);
+          });
+          dd.appendChild(ul);
+        } else {
+          dd.textContent = data[f.key];
+        }
+        body.appendChild(dd);
+      }
+      panel.setAttribute('data-mode', 'open');
+    }
+
+    /* Slide-3 hover + lock wiring (separate from Slide 2's because schemas differ) */
+    (function wireSlideThree() {
+      const svg = document.querySelector('section[data-slide="3"] svg.sequence-diagram');
+      if (!svg) return;
+
+      function renderParticipantHover(activeId) {
+        if (activeId) {
+          svg.setAttribute('data-hover-active', activeId);
+          svg.querySelectorAll('.lifeline').forEach(lf => {
+            if (lf.dataset.participantId === activeId) lf.setAttribute('data-hover-self', '');
+            else lf.removeAttribute('data-hover-self');
+          });
+          svg.querySelectorAll('.seq-step').forEach(s => {
+            if (s.dataset.source === activeId || s.dataset.target === activeId) s.setAttribute('data-hover-related', '');
+            else s.removeAttribute('data-hover-related');
+          });
+          svg.querySelectorAll('.seq-label').forEach(lbl => {
+            const num = lbl.dataset.seqNum;
+            const step = svg.querySelector(`.seq-step[data-seq-num="${num}"]`);
+            if (step && (step.dataset.source === activeId || step.dataset.target === activeId)) {
+              lbl.setAttribute('data-hover-related', '');
+            } else {
+              lbl.removeAttribute('data-hover-related');
+            }
+          });
+          svg.querySelectorAll('.seq-num-group').forEach(grp => {
+            const num = grp.dataset.seqNum;
+            const step = svg.querySelector(`.seq-step[data-seq-num="${num}"]`);
+            if (step && (step.dataset.source === activeId || step.dataset.target === activeId)) {
+              grp.setAttribute('data-hover-related', '');
+            } else {
+              grp.removeAttribute('data-hover-related');
+            }
+          });
+          renderParticipantPanel(activeId);
+        } else {
+          svg.removeAttribute('data-hover-active');
+          svg.querySelectorAll('[data-hover-self]').forEach(el => el.removeAttribute('data-hover-self'));
+          svg.querySelectorAll('[data-hover-related]').forEach(el => el.removeAttribute('data-hover-related'));
+          document.getElementById('panel').setAttribute('data-mode', 'hidden');
+        }
+      }
+
+      svg.addEventListener('mouseover', (e) => {
+        if (state.locked_target) return;
+        const lf = e.target.closest('.lifeline');
+        if (lf) {
+          state.hover_target = lf.dataset.participantId;
+          renderParticipantHover(state.hover_target);
+        }
+      });
+      svg.addEventListener('mouseout', (e) => {
+        if (state.locked_target) return;
+        const lf = e.target.closest('.lifeline');
+        if (!lf) return;
+        const goingTo = e.relatedTarget && e.relatedTarget.closest
+          ? e.relatedTarget.closest('.lifeline, #panel')
+          : null;
+        if (!goingTo) {
+          state.hover_target = null;
+          renderParticipantHover(null);
+        }
+      });
+      svg.addEventListener('click', (e) => {
+        const lf = e.target.closest('.lifeline');
+        if (lf) {
+          // setLock will be defined in U11 below; for Slide 3 we use a participant-specific lock
+          state.locked_target = lf.dataset.participantId;
+          const panel = document.getElementById('panel');
+          const pinUse = document.getElementById('pin-icon-use');
+          panel.setAttribute('data-locked', '');
+          pinUse.setAttribute('href', '#pin-solid');
+          renderParticipantPanel(state.locked_target);
+        } else {
+          if (state.locked_target) {
+            state.locked_target = null;
+            const panel = document.getElementById('panel');
+            const pinUse = document.getElementById('pin-icon-use');
+            panel.removeAttribute('data-locked');
+            pinUse.setAttribute('href', '#pin-outline');
+            renderParticipantHover(state.hover_target);
+          }
+        }
+      });
+    })();
 
     /* === U11: click-to-lock state machine === */
 
