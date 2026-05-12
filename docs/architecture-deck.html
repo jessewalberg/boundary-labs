@@ -374,6 +374,37 @@
       rx: 6;
       ry: 6;
     }
+
+    /* === Hover-dim + connection-highlight (U10) === */
+    svg.system-map [data-component-id]      { cursor: pointer; }
+    svg.system-map .edge                    { pointer-events: stroke; }
+    svg.system-map .edge                    { stroke-width: 1.2; }
+    svg.system-map[data-hover-active] [data-component-id]:not([data-hover-self]) .node-shape,
+    svg.system-map[data-hover-active] [data-component-id]:not([data-hover-self]) .node-label,
+    svg.system-map[data-hover-active] .edge:not([data-hover-related]),
+    svg.system-map[data-hover-active] .group-rect,
+    svg.system-map[data-hover-active] .group-label {
+      opacity: 0.25;
+    }
+    svg.system-map [data-hover-self] .node-shape {
+      stroke: var(--teal);
+      stroke-width: 2.4;
+    }
+    svg.system-map .edge[data-hover-related] {
+      stroke: var(--teal);
+      stroke-width: 1.8;
+    }
+    svg.system-map .edge[data-hover-related] ~ defs .arrowhead,
+    svg.system-map .edge[data-hover-related] { /* re-fill marker on highlight */ }
+
+    /* Trust-tier mode (Slide 2 R5 toggle, wired in U3 — CSS rules here for U10 stub) */
+    svg.system-map[data-trust-mode="active"] [data-trust-tier="untrusted"]    .node-shape { fill: var(--trust-untrusted);   stroke: #7A2828; }
+    svg.system-map[data-trust-mode="active"] [data-trust-tier="low"]          .node-shape { fill: var(--trust-low);          stroke: #8A4A3D; }
+    svg.system-map[data-trust-mode="active"] [data-trust-tier="medium-low"]   .node-shape { fill: var(--trust-medium-low);  stroke: #8A5A5C; }
+    svg.system-map[data-trust-mode="active"] [data-trust-tier="medium"]       .node-shape { fill: var(--trust-medium);       stroke: #2E4566; }
+    svg.system-map[data-trust-mode="active"] [data-trust-tier="high"]         .node-shape { fill: var(--trust-high);         stroke: #34522F; }
+    svg.system-map[data-trust-mode="active"] [data-trust-tier] .node-label    { fill: #FFFFFF; }
+    svg.system-map[data-trust-mode="active"] [data-trust-tier] .node-label.sub { fill: rgba(255,255,255,0.78); }
   </style>
 </head>
 <body>
@@ -850,12 +881,138 @@
         if (parseInt(b.dataset.slideTarget, 10) === n) b.setAttribute('data-current', '');
         else b.removeAttribute('data-current');
       });
-      /* Reset hover/lock on slide nav per R5 composition rule (e); U10/U11 will hook this */
+      /* R5 composition rule (e): reset hover + lock on slide nav; preserve lifecycle + trust-mode */
       state.hover_target = null;
       state.locked_target = null;
-      const panel = document.getElementById('panel');
-      panel.setAttribute('data-mode', 'hidden');
+      renderHover();
     }
+
+    /* === U10: hover-dim + side-panel render === */
+
+    /* Renders panel content for a given component-id using COMPONENT_PANEL_CONTENT. */
+    function renderPanel(componentId) {
+      const panel = document.getElementById('panel');
+      const data = COMPONENT_PANEL_CONTENT[componentId];
+      if (!data) {
+        panel.setAttribute('data-mode', 'hidden');
+        return;
+      }
+      const header = panel.querySelector('.panel-header');
+      header.setAttribute('data-trust-tier', data.trust_tier || '');
+      header.querySelector('.name').textContent = data.name;
+      header.querySelector('.meta').textContent = data.meta || '';
+
+      const body = panel.querySelector('.panel-body');
+      body.innerHTML = '';
+      const fieldOrder = ['purpose', 'deterministic_checks', 'inputs', 'outputs',
+                          'allowed_tools', 'denied_tools', 'failure_modes', 'retention'];
+      const fieldLabel = {
+        purpose: 'Purpose',
+        deterministic_checks: 'Deterministic checks',
+        inputs: 'Inputs',
+        outputs: 'Outputs',
+        allowed_tools: 'Allowed tools',
+        denied_tools: 'Denied tools',
+        failure_modes: 'Failure modes',
+        retention: 'Retention'
+      };
+      for (const field of fieldOrder) {
+        if (data[field] === undefined) continue;
+        const dt = document.createElement('dt');
+        dt.textContent = fieldLabel[field];
+        body.appendChild(dt);
+        const dd = document.createElement('dd');
+        if (Array.isArray(data[field])) {
+          const ul = document.createElement('ul');
+          data[field].forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            ul.appendChild(li);
+          });
+          dd.appendChild(ul);
+        } else {
+          dd.textContent = data[field];
+        }
+        body.appendChild(dd);
+      }
+      panel.setAttribute('data-mode', 'open');
+    }
+
+    /* Update SVG dim/highlight state based on state.hover_target + state.locked_target.
+       Lock wins over hover per render priority. */
+    function renderHover() {
+      const svg = document.querySelector('section[data-slide="2"] svg.system-map');
+      if (!svg) return;
+      const activeId = state.locked_target || state.hover_target;
+      if (activeId) {
+        svg.setAttribute('data-hover-active', activeId);
+        // Mark the hovered/locked node
+        svg.querySelectorAll('[data-component-id]').forEach(g => {
+          if (g.dataset.componentId === activeId) g.setAttribute('data-hover-self', '');
+          else g.removeAttribute('data-hover-self');
+        });
+        // Mark related edges
+        svg.querySelectorAll('.edge').forEach(e => {
+          if (e.dataset.source === activeId || e.dataset.target === activeId) {
+            e.setAttribute('data-hover-related', '');
+          } else {
+            e.removeAttribute('data-hover-related');
+          }
+        });
+        renderPanel(activeId);
+      } else {
+        svg.removeAttribute('data-hover-active');
+        svg.querySelectorAll('[data-hover-self]').forEach(g => g.removeAttribute('data-hover-self'));
+        svg.querySelectorAll('.edge[data-hover-related]').forEach(e => e.removeAttribute('data-hover-related'));
+        const panel = document.getElementById('panel');
+        panel.setAttribute('data-mode', 'hidden');
+      }
+    }
+
+    /* Wire hover events on the Slide-2 SVG (event delegation on the SVG root). */
+    (function wireSlideTwoHover() {
+      const svg = document.querySelector('section[data-slide="2"] svg.system-map');
+      if (!svg) return;
+
+      svg.addEventListener('mouseover', (e) => {
+        if (state.locked_target) return; // lock wins
+        const nodeGroup = e.target.closest('[data-component-id]');
+        if (nodeGroup) {
+          state.hover_target = nodeGroup.dataset.componentId;
+          renderHover();
+        }
+      });
+
+      svg.addEventListener('mouseout', (e) => {
+        if (state.locked_target) return;
+        const nodeGroup = e.target.closest('[data-component-id]');
+        // mouse leaving the SVG entirely or moving to non-component → check relatedTarget
+        if (!nodeGroup) return;
+        const goingTo = e.relatedTarget && e.relatedTarget.closest
+          ? e.relatedTarget.closest('[data-component-id], #panel')
+          : null;
+        if (!goingTo) {
+          state.hover_target = null;
+          renderHover();
+        }
+      });
+    })();
+
+    /* Persist-into-panel rule (R13): cursor entering the panel should NOT clear hover state.
+       Cursor leaving the panel toward empty page should clear it. */
+    (function wirePanelHover() {
+      const panel = document.getElementById('panel');
+      panel.addEventListener('mouseleave', (e) => {
+        if (state.locked_target) return;
+        const goingTo = e.relatedTarget && e.relatedTarget.closest
+          ? e.relatedTarget.closest('[data-component-id]')
+          : null;
+        if (!goingTo) {
+          state.hover_target = null;
+          renderHover();
+        }
+      });
+    })();
 
     /* === Click handlers on slide-index === */
     document.querySelectorAll('#slide-index button').forEach(btn => {
