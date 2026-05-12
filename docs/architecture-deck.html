@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
-  ARCHITECTURE.md @ security-auto:4f09569
-  FIX_PLAN.md @ security-auto:4f09569
+  ARCHITECTURE.md @ boundary-labs:4f09569
+  FIX_PLAN.md @ boundary-labs:4f09569
   Diagram-authoritative at stamp time: FIX_PLAN.md
     - Slide 2 system map: FIX_PLAN.md WU-9a/9b authoritative until applied to ARCHITECTURE.md.
     - Slide 3 approval sequence: FIX_PLAN.md WU-23 authoritative until applied.
@@ -85,6 +85,10 @@
       opacity: 0;
       pointer-events: none;
       transition: opacity 150ms;
+    }
+    section[data-slide]:not([data-active]) * {
+      /* SVG children can opt back into events with pointer-events: all/stroke. */
+      pointer-events: none !important;
     }
     section[data-slide][data-active] {
       opacity: 1;
@@ -363,6 +367,17 @@
     svg.system-map [data-node-shape="hexagon"] .node-shape { fill: var(--bg-canvas); }
     svg.system-map [data-node-shape="cylinder"] .node-shape { fill: var(--bg-canvas); }
     svg.system-map [data-node-shape="asymmetric"] .node-shape { fill: var(--bg-canvas); }
+
+    /* Hit-area: invisible rect covering the bounding box of each node group so
+       hover/click reliably fires anywhere within the node's visual footprint
+       (cylinder top-arcs use fill=none and hexagon corners would otherwise be
+       dead zones). Rendered first per group so the visible shape paints over it. */
+    svg.system-map .hit-area {
+      fill: #FFFFFF;
+      fill-opacity: 0;
+      pointer-events: all;
+      stroke: none;
+    }
 
     /* Edges */
     svg.system-map .edge {
@@ -675,12 +690,18 @@
       stroke: var(--teal);
       stroke-width: 2.4;
     }
-    /* Transparent overlay rect for Envelope frame hover (per F15) */
+    /* Transparent overlay rect for Envelope frame hover (per F15).
+       pointer-events scoped to the active slide so the rect (which spans most of the
+       viewBox) does not intercept hover on other slides — `pointer-events: all` on the
+       child overrides the inactive section's `pointer-events: none`. */
     svg.data-contracts .envelope-hit {
       fill: transparent;
       stroke: none;
-      pointer-events: all;
+      pointer-events: none;
       cursor: pointer;
+    }
+    section[data-slide="6"][data-active] svg.data-contracts .envelope-hit {
+      pointer-events: all;
     }
 
     /* === Slide 3: Approval Flow sequence diagram === */
@@ -893,15 +914,24 @@
 
     <section data-slide="2" data-title="System Map">
       <div class="canvas-wrap">
-        <div class="slide-caption">Slide 2 &mdash; <strong>System Map</strong> &middot; rectangles = LLM agents, hexagons = deterministic services, cylinders = storage, asymmetric = queue</div>
-        <svg class="system-map" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" aria-label="security-auto system architecture">
+        <div class="slide-caption">Slide 2 &mdash; <strong>System Map</strong> &middot; rectangles = active components, hexagons = deterministic platform services, cylinders = storage, asymmetric = queue</div>
+        <svg class="system-map" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" aria-label="boundary-labs system architecture">
           <defs>
             <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M0,0 L10,5 L0,10 Z" class="arrowhead"/>
             </marker>
           </defs>
 
-          <!-- === Subgraph frames === -->
+          <!-- === Subgraph frames ===
+               Row layout (top-to-bottom):
+                 R1 y=40-120   : Humans | Console | (toolbar gap) | Slack
+                 R2 y=150-230  : Control Plane (Safety Gate, FastAPI, Campaign Runner)
+                 R3 y=280-380  : Campaign Execution (Coverage, Orch, Red Team, Judge, Doc, Regression)
+                 R4 y=420-500  : Target Boundary | Target System
+                 R5 y=560-660  : Storage and Audit | Observability
+               Audit Ledger now lives in R5 (was floating between R1 and R2).
+               Regression Promotion now lives in R3 next to Documentation (was overlapping Clinical Co-Pilot).
+               Queue shifted right to make room for Audit Ledger inside Storage. -->
           <rect class="group-rect" x="40"  y="40"  width="280" height="80"/>
           <text class="group-label" x="48" y="34">Humans</text>
 
@@ -915,7 +945,7 @@
           <text class="group-label" x="948" y="34">Slack</text>
 
           <rect class="group-rect" x="40"  y="280" width="1180" height="100"/>
-          <text class="group-label" x="48" y="274">Campaign Agents</text>
+          <text class="group-label" x="48" y="274">Campaign Execution</text>
 
           <rect class="group-rect" x="380" y="420" width="240" height="80"/>
           <text class="group-label" x="388" y="414">Target Boundary</text>
@@ -930,82 +960,82 @@
           <text class="group-label" x="868" y="554">Observability</text>
 
           <!-- === Edges (drawn before nodes so nodes overlay) ===
-               Endpoints anchored to actual shape edges:
-                 Operator         rect (50,50)-(180,110)        right edge x=180, bottom y=110
-                 Security Console rect (380,50)-(500,110)        left x=380, right x=500, bottom y=110
-                 Slack            rect (950,50)-(1170,110)       left x=950, bottom y=110
-                 Safety Gate      hex  (395,165)-(455,215)       left x=395, right x=455, top y=165
-                 FastAPI          rect (460,160)-(620,220)       left x=460, right x=620, bottom y=220
-                 Campaign Runner  rect (725,160)-(875,220)       left x=725, right x=875, bottom y=220
-                 Coverage Scoring hex  (100,300)-(210,360)       right x=210, top y=300
-                 Orchestrator     rect (240,300)-(340,360)       left x=240, right x=340
-                 Red Team         rect (440,300)-(540,360)       left x=440, right x=540, bottom y=360
-                 Judge            rect (680,300)-(780,360)       left x=680, right x=780, bottom y=360
-                 Documentation    rect (940,300)-(1060,360)      left x=940, bottom y=360
-                 Target Adapter   rect (400,430)-(560,490)       top y=430, right x=560, bottom y=490
-                 Clinical Co-Pilot rect (950,430)-(1170,490)     left x=950
-                 Regression Prom. hex  (930,430)-(1050,490)      top y=430, bottom y=490
-                 Audit Ledger     cyl  (1000,175)-(1140,255)     left x=1000, top y=175
-                 Security App DB  cyl  (60,575)-(200,655)        top y=575, center x=130
-                 Artifact Store   cyl  (220,575)-(360,655)       top y=575, center x=290
-                 Queue            (400-555, 575-655)             top y=575
-                 Observability    rect (870,585)-(1040,645)      right x=1040, center y=615
-                 Logfire          rect (1060,585)-(1210,645)     left x=1060, center y=615
-          -->
+               Long routes use orthogonal <path> segments via these row-gap "highways":
+                 y=135       : between R1 and R2 (Slack <-> Safety Gate async)
+                 y=250-265   : between R2 and R3 (Runner -> Coverage, Runner -> Queue)
+                 y=390-405   : between R3 and R4 (Judge -> RP, RP -> Artifacts)
+                 y=545-560   : between R4 and R5 (Doc -> Artifacts, SG -> Audit, API -> DB)
+                 x=50        : far-left vertical corridor (API -> DB)
+                 x=380       : left edge of Target Boundary (SG -> Audit Ledger detour) -->
+
           <!-- Operator -> Console -->
           <line class="edge" x1="180" y1="80" x2="380" y2="80" marker-end="url(#arrow)" data-edge-id="op-console" data-source="operator" data-target="security-console"/>
           <!-- Console -> API (downward) -->
           <line class="edge" x1="440" y1="110" x2="540" y2="160" marker-end="url(#arrow)" data-edge-id="console-api" data-source="security-console" data-target="fastapi"/>
-          <!-- API -> Safety Gate (rightward toward SG hex right point) -->
+          <!-- API -> Safety Gate -->
           <line class="edge" x1="460" y1="190" x2="455" y2="190" marker-end="url(#arrow)" data-edge-id="api-sg" data-source="fastapi" data-target="safety-gate"/>
-          <!-- API -> Campaign Runner (right edge of API to left edge of Runner) -->
+          <!-- API -> Campaign Runner -->
           <line class="edge" x1="620" y1="190" x2="725" y2="190" marker-end="url(#arrow)" data-edge-id="api-runner" data-source="fastapi" data-target="campaign-runner"/>
-          <!-- Safety Gate <-> Slack (async dotted) — SG top to Slack bottom-left -->
-          <line class="edge async" x1="425" y1="165" x2="990" y2="110" data-edge-id="sg-slack" data-source="safety-gate" data-target="slack"/>
-          <line class="edge async" x1="990" y1="110" x2="425" y2="165" marker-end="url(#arrow)" data-edge-id="slack-sg" data-source="slack" data-target="safety-gate"/>
-          <!-- Campaign Runner -> Coverage Scoring (Runner bottom to Coverage top) -->
-          <line class="edge" x1="800" y1="220" x2="180" y2="300" marker-end="url(#arrow)" data-edge-id="runner-cov" data-source="campaign-runner" data-target="coverage-scoring"/>
-          <!-- Coverage Scoring -> Orchestrator (right of hex to left of Orch) -->
+
+          <!-- Safety Gate -> Slack (async dotted, via y=135 highway) -->
+          <path class="edge async" d="M425,165 L425,135 L985,135 L985,110" data-edge-id="sg-slack" data-source="safety-gate" data-target="slack"/>
+          <!-- Slack -> Safety Gate (async dotted, returns via y=140 highway just below) -->
+          <path class="edge async" d="M995,110 L995,140 L435,140 L435,165" marker-end="url(#arrow)" data-edge-id="slack-sg" data-source="slack" data-target="safety-gate"/>
+
+          <!-- Campaign Runner -> Coverage Scoring (R2->R3 left via y=255 highway) -->
+          <path class="edge" d="M760,220 L760,255 L155,255 L155,300" marker-end="url(#arrow)" data-edge-id="runner-cov" data-source="campaign-runner" data-target="coverage-scoring"/>
+          <!-- Coverage -> Orchestrator -->
           <line class="edge" x1="210" y1="330" x2="240" y2="330" marker-end="url(#arrow)" data-edge-id="cov-orch" data-source="coverage-scoring" data-target="orchestrator"/>
-          <!-- Orchestrator -> Red Team (right of Orch to left of RT) -->
+          <!-- Orchestrator -> Red Team -->
           <line class="edge" x1="340" y1="330" x2="440" y2="330" marker-end="url(#arrow)" data-edge-id="orch-rt" data-source="orchestrator" data-target="red-team"/>
-          <!-- Red Team -> Target Adapter (RT bottom to TA top) -->
+          <!-- Red Team -> Target Adapter -->
           <line class="edge" x1="490" y1="360" x2="480" y2="430" marker-end="url(#arrow)" data-edge-id="rt-ta" data-source="red-team" data-target="target-adapter"/>
-          <!-- Target Adapter <-> Target (parallel arrows between right of TA and left of Target) -->
+          <!-- Target Adapter <-> Clinical Co-Pilot (parallel arrows) -->
           <line class="edge" x1="560" y1="455" x2="950" y2="455" marker-end="url(#arrow)" data-edge-id="ta-target" data-source="target-adapter" data-target="clinical-copilot"/>
           <line class="edge" x1="950" y1="475" x2="560" y2="475" marker-end="url(#arrow)" data-edge-id="target-ta" data-source="clinical-copilot" data-target="target-adapter"/>
-          <!-- Target Adapter -> Judge (TA top-ish to Judge bottom) -->
+          <!-- Target Adapter -> Judge -->
           <line class="edge" x1="520" y1="430" x2="700" y2="360" marker-end="url(#arrow)" data-edge-id="ta-judge" data-source="target-adapter" data-target="judge"/>
-          <!-- Judge -> Documentation (right of Judge to left of Doc) -->
+          <!-- Judge -> Documentation -->
           <line class="edge" x1="780" y1="330" x2="940" y2="330" marker-end="url(#arrow)" data-edge-id="judge-doc" data-source="judge" data-target="documentation"/>
-          <!-- Judge -> Regression Promotion (Judge bottom-right to RP top) -->
-          <line class="edge" x1="760" y1="360" x2="990" y2="430" marker-end="url(#arrow)" data-edge-id="judge-rp" data-source="judge" data-target="regression-promotion"/>
-          <!-- Documentation -> Artifact Store (Doc bottom to Artifact Store top) -->
-          <line class="edge" x1="1000" y1="360" x2="290" y2="575" marker-end="url(#arrow)" data-edge-id="doc-artifacts" data-source="documentation" data-target="artifact-store"/>
-          <!-- Regression Promotion -> Artifact Store -->
-          <line class="edge" x1="990" y1="490" x2="290" y2="575" marker-end="url(#arrow)" data-edge-id="rp-artifacts" data-source="regression-promotion" data-target="artifact-store"/>
-          <!-- FastAPI -> Security App DB (API bottom-left to DB top) -->
-          <line class="edge" x1="480" y1="220" x2="130" y2="575" marker-end="url(#arrow)" data-edge-id="api-db" data-source="fastapi" data-target="security-app-db"/>
-          <!-- Safety Gate -> Audit Ledger (SG right-top to Audit left) -->
-          <line class="edge" x1="455" y1="180" x2="1000" y2="200" marker-end="url(#arrow)" data-edge-id="sg-audit" data-source="safety-gate" data-target="audit-ledger"/>
-          <!-- Campaign Runner -> Queue (Runner bottom to Queue top) -->
-          <line class="edge" x1="800" y1="220" x2="478" y2="575" marker-end="url(#arrow)" data-edge-id="runner-queue" data-source="campaign-runner" data-target="queue"/>
-          <!-- Observability -> Logfire (right of Observability to left of Logfire) -->
+          <!-- Judge -> Regression Promotion (detour below R3 via y=390 to avoid Documentation) -->
+          <path class="edge" d="M760,360 L760,390 L1140,390 L1140,360" marker-end="url(#arrow)" data-edge-id="judge-rp" data-source="judge" data-target="regression-promotion"/>
+
+          <!-- Documentation -> Artifact Store (orthogonal: down past R4, across via y=545, into Artifact Store top) -->
+          <path class="edge" d="M1000,360 L1000,400 L820,400 L820,545 L290,545 L290,575" marker-end="url(#arrow)" data-edge-id="doc-artifacts" data-source="documentation" data-target="artifact-store"/>
+          <!-- Regression Promotion -> Artifact Store (orthogonal via y=405) -->
+          <path class="edge" d="M1140,360 L1140,405 L300,405 L300,560 L290,560 L290,575" marker-end="url(#arrow)" data-edge-id="rp-artifacts" data-source="regression-promotion" data-target="artifact-store"/>
+          <!-- FastAPI -> Security App DB (orthogonal: left corridor at x=50) -->
+          <path class="edge" d="M480,220 L480,250 L50,250 L50,555 L130,555 L130,575" marker-end="url(#arrow)" data-edge-id="api-db" data-source="fastapi" data-target="security-app-db"/>
+          <!-- Safety Gate -> Audit Ledger (orthogonal: detour left of Target Adapter via x=380, y=560) -->
+          <path class="edge" d="M415,215 L415,400 L380,400 L380,560 L450,560 L450,575" marker-end="url(#arrow)" data-edge-id="sg-audit" data-source="safety-gate" data-target="audit-ledger"/>
+          <!-- Campaign Runner -> Queue (orthogonal via y=265 then down) -->
+          <path class="edge" d="M840,220 L840,265 L637,265 L637,575" marker-end="url(#arrow)" data-edge-id="runner-queue" data-source="campaign-runner" data-target="queue"/>
+          <!-- Observability -> Logfire -->
           <line class="edge" x1="1040" y1="615" x2="1060" y2="615" marker-end="url(#arrow)" data-edge-id="obs-logfire" data-source="observability" data-target="logfire"/>
 
-          <!-- === Nodes === -->
+          <!-- === Nodes ===
+               Each group has a transparent .hit-area rect as its first child so
+               hover fires anywhere within the node's full bounding box (cylinder
+               top-arcs and hexagon corners would otherwise be dead zones). -->
+
           <!-- Humans -->
           <g data-component-id="operator" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Operator — the human running the platform: launches campaigns, triages findings, approves high-risk actions in Slack.</title>
+            <rect class="hit-area" x="50"  y="50"  width="130" height="60"/>
             <rect class="node-shape" x="50"  y="50"  width="130" height="60"/>
             <text class="node-label" x="115" y="75">Operator</text>
             <text class="node-label sub" x="115" y="92">human</text>
           </g>
           <g data-component-id="security-console" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Security Console — the web UI (served by FastAPI) where the operator launches campaigns, reviews findings, and inspects artifacts.</title>
+            <rect class="hit-area" x="380" y="50"  width="120" height="60"/>
             <rect class="node-shape" x="380" y="50"  width="120" height="60"/>
             <text class="node-label" x="440" y="75">Security Console</text>
             <text class="node-label sub" x="440" y="92">UI</text>
           </g>
           <g data-component-id="slack" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Slack Approval Channels — where high/critical approval cards (add target, real-PHI use, scope expansion, budget increase, external disclosure) get routed to humans for sign-off.</title>
+            <rect class="hit-area" x="950" y="50"  width="220" height="60"/>
             <rect class="node-shape" x="950" y="50"  width="220" height="60"/>
             <text class="node-label" x="1060" y="75">Slack Approval Channels</text>
             <text class="node-label sub" x="1060" y="92">async HITL</text>
@@ -1013,16 +1043,22 @@
 
           <!-- Control plane -->
           <g data-component-id="safety-gate" data-trust-tier="high" data-node-shape="hexagon">
+            <title>Safety Gate — deterministic pre-flight check that runs before every campaign or high-impact action. Enforces target allowlists, PHI restrictions, budget ceilings, and approval gates. No LLM in the loop.</title>
+            <rect class="hit-area" x="395" y="165" width="60" height="50"/>
             <polygon class="node-shape" points="395,190 410,165 440,165 455,190 440,215 410,215"/>
             <text class="node-label" x="425" y="187">Safety Gate</text>
             <text class="node-label sub" x="425" y="201">Service</text>
           </g>
           <g data-component-id="fastapi" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>FastAPI Control Plane — the backend web server. Hosts the Security Console, exposes campaign-launch and approval-callback endpoints, persists campaign state.</title>
+            <rect class="hit-area" x="460" y="160" width="160" height="60"/>
             <rect class="node-shape" x="460" y="160" width="160" height="60"/>
             <text class="node-label" x="540" y="183">FastAPI</text>
             <text class="node-label sub" x="540" y="200">Control Plane</text>
           </g>
           <g data-component-id="campaign-runner" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Campaign Runner — executes a campaign as a Pydantic Graph run. Coordinates Safety Gate, Coverage Scoring, Orchestrator, Red Team, Target Adapter, Judge, Regression Promotion, and Documentation through each step.</title>
+            <rect class="hit-area" x="725" y="160" width="150" height="60"/>
             <rect class="node-shape" x="725" y="160" width="150" height="60"/>
             <text class="node-label" x="800" y="183">Campaign</text>
             <text class="node-label sub" x="800" y="200">Runner</text>
@@ -1030,83 +1066,115 @@
 
           <!-- Campaign Agents -->
           <g data-component-id="coverage-scoring" data-trust-tier="medium-low" data-node-shape="hexagon">
+            <title>Coverage Scoring Service — deterministic service that tracks which threat-model categories have been tested and which still have gaps. Tells the Orchestrator what to attack next.</title>
+            <rect class="hit-area" x="100" y="300" width="110" height="60"/>
             <polygon class="node-shape" points="100,330 115,300 195,300 210,330 195,360 115,360"/>
             <text class="node-label" x="155" y="325">Coverage</text>
             <text class="node-label sub" x="155" y="340">Scoring Service</text>
           </g>
           <g data-component-id="orchestrator" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Orchestrator Agent — the LLM that decides what to test next, when to stop, and when to trigger regression. Emits task packets to Red Team and Judge.</title>
+            <rect class="hit-area" x="240" y="300" width="100" height="60"/>
             <rect class="node-shape" x="240" y="300" width="100" height="60"/>
             <text class="node-label" x="290" y="325">Orchestrator</text>
           </g>
           <g data-component-id="red-team" data-trust-tier="untrusted" data-node-shape="rectangle">
+            <title>Red Team Agent — LLM (treated as untrusted) that generates novel adversarial inputs and executes them against the target through the Target Adapter. Has a per-attempt frontier-model dollar cap.</title>
+            <rect class="hit-area" x="440" y="300" width="100" height="60"/>
             <rect class="node-shape" x="440" y="300" width="100" height="60"/>
             <text class="node-label" x="490" y="325">Red Team</text>
           </g>
           <g data-component-id="judge" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Judge Agent — independent LLM grader. Looks at the sanitized attack transcript and decides whether the attack succeeded, failed, partially succeeded, was blocked, or is uncertain. Never sees Red Team's free-text reasoning.</title>
+            <rect class="hit-area" x="680" y="300" width="100" height="60"/>
             <rect class="node-shape" x="680" y="300" width="100" height="60"/>
             <text class="node-label" x="730" y="325">Judge</text>
           </g>
           <g data-component-id="documentation" data-trust-tier="low" data-node-shape="rectangle">
+            <title>Documentation Agent — LLM that turns confirmed exploits into professional, reproducible vulnerability reports. High/critical reports require human approval before publish.</title>
+            <rect class="hit-area" x="940" y="300" width="120" height="60"/>
             <rect class="node-shape" x="940" y="300" width="120" height="60"/>
             <text class="node-label" x="1000" y="325">Documentation</text>
           </g>
+          <!-- Regression Promotion — moved into R3 next to Documentation
+               (was overlapping Clinical Co-Pilot in R4). -->
+          <g data-component-id="regression-promotion" data-trust-tier="medium-low" data-node-shape="hexagon">
+            <title>Regression Promotion Service — deterministic service that converts confirmed exploits into repeatable test cases under evals/. Strips nonessential content and captures stochastic-tier seeds/temps where needed.</title>
+            <rect class="hit-area" x="1080" y="300" width="120" height="60"/>
+            <polygon class="node-shape" points="1080,330 1095,300 1185,300 1200,330 1185,360 1095,360"/>
+            <text class="node-label" x="1140" y="325">Regression</text>
+            <text class="node-label sub" x="1140" y="340">Promotion Service</text>
+          </g>
 
-          <!-- Target Adapter + Target + Regression Promotion -->
+          <!-- Target Adapter + Clinical Co-Pilot (R4) -->
           <g data-component-id="target-adapter" data-trust-tier="untrusted" data-node-shape="rectangle">
+            <title>Target Adapter — the only component allowed to talk to the Clinical Co-Pilot. Exposes start_session / send_turn / upload_test_file / end_session primitives and wraps target responses in the Evidence Wrapper before agents see them.</title>
+            <rect class="hit-area" x="400" y="430" width="160" height="60"/>
             <rect class="node-shape" x="400" y="430" width="160" height="60"/>
             <text class="node-label" x="480" y="455">Target Adapter</text>
             <text class="node-label sub" x="480" y="472">controlled boundary</text>
           </g>
           <g data-component-id="clinical-copilot" data-trust-tier="untrusted" data-node-shape="rectangle">
+            <title>Clinical Co-Pilot — the target system under test. A FastAPI clinical AI assistant (OpenEMR-integrated) with /conversation SSE, /copilot/ingest, SMART launch, Pydantic AI supervisor + FHIR tools + guideline RAG.</title>
+            <rect class="hit-area" x="950" y="430" width="220" height="60"/>
             <rect class="node-shape" x="950" y="430" width="220" height="60"/>
             <text class="node-label" x="1060" y="455">Clinical Co-Pilot</text>
             <text class="node-label sub" x="1060" y="472">Target — OpenEMR</text>
           </g>
-          <g data-component-id="regression-promotion" data-trust-tier="medium-low" data-node-shape="hexagon">
-            <polygon class="node-shape" points="930,460 945,430 1035,430 1050,460 1035,490 945,490"/>
-            <text class="node-label" x="990" y="455">Regression</text>
-            <text class="node-label sub" x="990" y="470">Promotion Service</text>
-          </g>
 
-          <!-- Storage -->
+          <!-- Storage and Audit (R5) — Audit Ledger now lives here, Queue shifted right -->
           <g data-component-id="security-app-db" data-trust-tier="medium" data-node-shape="cylinder">
+            <title>Security App DB — SQLite store (MVP) for campaigns, findings, approvals, costs, and reports. Also backs pydantic_graph persistence for Slack-paused campaign nodes.</title>
+            <rect class="hit-area" x="60"  y="575" width="140" height="80"/>
             <path class="node-shape" d="M60,590 Q60,575 100,575 L160,575 Q200,575 200,590 L200,640 Q200,655 160,655 L100,655 Q60,655 60,640 Z"/>
             <path class="node-shape" d="M60,590 Q60,605 100,605 L160,605 Q200,605 200,590" fill="none"/>
             <text class="node-label" x="130" y="625">Security App DB</text>
             <text class="node-label sub" x="130" y="642">SQLite</text>
           </g>
           <g data-component-id="artifact-store" data-trust-tier="medium" data-node-shape="cylinder">
+            <title>Artifact Store — JSONL + evals/ store for attack-attempt transcripts, judge verdicts, vulnerability reports, and eval cases (regression + stochastic). Referenced by artifact:// URIs. PHI auto-redacted on write.</title>
+            <rect class="hit-area" x="220" y="575" width="140" height="80"/>
             <path class="node-shape" d="M220,590 Q220,575 260,575 L320,575 Q360,575 360,590 L360,640 Q360,655 320,655 L260,655 Q220,655 220,640 Z"/>
             <path class="node-shape" d="M220,590 Q220,605 260,605 L320,605 Q360,605 360,590" fill="none"/>
             <text class="node-label" x="290" y="625">Artifact Store</text>
             <text class="node-label sub" x="290" y="642">JSONL + evals/</text>
           </g>
           <g data-component-id="audit-ledger" data-trust-tier="medium" data-node-shape="cylinder">
-            <path class="node-shape" d="M1000,190 Q1000,175 1040,175 L1100,175 Q1140,175 1140,190 L1140,240 Q1140,255 1100,255 L1040,255 Q1000,255 1000,240 Z"/>
-            <path class="node-shape" d="M1000,190 Q1000,205 1040,205 L1100,205 Q1140,205 1140,190" fill="none"/>
-            <text class="node-label" x="1070" y="225">Audit Ledger</text>
-            <text class="node-label sub" x="1070" y="242">approval + audit</text>
+            <title>Audit Ledger — append-only record of approvals and Safety Gate decisions. 15-field approval schema (includes containment_plan_ref for real-PHI). Retained for build duration + post-defense archive.</title>
+            <rect class="hit-area" x="380" y="575" width="140" height="80"/>
+            <path class="node-shape" d="M380,590 Q380,575 420,575 L480,575 Q520,575 520,590 L520,640 Q520,655 480,655 L420,655 Q380,655 380,640 Z"/>
+            <path class="node-shape" d="M380,590 Q380,605 420,605 L480,605 Q520,605 520,590" fill="none"/>
+            <text class="node-label" x="450" y="625">Audit Ledger</text>
+            <text class="node-label sub" x="450" y="642">approval + audit</text>
           </g>
           <g data-component-id="queue" data-trust-tier="medium" data-node-shape="asymmetric">
-            <polygon class="node-shape" points="400,575 540,575 555,655 415,655"/>
-            <text class="node-label" x="478" y="615">Queue</text>
-            <text class="node-label sub" x="478" y="632">post-MVP</text>
+            <title>Queue — worker queue for long-running overnight campaigns (Redis / RQ / Celery). Post-MVP; the synchronous CLI is sufficient for the MVP scope.</title>
+            <rect class="hit-area" x="560" y="575" width="155" height="80"/>
+            <polygon class="node-shape" points="560,575 700,575 715,655 575,655"/>
+            <text class="node-label" x="638" y="615">Queue</text>
+            <text class="node-label sub" x="638" y="632">post-MVP</text>
           </g>
 
           <!-- Observability -->
           <g data-component-id="observability" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Observability Layer — captures traces, cost-ledger rows, and dashboard data per campaign / case / attempt / verdict / report. Tracks agent + model + prompt versions, tool calls, latencies, token usage, and model costs.</title>
+            <rect class="hit-area" x="870" y="585" width="170" height="60"/>
             <rect class="node-shape" x="870" y="585" width="170" height="60"/>
             <text class="node-label" x="955" y="610">Observability Layer</text>
             <text class="node-label sub" x="955" y="627">traces + cost ledger</text>
           </g>
           <g data-component-id="logfire" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Logfire / OpenTelemetry — the trace backend that ingests security-app traces. Separate Logfire project from the target's, with PHI redaction allowlist + secret scrubbing applied before emission.</title>
+            <rect class="hit-area" x="1060" y="585" width="150" height="60"/>
             <rect class="node-shape" x="1060" y="585" width="150" height="60"/>
             <text class="node-label" x="1135" y="610">Logfire /</text>
             <text class="node-label sub" x="1135" y="627">OpenTelemetry</text>
           </g>
 
-          <!-- === Canvas toolbar (top-right) === -->
-          <g class="canvas-toolbar" transform="translate(900, 0)">
+          <!-- === Canvas toolbar (parked in right-side gutter between Slack (R1) and
+                Control Plane (R2) — was at translate(900,0) but overlapped the
+                "Slack" group label at y=34). -->
+          <g class="canvas-toolbar" transform="translate(900, 124)">
             <rect class="toolbar-bg" x="0" y="6" width="340" height="32"/>
             <!-- Trust-tier toggle (Base / Tiers) -->
             <g class="tool-btn" id="toggle-trust" role="button" tabindex="0" aria-label="Toggle trust tiers (T)">
@@ -1620,7 +1688,7 @@
 
   <script>
     /* === COMPONENT_PANEL_CONTENT ===
-       R12 schema for system-map components. Sourced from ARCHITECTURE.md @ security-auto:4f09569.
+       R12 schema for system-map components. Sourced from ARCHITECTURE.md @ boundary-labs:4f09569.
        Per-component panel renders via renderPanel() in U10. */
     const COMPONENT_PANEL_CONTENT = {
       "operator": {
@@ -1701,9 +1769,22 @@
         purpose: "Decides what the platform should test next and when to stop, redirect, or trigger regression.",
         inputs: ["threat-model coverage map", "open findings + severity", "prior campaign outcomes", "regression history", "cost + rate-limit telemetry", "target version / deployment event"],
         outputs: ["campaign plans", "attack category priorities", "Red Team task packets", "Judge task packets", "regression trigger events", "stop / pause / redirect decisions"],
+        decision_logic: [
+          "Ranks the next Red Team target by additive priority: priority = coverage_gap + clinical_impact + exploitability + recent_regression + unresolved_finding − estimated_cost − recent_low_signal_penalty.",
+          "Coverage Scoring Service supplies gap + risk metrics as a pure (no-LLM) function; the Orchestrator LLM applies independent judgment on top — no bandit / RL, deliberate explainability trade-off.",
+          "Stops a campaign on any of: budget consumed without new signal, category has enough passing regression evidence, Judge uncertainty exceeds threshold, target rate-limit / health-check fails, Safety Gate blocks scope.",
+          "Deterministic stop rule fires in the graph runner before each TargetExecutionNode and cannot be overridden by the agent: fail_rate < 5% ∧ uncertain_rate > 40% over rolling 20 attempts ∧ cumulative_cost > 25% of budget."
+        ],
         allowed_tools: ["read coverage matrix", "read findings + regression history", "emit task packets"],
         denied_tools: ["generate payloads directly", "judge attack success", "publish reports", "expand scope without Safety Gate"],
-        failure_modes: ["flat coverage scores / stale data → run regression suite, ask Coverage Scoring for gaps", "low-signal campaigns → halt automatically per deterministic stop rule (fail_rate < 5% ∧ uncertain_rate > 40% over rolling 20 attempts ∧ cumulative_cost > 25% of budget)"]
+        scale_controls: [
+          "Campaign-level budget ceiling + per-agent token and dollar caps enforced by Safety Gate before launch.",
+          "Per-attempt frontier-model cap of $0.50 enforced independently of campaign budget; overrun → attempt aborted with status cost_capped (Judge maps to invalid).",
+          "Model tiering: local / open-weight models for high-volume mutation post-approval; frontier model reserved for complex multi-turn strategy under strict budget review.",
+          "Per-target rate-limit + concurrency caps live in the Target Adapter; throttling propagates as graph-runner pauses (no retries inside the agent loop).",
+          "Cost + rate-limit telemetry feeds back into the priority function as estimated_cost — expensive categories deprioritize themselves under pressure."
+        ],
+        failure_modes: ["flat coverage scores / stale data → run regression suite, ask Coverage Scoring for gaps", "low-signal campaigns → halt automatically per deterministic stop rule", "target rate-limit hit → pause campaign, surface retry-after to operator (no automatic backoff loop inside agent)"]
       },
       "red-team": {
         name: "Red Team Agent",
@@ -1715,6 +1796,11 @@
         outputs: ["AttackCase drafts", "AttackAttempt transcripts", "mutation lineage", "candidate exploit evidence for Judge review"],
         allowed_tools: ["create attack draft", "mutate attack draft", "execute attack through Target Adapter", "read allowed seed cases", "read prior attempts for the same campaign", "complete task with summary"],
         denied_tools: ["direct network access outside the allowlisted target", "access to secrets or real PHI", "judge its own attacks", "write vulnerability reports or regression cases directly", "change target defenses"],
+        scale_controls: [
+          "$0.50 frontier-model cap per attempt; overrun aborts attempt as cost_capped (Judge → invalid).",
+          "High-volume mutation runs on local / open-weight models; frontier model called only for hard multi-turn strategy.",
+          "Target Adapter enforces per-target rate + concurrency caps; on throttle the graph runner pauses the campaign rather than retrying inside the loop."
+        ],
         failure_modes: ["low novelty / repeated invalid cases → redirect category, change seed strategy, lower budget", "frontier-model dollar cap per attempt ($0.50) prevents runaway"]
       },
       "judge": {
@@ -1882,14 +1968,17 @@
       const body = panel.querySelector('.panel-body');
       body.innerHTML = '';
       const fieldOrder = ['purpose', 'deterministic_checks', 'inputs', 'outputs',
-                          'allowed_tools', 'denied_tools', 'failure_modes', 'retention'];
+                          'decision_logic', 'allowed_tools', 'denied_tools',
+                          'scale_controls', 'failure_modes', 'retention'];
       const fieldLabel = {
         purpose: 'Purpose',
         deterministic_checks: 'Deterministic checks',
         inputs: 'Inputs',
         outputs: 'Outputs',
+        decision_logic: 'Decision logic',
         allowed_tools: 'Allowed tools',
         denied_tools: 'Denied tools',
+        scale_controls: 'Cost / rate-limit controls',
         failure_modes: 'Failure modes',
         retention: 'Retention'
       };

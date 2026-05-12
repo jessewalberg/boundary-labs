@@ -1,12 +1,10 @@
 # Protective Security Agent Architecture
 
-Source PRD PDF: `docs/week3-agentforge-adversarial-ai-security-platform-prd.pdf`  
-Extracted PRD transcript: `.firecrawl/week3-agentforge-adversarial-ai-security-platform-prd.md`  
-Target system: OpenEMR Clinical Co-Pilot, running locally and at a deployed test URL  
-HTML architecture brief: `docs/protective-security-agent-architecture.html`  
-HTML slideshow: `docs/protective-security-agent-slideshow.html`  
-Presentation slides: `docs/protective-security-agent-architecture.pptx`  
-Previous Excalidraw diagram: https://app.excalidraw.com/s/9xifBd5YAg0/54ViBcu7irY  
+Source PRD PDF: `docs/week3-boundary-labs-adversarial-ai-security-platform-prd.pdf`
+Target system: Clinical Co-Pilot (`Target — OpenEMR` in the system map), running locally and at a deployed test URL
+Interactive architecture deck: `docs/architecture-deck.html`
+Canonical system map image: `docs/architecture-system-map.png`
+Previous Excalidraw diagram: https://app.excalidraw.com/s/9xifBd5YAg0/54ViBcu7irY
 Document status: Architecture and build plan for an authorized defensive security platform
 
 ## Executive Summary
@@ -52,7 +50,7 @@ The trust model is conservative. The system may autonomously generate low-risk v
 | Evaluation | Judge Agent independently grades pass, fail, partial, blocked, and uncertain outcomes. |
 | Orchestration | Orchestrator Agent reads coverage, findings, regressions, and budgets to schedule campaigns. |
 | Documentation | Documentation Agent drafts reproducible reports from confirmed judge verdicts. |
-| Regression and validation | Regression Curator promotes confirmed exploits into versioned evals under `evals/`. |
+| Regression and validation | Regression Promotion Service promotes confirmed exploits into versioned evals under `evals/`. |
 | Observability | Separate security-app traces, target request IDs, event log, dashboard, and cost ledger. |
 | Cost, scale, model constraints | Model Router, budgets, deterministic prefilters, local/open-weight options, sampling, and escalation. |
 | Human approval gates | Safety Gate Service plus approval interrupts before dangerous or externally visible actions. |
@@ -60,7 +58,7 @@ The trust model is conservative. The system may autonomously generate low-risk v
 
 ## Repository Grounding
 
-This refinement pass researched `/Users/home/gauntlet/playground/everybody-loves-healthcare` and changes the implementation posture materially.
+This refinement pass researched the sibling OpenEMR target checkout and changes the implementation posture materially.
 
 Actual target shape:
 
@@ -132,7 +130,7 @@ The chosen separation costs more setup (a second FastAPI, second DB, second depl
 | Agent orchestration | Pydantic AI agents orchestrated by stable `pydantic_graph.Graph` nodes | Aligns with the target's existing agent stack while keeping orchestration typed, inspectable, and resumable. Use `BaseNode`, `GraphRunContext`, `End`, and graph persistence for MVP; avoid the beta graph builder because HITL workflows need persistence. |
 | API/control plane | Separate Python FastAPI service in this security repo | Gives the security platform its own UI/API, auth, deployment, run history, and approval surfaces without changing the target. |
 | State store | Security-app SQLite for MVP, Postgres for production | Campaigns, findings, approvals, costs, and reports belong to the security app. The target database is evidence, not the platform's state store. |
-| Queue | Start synchronous/CLI; add Redis, RQ, Celery, or managed queue after MVP | MVP can run bounded campaigns through CLI/API. Long-running overnight campaigns need a worker queue and resumable state. |
+| Queue | Start synchronous/CLI; add Redis, RQ, Celery, or managed queue post-MVP | MVP can run bounded campaigns through CLI/API. Long-running overnight campaigns need a worker queue and resumable state. |
 | Target execution | HTTP/SSE client, SMART/browser fixture, and Playwright UI runner | Most attack surfaces are `/conversation`, `/copilot/ingest`, `/copilot/documents/*`, SMART launch, OpenEMR document upload, and UI embedding. |
 | Regression data | Pydantic Evals plus root `evals/` owned by the separate security app | Mirror target eval schema concepts, but keep Week 3 adversarial cases, results, and regression suite in this repo as the PRD requires. |
 | Observability | Separate security-app Logfire/OpenTelemetry plus JSONL artifacts | Correlate with target request IDs and deployed version. Do not reuse target app tokens or trace projects unless explicitly approved. |
@@ -142,46 +140,23 @@ The chosen separation costs more setup (a second FastAPI, second DB, second depl
 
 ## System Architecture
 
-```mermaid
-flowchart TD
-  Operator[Human Operator] --> UI[Security Console]
-  Operator --> Slack[Slack Approval Channels]
-  UI --> API[FastAPI Control Plane]
-  API --> SGS[Safety Gate Service]
-  API --> GRAPH[Pydantic Graph Campaign Runner]
-  SGS --> GRAPH
-  GRAPH -. approval request .-> Slack
-  Slack -. approve / reject / comment .-> API
+![Boundary Labs system architecture map](docs/architecture-system-map.png)
 
-  GRAPH --> COVS[Coverage Scoring Service]
-  COVS --> ORCH[Orchestrator Agent]
-  ORCH --> RT[Red Team Agent]
-  RT --> TA[Target Adapter]
-  TA --> OEMR[OpenEMR Clinical Co-Pilot]
-  OEMR --> TA
-  TA --> JDG[Judge Agent]
-  JDG --> RPS[Regression Promotion Service]
-  JDG --> DOC[Documentation Agent]
-  RPS --> EVALS[evals/ Regression Suite]
-  DOC --> REPORTS[Vulnerability Reports]
+This static system map is the canonical diagram for this document. It is sourced from Slide 2 of `docs/architecture-deck.html` and uses the same visual grammar as the deck: rectangles are active components, hexagons are deterministic platform services, cylinders are storage, and the asymmetric shape is the post-MVP queue.
 
-  ORCH --> OBS[Observability Layer]
-  RT --> OBS
-  TA --> OBS
-  JDG --> OBS
-  RPS --> OBS
-  DOC --> OBS
-  SGS --> OBS
-  COVS --> OBS
+The map separates the platform into nine boundaries:
 
-  API --> PG[(Security App DB)]
-  API --> OBJ[(Artifact Store)]
-  API --> QUEUE[(Queue)]
-  API --> AUDIT[(Approval + Audit Ledger)]
-  GRAPH --> PYEVALS[Pydantic Evals]
-  OBS --> LF[Logfire / OpenTelemetry]
-  OBS --> PG
-```
+- **Humans:** Operator.
+- **Console (UI surface):** Security Console.
+- **Slack:** Slack Approval Channels for async human-in-the-loop approvals.
+- **Control Plane:** Safety Gate Service, FastAPI Control Plane, and Campaign Runner.
+- **Campaign Execution:** Coverage Scoring Service, Orchestrator, Red Team, Judge, Documentation, and Regression Promotion Service.
+- **Target Boundary:** Target Adapter, the only controlled interface to the target.
+- **Target System:** Clinical Co-Pilot in OpenEMR.
+- **Storage and Audit:** Security App DB, Artifact Store, Audit Ledger, and Queue (`post-MVP`).
+- **Observability:** Observability Layer and Logfire / OpenTelemetry.
+
+The lifecycle shown in the map is: Operator uses the Security Console, FastAPI calls the Safety Gate and Campaign Runner, the runner asks Coverage Scoring for gaps, the Orchestrator directs Red Team work, Red Team executes only through the Target Adapter, the Target Adapter exchanges requests and responses with Clinical Co-Pilot, the Judge independently evaluates evidence, and confirmed findings move to Documentation and the Regression Promotion Service. Storage and audit components receive structured artifacts, approvals, and campaign state; observability receives traces and cost-ledger data.
 
 ### Security Console Information Architecture
 
