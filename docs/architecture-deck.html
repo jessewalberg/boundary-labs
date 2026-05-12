@@ -215,6 +215,88 @@
       font-style: italic;
       font-size: 14px;
     }
+
+    /* === Slide 2: System Map === */
+    section[data-slide="2"] { padding: 24px 32px; }
+    section[data-slide="2"] .canvas-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    section[data-slide="2"] svg.system-map {
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      display: block;
+    }
+    section[data-slide="2"] .slide-caption {
+      font-size: 12px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    section[data-slide="2"] .slide-caption strong {
+      color: var(--teal);
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 600;
+    }
+
+    /* Node shapes — base styling */
+    svg.system-map .node-shape {
+      fill: var(--bg-canvas);
+      stroke: var(--ink);
+      stroke-width: 1.4;
+      transition: fill 150ms, stroke 150ms, opacity 150ms;
+    }
+    svg.system-map .node-label {
+      font-family: "Inter", -apple-system, sans-serif;
+      font-size: 12px;
+      fill: var(--ink);
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+    }
+    svg.system-map .node-label.sub {
+      font-size: 10px;
+      fill: var(--ink-faint);
+    }
+
+    /* Node-shape distinctions (R17) */
+    svg.system-map [data-node-shape="rectangle"] .node-shape { rx: 4; ry: 4; }
+    svg.system-map [data-node-shape="hexagon"] .node-shape { fill: var(--bg-canvas); }
+    svg.system-map [data-node-shape="cylinder"] .node-shape { fill: var(--bg-canvas); }
+    svg.system-map [data-node-shape="asymmetric"] .node-shape { fill: var(--bg-canvas); }
+
+    /* Edges */
+    svg.system-map .edge {
+      stroke: var(--ink-muted);
+      stroke-width: 1.2;
+      fill: none;
+      transition: stroke 150ms, opacity 150ms;
+    }
+    svg.system-map .edge.async { stroke-dasharray: 4 3; }
+    svg.system-map .arrowhead { fill: var(--ink-muted); }
+
+    /* Section group labels (subgraphs from FIX_PLAN Figure 1) */
+    svg.system-map .group-label {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--ink-muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    svg.system-map .group-rect {
+      fill: none;
+      stroke: var(--rule);
+      stroke-width: 1;
+      stroke-dasharray: 2 3;
+      rx: 6;
+      ry: 6;
+    }
   </style>
 </head>
 <body>
@@ -231,7 +313,198 @@
     </section>
 
     <section data-slide="2" data-title="System Map">
-      <div class="placeholder">[U2 — System map SVG canvas]</div>
+      <div class="canvas-wrap">
+        <div class="slide-caption">Slide 2 &mdash; <strong>System Map</strong> &middot; rectangles = LLM agents, hexagons = deterministic services, cylinders = storage, asymmetric = queue</div>
+        <svg class="system-map" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" aria-label="security-auto system architecture">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" class="arrowhead"/>
+            </marker>
+          </defs>
+
+          <!-- === Subgraph frames === -->
+          <rect class="group-rect" x="40"  y="40"  width="280" height="80"/>
+          <text class="group-label" x="48" y="34">Humans</text>
+
+          <rect class="group-rect" x="380" y="40"  width="240" height="80"/>
+          <text class="group-label" x="388" y="34">Operator</text>
+
+          <rect class="group-rect" x="380" y="150" width="500" height="80"/>
+          <text class="group-label" x="388" y="144">Control Plane</text>
+
+          <rect class="group-rect" x="940" y="40"  width="240" height="80"/>
+          <text class="group-label" x="948" y="34">Slack</text>
+
+          <rect class="group-rect" x="40"  y="280" width="1180" height="100"/>
+          <text class="group-label" x="48" y="274">Campaign Agents</text>
+
+          <rect class="group-rect" x="380" y="420" width="240" height="80"/>
+          <text class="group-label" x="388" y="414">Target Boundary</text>
+
+          <rect class="group-rect" x="940" y="420" width="240" height="80"/>
+          <text class="group-label" x="948" y="414">Target System</text>
+
+          <rect class="group-rect" x="40"  y="560" width="780" height="100"/>
+          <text class="group-label" x="48" y="554">Storage and Audit</text>
+
+          <rect class="group-rect" x="860" y="560" width="360" height="100"/>
+          <text class="group-label" x="868" y="554">Observability</text>
+
+          <!-- === Edges (drawn before nodes so nodes overlay) === -->
+          <!-- Operator -> Console -->
+          <line class="edge" x1="180" y1="80" x2="380" y2="80" marker-end="url(#arrow)" data-edge-id="op-console" data-source="operator" data-target="security-console"/>
+          <!-- Console -> API (via control plane) -->
+          <line class="edge" x1="500" y1="120" x2="500" y2="150" marker-end="url(#arrow)" data-edge-id="console-api" data-source="security-console" data-target="fastapi"/>
+          <!-- API -> Safety Gate -->
+          <line class="edge" x1="500" y1="190" x2="455" y2="190" marker-end="url(#arrow)" data-edge-id="api-sg" data-source="fastapi" data-target="safety-gate"/>
+          <!-- API -> Campaign Runner -->
+          <line class="edge" x1="540" y1="190" x2="725" y2="190" marker-end="url(#arrow)" data-edge-id="api-runner" data-source="fastapi" data-target="campaign-runner"/>
+          <!-- Safety Gate <-> Slack (async dotted) -->
+          <line class="edge async" x1="455" y1="180" x2="940" y2="80" data-edge-id="sg-slack" data-source="safety-gate" data-target="slack"/>
+          <line class="edge async" x1="940" y1="80" x2="455" y2="200" marker-end="url(#arrow)" data-edge-id="slack-sg" data-source="slack" data-target="safety-gate"/>
+          <!-- Campaign Runner -> Coverage Scoring -->
+          <line class="edge" x1="810" y1="220" x2="170" y2="280" marker-end="url(#arrow)" data-edge-id="runner-cov" data-source="campaign-runner" data-target="coverage-scoring"/>
+          <!-- Coverage -> Orchestrator -->
+          <line class="edge" x1="240" y1="330" x2="340" y2="330" marker-end="url(#arrow)" data-edge-id="cov-orch" data-source="coverage-scoring" data-target="orchestrator"/>
+          <!-- Orchestrator -> Red Team -->
+          <line class="edge" x1="440" y1="330" x2="540" y2="330" marker-end="url(#arrow)" data-edge-id="orch-rt" data-source="orchestrator" data-target="red-team"/>
+          <!-- Red Team -> Target Adapter (down) -->
+          <line class="edge" x1="600" y1="360" x2="500" y2="430" marker-end="url(#arrow)" data-edge-id="rt-ta" data-source="red-team" data-target="target-adapter"/>
+          <!-- Target Adapter <-> Target -->
+          <line class="edge" x1="560" y1="460" x2="940" y2="460" marker-end="url(#arrow)" data-edge-id="ta-target" data-source="target-adapter" data-target="clinical-copilot"/>
+          <line class="edge" x1="940" y1="470" x2="560" y2="470" marker-end="url(#arrow)" data-edge-id="target-ta" data-source="clinical-copilot" data-target="target-adapter"/>
+          <!-- Target Adapter -> Judge -->
+          <line class="edge" x1="500" y1="430" x2="780" y2="360" marker-end="url(#arrow)" data-edge-id="ta-judge" data-source="target-adapter" data-target="judge"/>
+          <!-- Judge -> Documentation -->
+          <line class="edge" x1="840" y1="330" x2="940" y2="330" marker-end="url(#arrow)" data-edge-id="judge-doc" data-source="judge" data-target="documentation"/>
+          <!-- Judge -> Regression Promotion (down, but RP placed below documentation column) -->
+          <line class="edge" x1="800" y1="360" x2="990" y2="430" marker-end="url(#arrow)" data-edge-id="judge-rp" data-source="judge" data-target="regression-promotion"/>
+          <!-- Documentation -> Storage (Artifact Store, for reports) -->
+          <line class="edge" x1="1040" y1="360" x2="280" y2="600" marker-end="url(#arrow)" data-edge-id="doc-artifacts" data-source="documentation" data-target="artifact-store"/>
+          <!-- Regression Promotion -> Artifact Store (eval cases land here) -->
+          <line class="edge" x1="990" y1="490" x2="280" y2="600" marker-end="url(#arrow)" data-edge-id="rp-artifacts" data-source="regression-promotion" data-target="artifact-store"/>
+          <!-- FastAPI -> Security App DB -->
+          <line class="edge" x1="480" y1="220" x2="120" y2="600" marker-end="url(#arrow)" data-edge-id="api-db" data-source="fastapi" data-target="security-app-db"/>
+          <!-- Safety Gate -> Audit Ledger -->
+          <line class="edge" x1="440" y1="180" x2="1060" y2="220" marker-end="url(#arrow)" data-edge-id="sg-audit" data-source="safety-gate" data-target="audit-ledger"/>
+          <!-- Campaign Runner -> Queue -->
+          <line class="edge" x1="800" y1="220" x2="460" y2="600" marker-end="url(#arrow)" data-edge-id="runner-queue" data-source="campaign-runner" data-target="queue"/>
+          <!-- Observability collectors -->
+          <line class="edge" x1="940" y1="600" x2="1060" y2="600" data-edge-id="obs-logfire" data-source="observability" data-target="logfire"/>
+
+          <!-- === Nodes === -->
+          <!-- Humans -->
+          <g data-component-id="operator" data-trust-tier="medium" data-node-shape="rectangle">
+            <rect class="node-shape" x="50"  y="50"  width="130" height="60"/>
+            <text class="node-label" x="115" y="75">Operator</text>
+            <text class="node-label sub" x="115" y="92">human</text>
+          </g>
+          <g data-component-id="security-console" data-trust-tier="medium" data-node-shape="rectangle">
+            <rect class="node-shape" x="380" y="50"  width="120" height="60"/>
+            <text class="node-label" x="440" y="75">Security Console</text>
+            <text class="node-label sub" x="440" y="92">UI</text>
+          </g>
+          <g data-component-id="slack" data-trust-tier="medium" data-node-shape="rectangle">
+            <rect class="node-shape" x="950" y="50"  width="220" height="60"/>
+            <text class="node-label" x="1060" y="75">Slack Approval Channels</text>
+            <text class="node-label sub" x="1060" y="92">async HITL</text>
+          </g>
+
+          <!-- Control plane -->
+          <g data-component-id="safety-gate" data-trust-tier="high" data-node-shape="hexagon">
+            <polygon class="node-shape" points="395,190 410,165 440,165 455,190 440,215 410,215"/>
+            <text class="node-label" x="425" y="187">Safety Gate</text>
+            <text class="node-label sub" x="425" y="201">Service</text>
+          </g>
+          <g data-component-id="fastapi" data-trust-tier="medium" data-node-shape="rectangle">
+            <rect class="node-shape" x="460" y="160" width="160" height="60"/>
+            <text class="node-label" x="540" y="183">FastAPI</text>
+            <text class="node-label sub" x="540" y="200">Control Plane</text>
+          </g>
+          <g data-component-id="campaign-runner" data-trust-tier="medium" data-node-shape="rectangle">
+            <rect class="node-shape" x="725" y="160" width="150" height="60"/>
+            <text class="node-label" x="800" y="183">Campaign</text>
+            <text class="node-label sub" x="800" y="200">Runner</text>
+          </g>
+
+          <!-- Campaign Agents -->
+          <g data-component-id="coverage-scoring" data-trust-tier="medium-low" data-node-shape="hexagon">
+            <polygon class="node-shape" points="100,330 115,300 195,300 210,330 195,360 115,360"/>
+            <text class="node-label" x="155" y="325">Coverage</text>
+            <text class="node-label sub" x="155" y="340">Scoring Service</text>
+          </g>
+          <g data-component-id="orchestrator" data-trust-tier="medium" data-node-shape="rectangle">
+            <rect class="node-shape" x="240" y="300" width="100" height="60"/>
+            <text class="node-label" x="290" y="325">Orchestrator</text>
+          </g>
+          <g data-component-id="red-team" data-trust-tier="untrusted" data-node-shape="rectangle">
+            <rect class="node-shape" x="440" y="300" width="100" height="60"/>
+            <text class="node-label" x="490" y="325">Red Team</text>
+          </g>
+          <g data-component-id="judge" data-trust-tier="medium" data-node-shape="rectangle">
+            <rect class="node-shape" x="680" y="300" width="100" height="60"/>
+            <text class="node-label" x="730" y="325">Judge</text>
+          </g>
+          <g data-component-id="documentation" data-trust-tier="low" data-node-shape="rectangle">
+            <rect class="node-shape" x="940" y="300" width="120" height="60"/>
+            <text class="node-label" x="1000" y="325">Documentation</text>
+          </g>
+
+          <!-- Target Adapter + Target + Regression Promotion -->
+          <g data-component-id="target-adapter" data-trust-tier="untrusted" data-node-shape="rectangle">
+            <rect class="node-shape" x="400" y="430" width="160" height="60"/>
+            <text class="node-label" x="480" y="455">Target Adapter</text>
+            <text class="node-label sub" x="480" y="472">controlled boundary</text>
+          </g>
+          <g data-component-id="clinical-copilot" data-trust-tier="untrusted" data-node-shape="rectangle">
+            <rect class="node-shape" x="950" y="430" width="220" height="60"/>
+            <text class="node-label" x="1060" y="455">Clinical Co-Pilot</text>
+            <text class="node-label sub" x="1060" y="472">Target — OpenEMR</text>
+          </g>
+          <g data-component-id="regression-promotion" data-trust-tier="medium-low" data-node-shape="hexagon">
+            <polygon class="node-shape" points="930,460 945,430 1035,430 1050,460 1035,490 945,490"/>
+            <text class="node-label" x="990" y="455">Regression</text>
+            <text class="node-label sub" x="990" y="470">Promotion Service</text>
+          </g>
+
+          <!-- Storage -->
+          <g data-component-id="security-app-db" data-trust-tier="medium" data-node-shape="cylinder">
+            <path class="node-shape" d="M60,590 Q60,575 100,575 L160,575 Q200,575 200,590 L200,640 Q200,655 160,655 L100,655 Q60,655 60,640 Z"/>
+            <path class="node-shape" d="M60,590 Q60,605 100,605 L160,605 Q200,605 200,590" fill="none"/>
+            <text class="node-label" x="130" y="625">Security App DB</text>
+            <text class="node-label sub" x="130" y="642">SQLite</text>
+          </g>
+          <g data-component-id="artifact-store" data-trust-tier="medium" data-node-shape="cylinder">
+            <path class="node-shape" d="M220,590 Q220,575 260,575 L320,575 Q360,575 360,590 L360,640 Q360,655 320,655 L260,655 Q220,655 220,640 Z"/>
+            <path class="node-shape" d="M220,590 Q220,605 260,605 L320,605 Q360,605 360,590" fill="none"/>
+            <text class="node-label" x="290" y="625">Artifact Store</text>
+            <text class="node-label sub" x="290" y="642">JSONL + evals/</text>
+          </g>
+          <g data-component-id="audit-ledger" data-trust-tier="medium" data-node-shape="cylinder">
+            <path class="node-shape" d="M1000,190 Q1000,175 1040,175 L1100,175 Q1140,175 1140,190 L1140,240 Q1140,255 1100,255 L1040,255 Q1000,255 1000,240 Z"/>
+            <path class="node-shape" d="M1000,190 Q1000,205 1040,205 L1100,205 Q1140,205 1140,190" fill="none"/>
+            <text class="node-label" x="1070" y="225">Audit Ledger</text>
+            <text class="node-label sub" x="1070" y="242">approval + audit</text>
+          </g>
+          <g data-component-id="queue" data-trust-tier="medium" data-node-shape="asymmetric">
+            <polygon class="node-shape" points="400,575 540,575 555,655 415,655"/>
+            <text class="node-label" x="478" y="615">Queue</text>
+            <text class="node-label sub" x="478" y="632">post-MVP</text>
+          </g>
+
+          <!-- Observability -->
+          <g data-component-id="observability" data-trust-tier="medium" data-node-shape="rectangle">
+            <rect class="node-shape" x="870" y="585" width="170" height="60"/>
+            <text class="node-label" x="955" y="610">Observability Layer</text>
+            <text class="node-label sub" x="955" y="627">traces + cost ledger</text>
+          </g>
+          <g data-component-id="logfire" data-trust-tier="medium" data-node-shape="rectangle">
+            <rect class="node-shape" x="1060" y="585" width="150" height="60"/>
+            <text class="node-label" x="1135" y="610">Logfire /</text>
+            <text class="node-label sub" x="1135" y="627">OpenTelemetry</text>
+          </g>
+        </svg>
+      </div>
     </section>
 
     <section data-slide="3" data-title="Approval Flow">
