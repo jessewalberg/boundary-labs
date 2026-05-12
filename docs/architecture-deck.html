@@ -6,6 +6,15 @@
     - Slide 2 system map: FIX_PLAN.md WU-9a/9b authoritative until applied to ARCHITECTURE.md.
     - Slide 3 approval sequence: FIX_PLAN.md WU-23 authoritative until applied.
     - All panel-text content: ARCHITECTURE.md authoritative.
+  R16 typography compromise (U8 fallback path taken): system-font stack in lieu of
+    inlined Source Serif Pro / Inter / JetBrains Mono. Time-box exceeded — font
+    subsetting toolchain and upstream WOFF2 downloads were not executable in this
+    build environment. Font-family lists name the custom faces with system fallbacks
+    so a future rebuild can drop inlined @font-face data URIs without changing
+    selectors. On macOS targets the fallback chain renders cleanly:
+      Headings  -> Source Serif Pro -> Iowan Old Style -> Georgia.
+      Body      -> Inter            -> -apple-system   -> system-ui sans.
+      Monospace -> JetBrains Mono   -> ui-monospace    -> SF Mono.
   Rebuild instructions: update both commits and regenerate panel content from the matching
     commit's ARCHITECTURE.md (see docs/plans/2026-05-12-001-feat-interactive-architecture-deck-plan.md).
 -->
