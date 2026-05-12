@@ -228,6 +228,23 @@
     #panel .panel-header[data-trust-tier="medium"]      .tier-swatch { background: var(--trust-medium); }
     #panel .panel-header[data-trust-tier="high"]        .tier-swatch { background: var(--trust-high); }
 
+    /* Pin icon (U11) — outline by default, filled when locked */
+    #panel .pin-btn {
+      margin-left: auto;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      transition: background 150ms;
+    }
+    #panel .pin-btn:hover { background: rgba(17, 122, 101, 0.08); }
+    #panel .pin-btn svg { width: 18px; height: 18px; fill: var(--ink-faint); }
+    #panel[data-locked] { border-left: 3px solid var(--teal-accent); padding-left: 26px; }
+    #panel[data-locked] .pin-btn svg { fill: var(--teal); }
+
     /* === Docked-mode rule (R11 + U1 F2 fix) === */
     @media (max-width: 720px) {
       #panel {
@@ -742,6 +759,20 @@
     <button type="button" data-slide-target="6"><span class="num">6</span> Data Contracts</button>
   </nav>
 
+  <!-- Inline SVG symbols for pin icon (U11 F13 — Heroicons map-pin outline/solid) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="pin-outline" viewBox="0 0 24 24">
+        <path d="M12 21s-7-6.2-7-12a7 7 0 1 1 14 0c0 5.8-7 12-7 12z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      </symbol>
+      <symbol id="pin-solid" viewBox="0 0 24 24">
+        <path d="M12 21s-7-6.2-7-12a7 7 0 1 1 14 0c0 5.8-7 12-7 12z" fill="currentColor"/>
+        <circle cx="12" cy="9" r="2.5" fill="var(--bg-canvas)"/>
+      </symbol>
+    </defs>
+  </svg>
+
   <aside id="panel" data-mode="hidden" aria-label="Component detail panel">
     <div class="panel-header" data-trust-tier="">
       <span class="tier-swatch" aria-hidden="true"></span>
@@ -749,6 +780,9 @@
         <h2 class="name"></h2>
         <div class="meta"></div>
       </div>
+      <button type="button" class="pin-btn" id="pin-btn" aria-label="Pin panel (click to lock)">
+        <svg><use href="#pin-outline" id="pin-icon-use"/></svg>
+      </button>
     </div>
     <dl class="panel-body"></dl>
   </aside>
@@ -982,9 +1016,20 @@
         if (parseInt(b.dataset.slideTarget, 10) === n) b.setAttribute('data-current', '');
         else b.removeAttribute('data-current');
       });
-      /* R5 composition rule (e): reset hover + lock on slide nav; preserve lifecycle + trust-mode */
+      /* R5 composition rule (e): reset hover + lock on slide nav; preserve lifecycle + trust-mode.
+         setLock(null) is called inline here without a function reference, because U11's setLock
+         is defined later in the script body — we manually clear the lock UI here and let
+         renderHover() do the canvas reset. The full setLock function is wired post-definition. */
       state.hover_target = null;
-      state.locked_target = null;
+      if (state.locked_target !== null) {
+        state.locked_target = null;
+        const panel = document.getElementById('panel');
+        const pinUse = document.getElementById('pin-icon-use');
+        if (panel) panel.removeAttribute('data-locked');
+        if (pinUse) pinUse.setAttribute('href', '#pin-outline');
+      }
+      // Render only matters if we're on Slide 2 or returning to it; renderHover is a no-op
+      // when the SVG isn't found.
       renderHover();
     }
 
@@ -1207,6 +1252,58 @@
     /* Wire toolbar buttons */
     document.getElementById('toggle-trust').addEventListener('click', toggleTrustMode);
     document.getElementById('step-forward').addEventListener('click', advanceLifecycle);
+
+    /* === U11: click-to-lock state machine === */
+
+    function setLock(componentId) {
+      state.locked_target = componentId;
+      const panel = document.getElementById('panel');
+      const pinUse = document.getElementById('pin-icon-use');
+      if (componentId) {
+        panel.setAttribute('data-locked', '');
+        pinUse.setAttribute('href', '#pin-solid');
+        renderPanel(componentId);
+        renderHover(); // render priority: locked > hover
+      } else {
+        panel.removeAttribute('data-locked');
+        pinUse.setAttribute('href', '#pin-outline');
+        // After releasing lock, fall back to current hover state (or empty)
+        renderHover();
+      }
+    }
+
+    /* Click handlers on the Slide-2 SVG: click on a node sets/transfers lock;
+       click on empty canvas releases lock. */
+    (function wireSlideTwoClick() {
+      const svg = document.querySelector('section[data-slide="2"] svg.system-map');
+      if (!svg) return;
+
+      svg.addEventListener('click', (e) => {
+        // Don't treat toolbar clicks as canvas clicks
+        if (e.target.closest('.canvas-toolbar')) return;
+        const nodeGroup = e.target.closest('[data-component-id]');
+        if (nodeGroup) {
+          // Lock or transfer-lock
+          setLock(nodeGroup.dataset.componentId);
+        } else {
+          // Click on empty canvas → release lock
+          if (state.locked_target) setLock(null);
+        }
+      });
+    })();
+
+    /* Pin button → release lock */
+    document.getElementById('pin-btn').addEventListener('click', () => {
+      if (state.locked_target) setLock(null);
+    });
+
+    /* Escape → release lock (works on any slide). */
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && state.locked_target) {
+        e.preventDefault();
+        setLock(null);
+      }
+    });
 
     /* Slide-2 keyboard hooks (R5 right-arrow precedence; T toggle).
        The base ArrowLeft/Right handler in the slide-nav block treats both as
