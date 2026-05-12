@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<!--
+  ARCHITECTURE.md @ security-auto:4f09569
+  FIX_PLAN.md @ security-auto:4f09569
+  Diagram-authoritative at stamp time: FIX_PLAN.md
+    - Slide 2 system map: FIX_PLAN.md WU-9a/9b authoritative until applied to ARCHITECTURE.md.
+    - Slide 3 approval sequence: FIX_PLAN.md WU-23 authoritative until applied.
+    - All panel-text content: ARCHITECTURE.md authoritative.
+  Rebuild instructions: update both commits and regenerate panel content from the matching
+    commit's ARCHITECTURE.md (see docs/plans/2026-05-12-001-feat-interactive-architecture-deck-plan.md).
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1280">
+  <title>Protective Security Agent — Architecture Deck</title>
+  <style>
+    /* === Design tokens (clean-academic, arXiv-anchored) === */
+    :root {
+      --navy: #0F2748;
+      --teal: #117A65;
+      --teal-accent: #1B9E83;
+      --ink: #1A1A1A;
+      --ink-muted: #4A4A4A;
+      --ink-faint: #8A8A8A;
+      --bg: #FAF9F6;
+      --bg-canvas: #FFFFFF;
+      --rule: #D6D2C9;
+
+      /* Trust tiers (muted, arXiv-fitting) */
+      --trust-untrusted:    #C24A4A;
+      --trust-low:          #D88B7A;
+      --trust-medium-low:   #D9A6A8;
+      --trust-medium:       #5C7AAB;
+      --trust-high:         #5E8C5A;
+
+      --canvas-min-width: 720px;
+      --strip-height: 48px;
+    }
+
+    /* === Reset === */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      overflow: hidden;
+    }
+    h1, h2, h3 {
+      font-family: "Source Serif Pro", "Iowan Old Style", Georgia, "Times New Roman", serif;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+    code, .mono {
+      font-family: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    /* === Deck shell === */
+    #deck {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: var(--strip-height);
+      overflow: hidden;
+    }
+    section[data-slide] {
+      position: absolute;
+      inset: 0;
+      padding: 48px 64px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 150ms;
+    }
+    section[data-slide][data-active] {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* === Slide index strip === */
+    #slide-index {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: var(--strip-height);
+      display: flex;
+      align-items: stretch;
+      background: var(--bg-canvas);
+      border-top: 1px solid var(--rule);
+      z-index: 10;
+    }
+    #slide-index button {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--rule);
+      padding: 0 16px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--ink-muted);
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: color 150ms, background 150ms;
+    }
+    #slide-index button:last-child { border-right: none; }
+    #slide-index button:hover { background: rgba(17, 122, 101, 0.06); color: var(--ink); }
+    #slide-index button[data-current] {
+      color: var(--teal);
+      font-weight: 600;
+      background: rgba(17, 122, 101, 0.08);
+    }
+    #slide-index .num {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      color: var(--ink-faint);
+    }
+    #slide-index button[data-current] .num { color: var(--teal); }
+
+    /* === Side panel (placeholder; U9/U10 will populate) === */
+    #panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: var(--strip-height);
+      width: 360px;
+      background: var(--bg-canvas);
+      border-left: 1px solid var(--rule);
+      padding: 32px 24px;
+      transform: translateX(100%);
+      transition: transform 150ms;
+      overflow-y: auto;
+      z-index: 5;
+    }
+    #panel[data-mode="open"] { transform: translateX(0); }
+
+    /* === Docked-mode rule (R11 + U1 F2 fix) === */
+    @media (max-width: 720px) {
+      #panel {
+        top: auto;
+        bottom: var(--strip-height);
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: 50vh;
+        border-left: none;
+        border-top: 1px solid var(--rule);
+        transform: translateY(100%);
+      }
+      #panel[data-mode="open"] { transform: translateY(0); }
+    }
+
+    /* === Slide 1: Title === */
+    section[data-slide="1"] {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+    section[data-slide="1"] .title {
+      font-size: 56px;
+      color: var(--ink);
+      margin-bottom: 32px;
+    }
+    section[data-slide="1"] .pitch {
+      font-size: 22px;
+      line-height: 1.5;
+      color: var(--ink-muted);
+      max-width: 720px;
+      margin-bottom: 24px;
+    }
+    section[data-slide="1"] .target {
+      font-size: 14px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    section[data-slide="1"] .target .mono {
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--teal);
+    }
+    section[data-slide="1"] .rule {
+      width: 80px;
+      height: 1px;
+      background: var(--rule);
+      margin: 32px auto;
+    }
+
+    /* === Placeholder slide content === */
+    section[data-slide] .placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--ink-faint);
+      font-style: italic;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <main id="deck">
+    <section data-slide="1" data-title="Title" data-active>
+      <h1 class="title">Protective Security Agent</h1>
+      <p class="pitch">
+        A multi-agent adversarial evaluation platform that continuously discovers,
+        evaluates, documents, and regression-tests vulnerabilities in AI-assisted
+        healthcare workflows.
+      </p>
+      <div class="rule"></div>
+      <p class="target">Target system &mdash; <span class="mono">Clinical Co-Pilot</span> in OpenEMR</p>
+    </section>
+
+    <section data-slide="2" data-title="System Map">
+      <div class="placeholder">[U2 — System map SVG canvas]</div>
+    </section>
+
+    <section data-slide="3" data-title="Approval Flow">
+      <div class="placeholder">[U4 — Approval flow sequence diagram]</div>
+    </section>
+
+    <section data-slide="4" data-title="Target Attack Surface">
+      <div class="placeholder">[U5 — Target attack surface map]</div>
+    </section>
+
+    <section data-slide="5" data-title="Threat Coverage">
+      <div class="placeholder">[U6 — Threat coverage heat map]</div>
+    </section>
+
+    <section data-slide="6" data-title="Data Contracts">
+      <div class="placeholder">[U7 — Data contracts linear chain]</div>
+    </section>
+  </main>
+
+  <nav id="slide-index" aria-label="Slide index">
+    <button type="button" data-slide-target="1" data-current><span class="num">1</span> Title</button>
+    <button type="button" data-slide-target="2"><span class="num">2</span> System Map</button>
+    <button type="button" data-slide-target="3"><span class="num">3</span> Approval Flow</button>
+    <button type="button" data-slide-target="4"><span class="num">4</span> Target Attack Surface</button>
+    <button type="button" data-slide-target="5"><span class="num">5</span> Threat Coverage</button>
+    <button type="button" data-slide-target="6"><span class="num">6</span> Data Contracts</button>
+  </nav>
+
+  <aside id="panel" data-mode="hidden" aria-label="Component detail panel">
+    <!-- U9 populates panel content; U10/U11 wire interactions -->
+  </aside>
+
+  <script>
+    /* === Page-level state object ===
+       Slide-2 fields (active_step, hover_target, locked_target, trust_mode) are wired in U3/U10/U11.
+       U1 only manages slide navigation. */
+    const state = {
+      current_slide: 1,
+      total_slides: 6,
+      // Slide-2 interactive fields (U3/U10/U11 wire these):
+      active_step: null,
+      hover_target: null,
+      locked_target: null,
+      trust_mode: 'base'
+    };
+
+    function gotoSlide(n) {
+      if (n < 1 || n > state.total_slides) return;
+      state.current_slide = n;
+      document.querySelectorAll('section[data-slide]').forEach(s => {
+        if (parseInt(s.dataset.slide, 10) === n) s.setAttribute('data-active', '');
+        else s.removeAttribute('data-active');
+      });
+      document.querySelectorAll('#slide-index button').forEach(b => {
+        if (parseInt(b.dataset.slideTarget, 10) === n) b.setAttribute('data-current', '');
+        else b.removeAttribute('data-current');
+      });
+      /* Reset hover/lock on slide nav per R5 composition rule (e); U10/U11 will hook this */
+      state.hover_target = null;
+      state.locked_target = null;
+      const panel = document.getElementById('panel');
+      panel.setAttribute('data-mode', 'hidden');
+    }
+
+    /* === Click handlers on slide-index === */
+    document.querySelectorAll('#slide-index button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        gotoSlide(parseInt(btn.dataset.slideTarget, 10));
+      });
+    });
+
+    /* === Keyboard navigation ===
+       U3 will hook ArrowRight/ArrowLeft on Slide 2 for lifecycle precedence.
+       U3 will hook "T" for trust-tier toggle.
+       U11 will hook Escape for click-to-lock release.
+       U1 wires the base case: arrow keys advance/reverse slides. */
+    document.addEventListener('keydown', (e) => {
+      // Slide-2 precedence (U3 will hook the lifecycle path here);
+      // for now, all slides treat arrows as slide-nav.
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        gotoSlide(state.current_slide + 1);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        gotoSlide(state.current_slide - 1);
+      }
+      /* "T" and Escape: hooked by U3/U11 */
+    });
+  </script>
+</body>
+</html>
