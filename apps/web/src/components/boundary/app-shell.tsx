@@ -12,7 +12,9 @@ import {
   History,
   KeyRound,
   Radar,
+  ScrollText,
   Search,
+  SlidersHorizontal,
   ShieldCheck,
   Terminal
 } from "lucide-react";
@@ -43,6 +45,13 @@ const navGroups = [
     label: "// system",
     items: [
       { label: "Targets", href: "/targets", enabled: true, icon: Crosshair },
+      { label: "Audit", href: "/audit", enabled: true, icon: ScrollText },
+    ]
+  },
+  {
+    label: "// settings",
+    items: [
+      { label: "Policy", href: "/settings/policy", enabled: true, icon: SlidersHorizontal },
       { label: "Secrets", href: "/secrets", enabled: true, icon: KeyRound },
       { label: "Schedule", href: "/schedule", enabled: true, icon: History }
     ]
@@ -186,6 +195,8 @@ function breadcrumbFor(pathname: string) {
     "/coverage": "coverage",
     "/findings": "findings",
     "/targets": "targets",
+    "/audit": "audit",
+    "/settings/policy": "settings / policy",
     "/secrets": "secrets",
     "/schedule": "schedule"
   };
