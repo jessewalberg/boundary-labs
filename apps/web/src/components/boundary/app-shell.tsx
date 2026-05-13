@@ -26,8 +26,8 @@ const navGroups = [
     items: [
       { label: "Dashboard", href: "/dashboard", enabled: true, icon: Gauge },
       { label: "Runs", href: "/campaigns", enabled: true, icon: History },
-      { label: "Seeds", href: "/seeds", enabled: false, icon: Crosshair },
-      { label: "Agents", href: "/agents", enabled: false, icon: Bot },
+      { label: "Seeds", href: "/seeds", enabled: false, icon: Crosshair, count: 42 },
+      { label: "Agents", href: "/agents", enabled: false, icon: Bot, count: 5 },
       { label: "Judges", href: "/judges", enabled: false, icon: ShieldCheck }
     ]
   },
@@ -36,7 +36,7 @@ const navGroups = [
     items: [
       { label: "Threat Model", href: "/threat-model", enabled: false, icon: FileWarning },
       { label: "Coverage", href: "/coverage", enabled: false, icon: Radar },
-      { label: "Findings", href: "/findings", enabled: false, icon: Terminal }
+      { label: "Findings", href: "/findings", enabled: false, icon: Terminal, count: 3 }
     ]
   },
   {
@@ -89,12 +89,22 @@ export function AppShell({ children }: { children: ReactNode }) {
                 return item.enabled ? (
                   <Link href={item.href} key={item.label} className={className}>
                     <Icon size={14} aria-hidden="true" />
-                    {item.label}
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {"count" in item && item.count != null ? (
+                      <span className="rounded-[var(--radius-bl)] border border-bl-line bg-bl-trough px-1.5 py-px text-[9px] text-bl-bone-3">
+                        {item.count}
+                      </span>
+                    ) : null}
                   </Link>
                 ) : (
                   <span key={item.label} className={`${className} cursor-not-allowed opacity-55`}>
                     <Icon size={14} aria-hidden="true" />
-                    {item.label}
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {"count" in item && item.count != null ? (
+                      <span className="rounded-[var(--radius-bl)] border border-bl-line bg-bl-trough px-1.5 py-px text-[9px] text-bl-bone-3">
+                        {item.count}
+                      </span>
+                    ) : null}
                   </span>
                 );
               })}
@@ -111,12 +121,24 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div>
               <div className="font-mono text-[11px] text-bl-bone">clinical-copilot</div>
               <div className="font-mono text-[9px] tracking-[0.06em] text-bl-bone-3">
-                railway · configured
+                railway · /readyz ok
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-[var(--radius-bl)] border border-bl-line bg-bl-graphite px-2.5 py-2 opacity-70">
+            <span className="h-2 w-2 rounded-full bg-bl-bone-4" />
+            <div>
+              <div className="font-mono text-[11px] text-bl-bone">localhost:8400</div>
+              <div className="font-mono text-[9px] tracking-[0.06em] text-bl-bone-3">
+                dev · offline
               </div>
             </div>
           </div>
           <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-bl-bone-4">
-            BL_CONSOLE // dev
+            BL_HARNESS // v0.3.1
+          </div>
+          <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-bl-bone-4">
+            session 2.h41m
           </div>
         </section>
       </aside>
@@ -131,7 +153,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex items-center gap-3">
           <Chip tone="signal" className="hidden sm:inline-flex">
-            <Gauge size={12} aria-hidden="true" /> SHELL READY
+            <Gauge size={12} aria-hidden="true" /> HARNESS LIVE · 4 / 4 OK
           </Chip>
           <div className="hidden h-7 w-[280px] items-center gap-2 rounded-[var(--radius-bl)] border border-bl-line bg-bl-trough px-2.5 md:flex">
             <Search size={12} className="text-bl-bone-3" aria-hidden="true" />
@@ -143,6 +165,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <Button>
             <Activity size={12} aria-hidden="true" /> Run
+            <span className="ml-1 border border-bl-line-2 px-1 font-mono text-[10px] text-bl-bone-3">Enter</span>
           </Button>
         </div>
       </header>

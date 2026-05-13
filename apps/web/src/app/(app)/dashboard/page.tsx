@@ -237,8 +237,8 @@ export default function DashboardPage() {
         </Panel>
 
         <Panel watermark="// perimeter · attack surface" right={<Chip>3 vectors live</Chip>} padded={false}>
-          <div className="grid min-h-[250px] place-items-center bg-bl-trough p-4">
-            <img src="/brand/target-reticle.svg" alt="" className="h-36 w-36 opacity-80" />
+          <div className="grid min-h-[250px] place-items-center bg-bl-trough bg-[url('/brand/grid-dark.svg')] bg-[length:32px_32px] p-4">
+            <img src="/brand/perimeter.svg" alt="" className="h-auto w-full max-w-[420px] opacity-90" />
           </div>
           <div className="flex justify-between border-t border-bl-line bg-bl-trough px-3.5 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-bl-bone-3">
             <span>// authorized only</span>
