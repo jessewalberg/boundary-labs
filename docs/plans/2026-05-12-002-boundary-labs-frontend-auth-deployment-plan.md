@@ -16,8 +16,9 @@ This should not become a UI wrapper around one Python script. The frontend shoul
 
 Build a single-service app first:
 
-- `apps/web`: Next.js App Router console, TypeScript, server-rendered authenticated UI, route handlers/server actions for the control plane, deployed as one standalone Railway service.
-- `scripts/run_mvp_evals.py`: temporarily executed by the web service's server-side campaign runner until the native campaign runner exists.
+- `apps/web`: Next.js App Router console, TypeScript, server-rendered authenticated UI, route handlers/server actions for the control plane, deployed as one Docker-backed Railway service.
+- `worker/`: Python worker hosted in the same container as a supervised child process. It claims SQLite `campaign_jobs`, runs the Pydantic Graph path, writes sentinels/artifacts, and mirrors Safety Gate policy from generated code.
+- `scripts/run_mvp_evals.py`: the deterministic runner contract used by the worker for campaign execution artifacts.
 
 Use Tailwind CSS 4 and shadcn/ui as the React component foundation. The static designs in `designs/` are the visual source of truth and should be rebuilt as composable React components, not embedded as HTML exports or inline-style ports.
 
@@ -31,11 +32,12 @@ Default auth path:
 
 Deployment target:
 
-- One Railway service for `boundary-web`.
+- One Railway service for `boundary-web`, built from the root `Dockerfile`.
+- `supervisord` runs `next start`, `python -m worker`, and the fatal-exit listener as sibling processes.
 - One persistent Railway volume mounted at `/data` for SQLite and artifacts.
 - GitHub Actions owns CI and deploy orchestration using a Railway project token and a `demo` GitHub Environment.
 
-This keeps the UI modern, keeps deployment simple, and avoids spending time on extra infrastructure before the product surface proves itself. Postgres, a separate FastAPI service, and workers remain planned upgrade paths.
+This keeps the UI modern, keeps deployment simple, and avoids spending time on extra infrastructure before the product surface proves itself. Postgres, a separate FastAPI service, and horizontally scaled workers remain planned upgrade paths.
 
 ## Scope
 
@@ -68,9 +70,10 @@ Browser
   -> apps/web Next.js console
     -> Better Auth
     -> SQLite on /data
-    -> Server-side Campaign Runner
+    -> Safety Gate + approvals + audit
+    -> SQLite campaign_jobs queue
+    -> supervised Python worker
     -> Artifact Store on /data
-    -> Audit Ledger
     -> Clinical Co-Pilot target
 ```
 
@@ -319,19 +322,20 @@ Recommended first navigation:
 
 Railway services for the demo:
 
-- `boundary-web`: Next.js standalone service.
+- `boundary-web`: Dockerfile-built service containing Next.js web and Python worker child processes under `supervisord`.
 - `/data` volume attached to `boundary-web` for SQLite and artifacts.
 
 Deferred services:
 
 - `boundary-api`: FastAPI service, only if Next route handlers become too crowded or we need Python-native orchestration online.
 - `boundary-db`: Postgres, only when SQLite limits become real.
-- `boundary-worker`: post-MVP worker for long-running campaigns.
 - `boundary-redis`: post-MVP queue/cache if needed.
+
+The worker is no longer deferred for the demo; it runs inside `boundary-web` as `python -m worker`. A separate worker service is a future scale-out option, not a current missing deployment unit.
 
 Service readiness:
 
-- `boundary-web /readyz`: checks app boot, Better Auth config presence, SQLite read/write, artifact directory read/write, target allowlist config, and deployed target readiness cache.
+- `boundary-web /readyz`: checks app boot, worker heartbeat freshness, SQLite `PRAGMA integrity_check`, `policy_values` bootstrap state, local state paths, target allowlist config, and data mode.
 
 ## GitHub Actions
 
@@ -339,18 +343,16 @@ Service readiness:
 
 #### `.github/workflows/ci.yml`
 
-Runs on PR and push:
+Runs on pull request only:
 
-- Install Node dependencies.
-- Install Python dependencies only for eval-runner/schema checks.
-- Lint web.
+- Install Node dependencies with pnpm.
+- Install Python worker dependencies.
 - Typecheck web.
 - Unit test web.
-- Validate eval JSON schemas and sample results.
-- Run eval runner import/smoke tests.
-- Run secret scan.
-- Run dependency audit.
 - Build web.
+- Run Playwright login smoke.
+- Verify Safety Gate codegen freshness.
+- Run Python worker tests and parity checks.
 
 #### `.github/workflows/deploy-preview.yml`
 
@@ -362,14 +364,15 @@ Runs on PR when requested:
 
 This can be deferred if time is tight.
 
-#### `.github/workflows/deploy-demo.yml`
+#### `.github/workflows/deploy-railway.yml`
 
 Runs on push to `main` and `workflow_dispatch`:
 
 - Uses GitHub Environment `demo`.
-- Uses concurrency group `demo`.
-- Runs SQLite/Drizzle migrations as part of app startup or a pre-start command.
-- Deploys `apps/web` with Railway CLI.
+- Uses concurrency group `railway-production`.
+- Validates `policy_seed.json` and migrations against a temporary SQLite database.
+- Runs Docker build preflight from the root `Dockerfile`.
+- Deploys the root project with Railway CLI.
 - Runs public smoke checks:
   - `GET /healthz`
   - `GET /readyz`
@@ -379,19 +382,20 @@ Runs on push to `main` and `workflow_dispatch`:
 
 Use Railway project tokens, not personal tokens. Pin third-party GitHub Actions by version or commit SHA. A protected production-grade environment is deferred until this is more than a synthetic-data demo.
 
+Legacy `.gitlab-ci.yml` remains in the repo until `.github/workflows/deploy-railway.yml` has completed at least one green deploy cycle. After that proof, delete the GitLab file so GitHub Actions is the only deploy path.
+
 ## Secrets and Environment Variables
 
 GitHub Environment secrets:
 
 - `RAILWAY_TOKEN`
 - `RAILWAY_PROJECT_ID`
-- `BOUNDARY_WEB_SERVICE`
-- `AUTH_ISSUER`
-- `AUTH_CLIENT_ID`
-- `AUTH_CLIENT_SECRET`
-- `AUTH_AUDIENCE`
+- `RAILWAY_SERVICE_ID`
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`
+- `BAA_DOCUMENT_HASH`
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
 - `SQLITE_PATH=/data/boundary.db` should be a Railway variable, not a GitHub secret.
 - `BOUNDARY_ARTIFACT_DIR=/data/artifacts` should be a Railway variable.
 
@@ -645,10 +649,9 @@ Tests:
 Files:
 
 - `.github/workflows/ci.yml`
-- `.github/workflows/deploy-demo.yml`
-- `.github/workflows/deploy-preview.yml`
-- `apps/web/Dockerfile`
-- `apps/web/railway.toml`
+- `.github/workflows/deploy-railway.yml`
+- `Dockerfile`
+- `railway.toml`
 - `.railwayignore`
 
 Work:

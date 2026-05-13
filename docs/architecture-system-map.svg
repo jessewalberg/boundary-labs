@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1394" height="753" viewBox="0 0 1394 753">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#303030" />
+    </marker>
+    <style>
+      .bg { fill: #fbfaf7; }
+      .zone { fill: none; stroke: #d8d2c8; stroke-width: 1; stroke-dasharray: 2 4; }
+      .box { fill: #ffffff; stroke: #202020; stroke-width: 1.5; }
+      .hex { fill: #ffffff; stroke: #202020; stroke-width: 1.5; }
+      .store { fill: #ffffff; stroke: #202020; stroke-width: 1.5; }
+      .label { font: 700 13px Arial, sans-serif; fill: #5d5a56; letter-spacing: 1px; }
+      .title { font: 14px Arial, sans-serif; fill: #111111; }
+      .sub { font: 11px Arial, sans-serif; fill: #77716b; }
+      .line { fill: none; stroke: #303030; stroke-width: 1.5; marker-end: url(#arrow); }
+      .dash { fill: none; stroke: #303030; stroke-width: 1.2; stroke-dasharray: 5 4; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1394" height="753" />
+
+  <rect class="zone" x="36" y="42" width="298" height="86" rx="5" />
+  <text class="label" x="43" y="36">HUMANS</text>
+  <rect class="zone" x="398" y="42" width="258" height="86" rx="5" />
+  <text class="label" x="406" y="36">CONSOLE (UI SURFACE)</text>
+  <rect class="zone" x="397" y="146" width="560" height="104" rx="5" />
+  <text class="label" x="406" y="154">CONTROL PLANE</text>
+  <rect class="zone" x="1006" y="42" width="250" height="86" rx="5" />
+  <text class="label" x="1006" y="36">OPTIONAL HITL MIRROR</text>
+  <rect class="zone" x="34" y="300" width="1264" height="108" rx="5" />
+  <text class="label" x="43" y="294">CAMPAIGN EXECUTION</text>
+  <rect class="zone" x="398" y="430" width="258" height="114" rx="5" />
+  <text class="label" x="406" y="444">TARGET BOUNDARY</text>
+  <rect class="zone" x="1006" y="430" width="258" height="114" rx="5" />
+  <text class="label" x="1006" y="444">TARGET SYSTEM</text>
+  <rect class="zone" x="34" y="600" width="836" height="108" rx="5" />
+  <text class="label" x="43" y="594">STORAGE AND AUDIT</text>
+  <rect class="zone" x="918" y="600" width="380" height="108" rx="5" />
+  <text class="label" x="920" y="594">OBSERVABILITY</text>
+
+  <rect class="box" x="44" y="54" width="140" height="64" rx="4" />
+  <text class="title" x="88" y="84">Operator</text>
+  <text class="sub" x="98" y="102">human</text>
+
+  <rect class="box" x="398" y="54" width="128" height="64" rx="4" />
+  <text class="title" x="413" y="84">Security Console</text>
+  <text class="sub" x="454" y="102">UI</text>
+
+  <polygon class="hex" points="414,178 430,160 474,160 490,178 474,236 430,236" />
+  <text class="title" x="424" y="196">Safety Gate</text>
+  <text class="sub" x="421" y="214">policy mirror</text>
+
+  <rect class="box" x="516" y="170" width="172" height="66" rx="4" />
+  <text class="title" x="552" y="199">Next.js</text>
+  <text class="sub" x="558" y="217">Control Plane</text>
+
+  <rect class="box" x="764" y="170" width="164" height="66" rx="4" />
+  <text class="title" x="805" y="199">Campaign</text>
+  <text class="sub" x="811" y="217">enqueue + ingest</text>
+
+  <rect class="box" x="1008" y="54" width="236" height="64" rx="4" />
+  <text class="title" x="1054" y="84">Slack / Email</text>
+  <text class="sub" x="1064" y="102">optional mirror</text>
+
+  <polygon class="hex" points="98,322 114,290 200,290 216,322 200,386 114,386" />
+  <text class="title" x="122" y="337">Coverage</text>
+  <text class="sub" x="124" y="355">Scoring Service</text>
+
+  <rect class="box" x="248" y="322" width="108" height="64" rx="4" />
+  <text class="title" x="266" y="356">Orchestrator</text>
+
+  <rect class="box" x="462" y="322" width="108" height="64" rx="4" />
+  <text class="title" x="490" y="356">Red Team</text>
+
+  <rect class="box" x="674" y="322" width="152" height="64" rx="4" />
+  <text class="title" x="707" y="349">Python Worker</text>
+  <text class="sub" x="704" y="367">Pydantic Graph</text>
+
+  <rect class="box" x="862" y="322" width="108" height="64" rx="4" />
+  <text class="title" x="899" y="356">Judge</text>
+
+  <rect class="box" x="1030" y="322" width="126" height="64" rx="4" />
+  <text class="title" x="1047" y="356">Documentation</text>
+
+  <polygon class="hex" points="1164,322 1180,290 1260,290 1276,322 1260,386 1180,386" />
+  <text class="title" x="1188" y="337">Regression</text>
+  <text class="sub" x="1186" y="355">Promotion Service</text>
+
+  <rect class="box" x="420" y="460" width="170" height="66" rx="4" />
+  <text class="title" x="462" y="492">Target Adapter</text>
+  <text class="sub" x="460" y="510">controlled boundary</text>
+
+  <rect class="box" x="1008" y="460" width="236" height="66" rx="4" />
+  <text class="title" x="1079" y="492">Clinical Co-Pilot</text>
+  <text class="sub" x="1082" y="510">Target - OpenEMR</text>
+
+  <path class="store" d="M54,642 C54,624 206,624 206,642 L206,684 C206,702 54,702 54,684 Z" />
+  <ellipse class="store" cx="130" cy="642" rx="76" ry="18" />
+  <text class="title" x="82" y="672">Security App DB</text>
+  <text class="sub" x="116" y="690">SQLite</text>
+
+  <path class="store" d="M226,642 C226,624 378,624 378,642 L378,684 C378,702 226,702 226,684 Z" />
+  <ellipse class="store" cx="302" cy="642" rx="76" ry="18" />
+  <text class="title" x="258" y="672">Artifact Store</text>
+  <text class="sub" x="262" y="690">/data/artifacts</text>
+
+  <path class="store" d="M398,642 C398,624 550,624 550,642 L550,684 C550,702 398,702 398,684 Z" />
+  <ellipse class="store" cx="474" cy="642" rx="76" ry="18" />
+  <text class="title" x="438" y="672">Audit Ledger</text>
+  <text class="sub" x="434" y="690">append-only</text>
+
+  <polygon class="box" points="590,616 742,616 756,702 604,702" />
+  <text class="title" x="640" y="662">Queue</text>
+  <text class="sub" x="618" y="680">campaign_jobs</text>
+
+  <rect class="box" x="922" y="626" width="182" height="64" rx="4" />
+  <text class="title" x="958" y="658">Observability Layer</text>
+  <text class="sub" x="964" y="676">traces + cost ledger</text>
+
+  <rect class="box" x="1126" y="626" width="160" height="64" rx="4" />
+  <text class="title" x="1174" y="658">Logfire /</text>
+  <text class="sub" x="1174" y="676">OpenTelemetry</text>
+
+  <path class="line" d="M184,86 L398,86" />
+  <path class="line" d="M462,118 L462,160" />
+  <path class="line" d="M526,86 L602,170" />
+  <path class="line" d="M688,203 L764,203" />
+  <path class="line" d="M846,236 L846,300" />
+  <path class="dash" d="M654,170 C760,132 940,132 1008,86" />
+  <path class="line" d="M846,236 L666,616" />
+  <path class="line" d="M452,236 L130,624" />
+  <path class="line" d="M452,236 L474,624" />
+  <path class="line" d="M216,354 L248,354" />
+  <path class="line" d="M356,354 L462,354" />
+  <path class="line" d="M570,354 L674,354" />
+  <path class="line" d="M826,354 L862,354" />
+  <path class="line" d="M970,354 L1030,354" />
+  <path class="line" d="M1156,354 L1164,354" />
+  <path class="line" d="M516,386 L505,460" />
+  <path class="line" d="M750,386 L590,460" />
+  <path class="line" d="M590,493 L1008,493" />
+  <path class="line" d="M1008,512 L590,512" />
+  <path class="line" d="M674,386 L302,624" />
+  <path class="line" d="M750,386 L474,624" />
+  <path class="line" d="M1093,386 L474,624" />
+  <path class="line" d="M1104,658 L1126,658" />
+</svg>

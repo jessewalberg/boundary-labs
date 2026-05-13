@@ -6,6 +6,7 @@ Interactive architecture deck: `docs/architecture-deck.html`
 Canonical system map image: `docs/architecture-system-map.png`
 Previous Excalidraw diagram: https://app.excalidraw.com/s/9xifBd5YAg0/54ViBcu7irY
 Document status: Architecture and build plan for an authorized defensive security platform
+Implementation update: `docs/plans/2026-05-13-001-feat-platform-buildout-plan.md` supersedes the earlier FastAPI-control-plane deployment shape for the current demo build. The deployed platform is one Docker/Railway service with Next.js and a Python worker supervised as sibling processes.
 
 ## Executive Summary
 
@@ -18,6 +19,8 @@ The security platform should be a completely separate app from the Clinical Co-P
 The first MVP should stand up the target, create `THREAT_MODEL.md`, define a versioned eval schema under `evals/`, implement a live Target Adapter, and ship one working Red Team or Judge agent against at least three attack categories. The full platform then adds independent judging, Pydantic Graph campaign orchestration, regression promotion, documentation, Slack human-in-the-loop approvals, observability, and cost controls. Priority categories come from the PRD and current LLM security guidance: direct and indirect prompt injection, multi-turn manipulation, data exfiltration, cross-patient authorization bypass, state corruption, tool misuse, denial of service and cost amplification, and identity or role exploitation.
 
 The trust model is conservative. The system may autonomously generate low-risk variants, run authorized eval campaigns, record results, draft reports, and schedule regressions. It must stop for human approval before testing any non-allowlisted target, using real PHI, filing high or critical reports externally, recommending production remediation, changing target defenses, or expanding privileges. Autonomy increases coverage and repeatability; high-impact actions remain governed, auditable, and reversible.
+
+Current implementation shape: a single Docker container runs the Next.js console/control plane and the Python Pydantic Graph worker under `supervisord`. Better Auth protects the console with three Boundary roles (`admin`, `operator`, `reviewer`). The system of record is SQLite on `/data/boundary.db` with WAL mode, append-only `audit_events`, `campaign_jobs` queue rows, and artifact storage under `/data/artifacts`. Safety Gate policy is stored in `policy_values`, mirrored into the worker by build-time codegen, and enforced both before web mutations and when the worker claims jobs. The CISO-readable trust surface is `/settings/policy`, `/settings/baa`, `/audit`, and `/approvals`.
 
 ## Goals And Non-Goals
 
@@ -106,12 +109,12 @@ This boundary matters because the tester should not be part of the system it jud
 
 ### Considered Alternatives
 
-Two lighter shapes were considered and rejected before committing to a separate FastAPI application:
+Two lighter shapes were considered and rejected before committing to a separate security application:
 
 1. **CLI-driven eval harness wrapping `pydantic-evals`.** A single Python process that loops over attack cases and calls the target. Rejected because the PRD's multi-agent framing requires distinct contexts, tools, and trust levels per role (Red Team's adversarial input must not be trusted by the Judge; the Documentation agent must not see raw red-team reasoning). A single-process harness can simulate the separation but cannot demonstrate it — and the rubric specifically asks for visible separation of duties.
 2. **Opt-in adversarial mode inside the target's `clinical-copilot/tests/eval/`.** Rejected because the tester would inherit the target's trust boundary (same process, same secrets, same Logfire project) — the security app's own threat model collapses, and the "tester is not the testee" principle is violated. The target also has local uncommitted changes that would conflict with a Week 3 fork.
 
-The chosen separation costs more setup (a second FastAPI, second DB, second deployment) but unlocks the trust-boundary story the PRD rubric grades. Week 3 budgets that cost against the "Phase 0–2 setup time" line item — see Build Plan for the per-phase day budgets.
+The chosen separation costs more setup than a CLI-only harness, but the current demo implementation keeps the operations footprint small: one Railway service, one SQLite database, one `/data` volume, and a supervised Python worker inside the same container. A separate FastAPI service remains a future extraction option if Next.js route handlers or the worker boundary become too crowded.
 
 ## Design Principles
 
@@ -127,10 +130,10 @@ The chosen separation costs more setup (a second FastAPI, second DB, second depl
 
 | Layer | Recommendation | Rationale |
 | --- | --- | --- |
-| Agent orchestration | Pydantic AI agents orchestrated by stable `pydantic_graph.Graph` nodes | Aligns with the target's existing agent stack while keeping orchestration typed, inspectable, and resumable. Use `BaseNode`, `GraphRunContext`, `End`, and graph persistence for MVP; avoid the beta graph builder because HITL workflows need persistence. |
-| API/control plane | Separate Python FastAPI service in this security repo | Gives the security platform its own UI/API, auth, deployment, run history, and approval surfaces without changing the target. |
-| State store | Security-app SQLite for MVP, Postgres for production | Campaigns, findings, approvals, costs, and reports belong to the security app. The target database is evidence, not the platform's state store. |
-| Queue | Start synchronous/CLI; add Redis, RQ, Celery, or managed queue post-MVP | MVP can run bounded campaigns through CLI/API. Long-running overnight campaigns need a worker queue and resumable state. |
+| Agent orchestration | Python worker hosting Pydantic AI agents and stable `pydantic_graph.Graph` nodes | Aligns with the target's existing agent stack while keeping orchestration typed, inspectable, and resumable. The worker is a supervised child process in the same container for the demo. |
+| API/control plane | Next.js route handlers and server actions in `apps/web` | Keeps auth, RBAC, approvals, audit, launch/cancel actions, and CISO-readable surfaces in one deployable console while preserving the option to extract a FastAPI API later. |
+| State store | SQLite on `/data/boundary.db` for MVP, Postgres for production scale | Campaigns, findings, approvals, costs, policy, queue state, and reports belong to the security app. The target database is evidence, not the platform's state store. |
+| Queue | SQLite `campaign_jobs` claimed by the Python worker | One supervised worker is enough for the demo. Redis/RQ/Celery or a managed queue become relevant only when multiple workers or higher write concurrency are needed. |
 | Target execution | HTTP/SSE client, SMART/browser fixture, and Playwright UI runner | Most attack surfaces are `/conversation`, `/copilot/ingest`, `/copilot/documents/*`, SMART launch, OpenEMR document upload, and UI embedding. |
 | Regression data | Pydantic Evals plus root `evals/` owned by the separate security app | Mirror target eval schema concepts, but keep Week 3 adversarial cases, results, and regression suite in this repo as the PRD requires. |
 | Observability | Separate security-app Logfire/OpenTelemetry plus JSONL artifacts | Correlate with target request IDs and deployed version. Do not reuse target app tokens or trace projects unless explicitly approved. |
@@ -142,21 +145,21 @@ The chosen separation costs more setup (a second FastAPI, second DB, second depl
 
 ![Boundary Labs system architecture map](docs/architecture-system-map.png)
 
-This static system map is the canonical diagram for this document. It is sourced from Slide 2 of `docs/architecture-deck.html` and uses the same visual grammar as the deck: rectangles are active components, hexagons are deterministic platform services, cylinders are storage, and the asymmetric shape is the post-MVP queue.
+This static system map is the canonical diagram for this document. The editable source is `docs/architecture-system-map.svg`. It uses the same visual grammar as the deck: rectangles are active components, hexagons are deterministic platform services, cylinders are storage, and the asymmetric shape is the SQLite-backed queue.
 
 The map separates the platform into nine boundaries:
 
 - **Humans:** Operator.
 - **Console (UI surface):** Security Console.
 - **Slack:** Slack Approval Channels for async human-in-the-loop approvals.
-- **Control Plane:** Safety Gate Service, FastAPI Control Plane, and Campaign Runner.
-- **Campaign Execution:** Coverage Scoring Service, Orchestrator, Red Team, Judge, Documentation, and Regression Promotion Service.
+- **Control Plane:** Next.js server actions/route handlers, Safety Gate Service, approval actions, and Campaign Runner enqueue path.
+- **Campaign Execution:** Python worker, Coverage Scoring Service, Orchestrator, Red Team, Judge, Documentation, and Regression Promotion Service.
 - **Target Boundary:** Target Adapter, the only controlled interface to the target.
 - **Target System:** Clinical Co-Pilot in OpenEMR.
 - **Storage and Audit:** Security App DB, Artifact Store, Audit Ledger, and Queue (`post-MVP`).
 - **Observability:** Observability Layer and Logfire / OpenTelemetry.
 
-The lifecycle shown in the map is: Operator uses the Security Console, FastAPI calls the Safety Gate and Campaign Runner, the runner asks Coverage Scoring for gaps, the Orchestrator directs Red Team work, Red Team executes only through the Target Adapter, the Target Adapter exchanges requests and responses with Clinical Co-Pilot, the Judge independently evaluates evidence, and confirmed findings move to Documentation and the Regression Promotion Service. Storage and audit components receive structured artifacts, approvals, and campaign state; observability receives traces and cost-ledger data.
+The current lifecycle is: Operator uses the Security Console, a Next.js server action authenticates with Better Auth, Safety Gate checks policy, and the action writes `campaigns`, `campaign_jobs`, and `audit_events` in SQLite. The supervised Python worker claims queued jobs, runs the Pydantic Graph path, writes run artifacts under `/data/artifacts`, and the web startup ingest sweep materializes completed artifacts back into read models. Red Team executes only through the Target Adapter, the Target Adapter exchanges requests and responses with Clinical Co-Pilot, the Judge independently evaluates evidence, and confirmed findings move to Documentation and the Regression Promotion Service. Storage and audit components receive structured artifacts, approvals, and campaign state; observability receives traces and cost-ledger data.
 
 ### Security Console Information Architecture
 
@@ -174,7 +177,7 @@ A separate **Insights** view (linked from Campaigns) carries the dashboard analy
 
 ## Inter-Agent Coordination
 
-The MVP should run campaigns through explicit Pydantic Graph nodes plus deterministic services in the separate security app. Each node is an agent or deterministic service, and each edge is an explicit handoff with a schema-validated message. Campaign state is stored in security-app file artifacts and a security-app database; the target app's MySQL database is not used for orchestration. Use the stable `pydantic_graph.Graph` API for MVP because it supports persisted graph runs and node-by-node resume. For nodes whose downstream is `SlackApprovalWaitNode`, use SQLite-backed persistence from day one (SQLite is already in the Recommended Stack table); `FileStatePersistence` is acceptable only for short-lived non-pausing runs. Persisted state carries a `schema_version` field; resume refuses on mismatch with a clear operator message. The control plane exposes a `/readyz` check that fails redeploy while any graph is paused at `SlackApprovalWaitNode` — no redeploy across an active pause.
+The MVP should run campaigns through explicit Pydantic Graph nodes plus deterministic services in the separate security app. Each node is an agent or deterministic service, and each edge is an explicit handoff with a schema-validated message. Campaign state is stored in security-app file artifacts and a security-app database; the target app's MySQL database is not used for orchestration. The current implementation hosts this graph path in `python -m worker`, supervised beside `next start` in one container. Use the stable `pydantic_graph.Graph` API for MVP because it supports persisted graph runs and node-by-node resume. Console approvals are the canonical HITL surface today; Slack approval mirroring can be layered on later by linking back to `/approvals`. Persisted state carries a `schema_version` field; resume refuses on mismatch with a clear operator message. The control plane exposes a `/readyz` check that reports worker heartbeat freshness, SQLite integrity, and policy bootstrap state.
 
 `SlackApprovalWaitNode` is a deterministic graph pause primitive (not an LLM agent): it posts the approval card to the configured Slack channel via webhook, persists graph state via the SQLite store above, and blocks on the inbound callback handler validating signature, approval ID, and expiration. The webhook handler resumes the graph only after the Safety Gate Service revalidates approval scope.
 
@@ -930,14 +933,15 @@ PHI redaction is enforced at the storage and trace layers automatically — not 
 
 ### Security Platform Auth Model
 
-The FastAPI control plane authenticates operators via JWT bearer tokens. JWT claims carry: `operator_id`, `role`, `issued_at`, `expires_at`, and (for multi-tenant future) `tenant_id`. Tokens are issued by an operator-management endpoint (out of scope for MVP — for MVP an environment-backed static token set is acceptable) and expire after 24 hours with refresh.
+The current control plane authenticates operators through Better Auth in `apps/web`. Better Auth owns browser sessions; Boundary Labs owns the `operators` table, role lookup, tombstone/revocation state, and Safety Gate decisions. Server components and server actions resolve the current operator before reading sensitive surfaces or writing mutations.
 
-Two RBAC roles for MVP:
+Three RBAC roles for MVP:
 
-- `operator` — launch campaigns, view findings, view reports, propose regression promotions, view approval queue.
-- `approver` — all `operator` permissions plus the ability to answer high/critical Slack approval cards and authorize publication actions.
+- `admin` — manage policy edit requests, target/data-mode gates, BAA acknowledgement, approvals, and high-impact settings.
+- `operator` — launch and cancel synthetic campaigns, inspect results, and triage findings where policy allows.
+- `reviewer` — review approvals, promote regressions, review reports, and triage findings.
 
-MVP is single-tenant: one operator-management surface, one set of allowlists. Multi-tenant is post-MVP; if added, every request carries `tenant_id` from the JWT and the Safety Gate Service enforces per-tenant allowlists and per-tenant approval channels. Session expiry is enforced at the FastAPI middleware layer; revoked operator IDs are checked against a server-side revocation set on every request.
+MVP is single-tenant: one operator-management surface, one set of allowlists, and one policy table. Multi-tenant is post-MVP; if added, every request should carry tenant context from the Better Auth session/operator record and Safety Gate should enforce per-tenant allowlists and per-tenant approval channels. Session expiry is enforced by Better Auth, and revoked operators are checked against the app-owned `operators.status` row on sign-in and worker claim.
 
 ## Build Plan
 
