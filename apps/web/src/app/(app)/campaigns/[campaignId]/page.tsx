@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Copy, Download, Play } from "lucide-react";
+import { ChevronRight, Copy, Download, Play } from "lucide-react";
 import { Chip } from "@/components/boundary/chip";
 import { EvidencePane } from "@/components/boundary/evidence-pane";
 import { Panel } from "@/components/boundary/panel";
@@ -89,7 +89,7 @@ export default async function CampaignDetailPage({
 
       <Panel padded={false} className="mb-4 overflow-x-auto">
         {seeds.length > 0 ? (
-          seeds.map((seed) => <SeedRow key={seed.id} seed={seed} />)
+          seeds.map((seed) => <SeedRow key={seed.id} seed={seed} runId={run.id} />)
         ) : (
             <div className="px-4 py-6 text-sm text-bl-bone-3">
             No seed-level fixture has been attached to this historical run yet.
@@ -173,7 +173,7 @@ function Metric({
   );
 }
 
-function SeedRow({ seed }: { seed: SeedAttempt }) {
+function SeedRow({ seed, runId }: { seed: SeedAttempt; runId: string }) {
   const rail =
     seed.verdict === "fail"
       ? "bg-bl-alarm shadow-[0_0_6px_var(--bl-alarm)]"
@@ -182,7 +182,10 @@ function SeedRow({ seed }: { seed: SeedAttempt }) {
         : "bg-bl-signal shadow-[0_0_6px_var(--bl-signal)]";
 
   return (
-    <div className="grid min-w-[720px] grid-cols-[3px_1fr_110px_90px_70px] items-center gap-4 border-b border-bl-line px-3.5 py-3 last:border-b-0">
+    <Link
+      href={`/campaigns/${runId}/seeds/${seed.id}`}
+      className="grid min-w-[760px] grid-cols-[3px_1fr_110px_90px_70px_14px] items-center gap-4 border-b border-bl-line px-3.5 py-3 transition-colors hover:bg-bl-panel-2 last:border-b-0"
+    >
       <span className={`h-8 w-[3px] ${rail}`} />
       <div className="min-w-0">
         <div className="flex items-center gap-2">
@@ -199,6 +202,7 @@ function SeedRow({ seed }: { seed: SeedAttempt }) {
       <span className="text-right font-mono text-[11px] text-bl-bone-3">
         {(seed.durationMs / 1000).toFixed(2)}s
       </span>
-    </div>
+      <ChevronRight size={12} className="text-bl-bone-3" aria-hidden="true" />
+    </Link>
   );
 }

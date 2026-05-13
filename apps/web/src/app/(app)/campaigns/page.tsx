@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Activity, Plus } from "lucide-react";
 import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
@@ -34,6 +35,7 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
   const failing = boundaryRuns.filter((run) => run.summary.fail > 0).length;
   const partial = boundaryRuns.filter((run) => run.summary.fail === 0 && run.summary.partial > 0).length;
   const invalid = boundaryRuns.filter((run) => run.summary.invalid > 0).length;
+  const latest = boundaryRuns[0];
 
   return (
     <div className="pb-8">
@@ -46,13 +48,21 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
             surface. Each row represents a sealed artifact under <code>evals/results/</code>.
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <Button asChild variant="secondary">
+        <div className="flex flex-col items-start gap-2 xl:items-end">
+          <MetaLine label="Latest">
+            <Chip tone="signal">{latest.id.replace(/^mvp-/, "mvp-...")}</Chip>
+          </MetaLine>
+          <MetaLine label="Target">
+            <Chip>{latest.target.replace(/^https?:\/\//, "").replace(/\/$/, "")}</Chip>
+          </MetaLine>
+          <MetaLine label="Health">
+            <Chip tone="signal">healthz · readyz ok</Chip>
+          </MetaLine>
+          <Button asChild variant="secondary" className="mt-1">
             <Link href="/campaigns/new">
               <Plus size={12} aria-hidden="true" /> New campaign
             </Link>
           </Button>
-          <Chip tone="signal">healthz · readyz ok</Chip>
         </div>
       </section>
 
@@ -114,6 +124,15 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
           </tbody>
         </table>
       </Panel>
+    </div>
+  );
+}
+
+function MetaLine({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="bl-watermark text-bl-bone-4">{label}</span>
+      {children}
     </div>
   );
 }

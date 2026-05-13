@@ -323,3 +323,7 @@ export function getRunById(id: string) {
 export function getSeedsForRun(id: string) {
   return seedAttempts[id] ?? [];
 }
+
+export function getSeedForRun(runId: string, seedId: string) {
+  return getSeedsForRun(runId).find((seed) => seed.id === seedId);
+}
