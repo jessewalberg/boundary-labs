@@ -1,10 +1,17 @@
 .git/
 .github/
 .claude/
+.codex/
+.DS_Store
 node_modules/
 apps/web/node_modules/
+apps/web/.next/
 apps/web/.next/cache/
 apps/web/.next/dev/
 apps/web/var/
 designs/screenshots/
 reports/
+
+# Runtime sources required by the Dockerfile build.
+!worker/**
+!policy_seed.json

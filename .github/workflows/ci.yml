@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify web, worker, and policy mirror
+    runs-on: ubuntu-latest
+    env:
+      BETTER_AUTH_SECRET: boundary-labs-ci-secret-change-before-production
+      BETTER_AUTH_URL: http://127.0.0.1:3000
+      BOUNDARY_OWNER_EMAIL: owner@example.com
+      BOUNDARY_OPERATOR_EMAIL_ALLOWLIST: owner@example.com
+      BAA_DOCUMENT_HASH: sha256:ci-placeholder
+      SQLITE_PATH: ${{ github.workspace }}/apps/web/var/ci-boundary.db
+      BOUNDARY_ARTIFACT_DIR: ${{ github.workspace }}/apps/web/var/artifacts
+      BOUNDARY_WORKER_HEARTBEAT_PATH: ${{ github.workspace }}/apps/web/var/worker.heartbeat
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install worker dependencies
+        run: python -m pip install -r worker/requirements.txt
+
+      - name: Typecheck web
+        run: pnpm --dir apps/web typecheck
+
+      - name: Test web
+        run: pnpm --dir apps/web test
+
+      - name: Build web
+        run: pnpm --dir apps/web build
+
+      - name: Install Playwright Chromium
+        run: pnpm --dir apps/web exec playwright install --with-deps chromium
+
+      - name: Playwright smoke
+        run: pnpm --dir apps/web exec playwright test
+
+      - name: Check Safety Gate codegen freshness
+        run: |
+          pnpm --dir apps/web exec tsx ../../scripts/codegen/emit-policy-json.ts ../../worker/policy-schema.json
+          python scripts/codegen/policy_mirror.py worker/policy-schema.json worker/safety_gate.py
+          git diff --exit-code -- worker/policy-schema.json worker/safety_gate.py
+
+      - name: Test worker and Safety Gate parity
+        run: |
+          python -m unittest discover worker/tests
+          python -m py_compile worker/*.py worker/graphs/*.py worker/fallback/*.py scripts/run_mvp_evals.py

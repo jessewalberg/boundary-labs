@@ -9,12 +9,18 @@ import { evaluatePolicyAction } from "../../src/server/policies";
 import { createSafetyGateContext } from "../safety-gate/helpers";
 
 const originalBaaHash = process.env.BAA_DOCUMENT_HASH;
+const originalSqlitePath = process.env.SQLITE_PATH;
 
 afterEach(() => {
   if (originalBaaHash == null) {
     delete process.env.BAA_DOCUMENT_HASH;
   } else {
     process.env.BAA_DOCUMENT_HASH = originalBaaHash;
+  }
+  if (originalSqlitePath == null) {
+    delete process.env.SQLITE_PATH;
+  } else {
+    process.env.SQLITE_PATH = originalSqlitePath;
   }
 });
 

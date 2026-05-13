@@ -31,7 +31,7 @@ export function WorkerHealthTile({ snapshot }: WorkerHealthTileProps) {
         if (!cancelled) {
           setReadyz({
             status: String(body.status ?? "unknown"),
-            detail: String(body.checks?.workerHeartbeat?.detail ?? "worker readiness checked")
+            detail: String(body.checks?.workerHealth?.detail ?? "worker readiness checked")
           });
         }
       } catch (error) {

@@ -69,9 +69,8 @@ The runner writes `evals/results/<run_id>.json` and updates `evals/results/lates
 
 ## Run The Boundary Web Console
 
-The web console is a pnpm workspace app under `apps/web`. It currently contains the
-Tailwind CSS 4/shadcn-compatible design-system foundation plus the U1 app shell,
-health routes, readiness route, and typed server-side module boundaries.
+The web console is a pnpm workspace app under `apps/web`. Node 22 + pnpm are the
+supported JavaScript runtime/toolchain.
 
 ```bash
 pnpm install
@@ -96,6 +95,28 @@ BOUNDARY_TARGET_URL=https://clinical-copilot.up.railway.app
 BOUNDARY_TARGET_ALLOWLIST=https://clinical-copilot.up.railway.app,http://localhost:8400
 BOUNDARY_EVAL_RUNNER=scripts/run_mvp_evals.py
 ```
+
+## Run The Single-Container Stack
+
+The deployable shape is one Docker container supervised by `supervisord`: Next.js web and the Python worker run as sibling child processes. The container expects persistent state under `/data`.
+
+```bash
+docker build -t boundary-labs .
+docker run --rm -p 3000:3000 \
+  -v "$PWD/.local-data:/data" \
+  -e BETTER_AUTH_SECRET="local-development-secret" \
+  -e BOUNDARY_OWNER_EMAIL="owner@example.com" \
+  boundary-labs
+```
+
+Verify:
+
+```bash
+curl -sS http://localhost:3000/healthz
+curl -sS http://localhost:3000/readyz
+```
+
+Worker troubleshooting lives in `docs/runbooks/worker-troubleshooting.md`.
 
 ## Target Setup
 

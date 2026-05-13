@@ -1,20 +1,25 @@
 import { ensureLocalStatePaths } from "@/server/storage/paths";
 import { getBoundaryConfig } from "@/server/config";
+import { policySchema } from "@/server/safety-gate/schema";
+import { getWorkerHealthSnapshot } from "@/server/worker-health/repository";
+import Database from "better-sqlite3";
 import fs from "node:fs";
 
 type ReadinessCheck = {
   status: "ok" | "skipped" | "degraded";
   detail?: string;
+  [key: string]: unknown;
 };
-
-const WORKER_STALENESS_MS = 30_000;
 
 export async function GET() {
   const config = getBoundaryConfig();
   const paths = ensureLocalStatePaths();
-  const workerHeartbeat = checkWorkerHeartbeat(config.workerHeartbeatPath);
+  const workerHealth = checkWorkerHealth();
   const sqlite = await checkSqliteIntegrity(config.sqlitePath);
-  const status = workerHeartbeat.status === "degraded" || sqlite.status === "degraded" ? "degraded" : "ok";
+  const policyBootstrap = await checkPolicyBootstrap(config.sqlitePath);
+  const status = [workerHealth, sqlite, policyBootstrap].some((check) => check.status === "degraded")
+    ? "degraded"
+    : "ok";
 
   return Response.json({
     status,
@@ -23,8 +28,9 @@ export async function GET() {
       app: "ok",
       sqliteDirectory: paths.sqliteDir,
       artifactDirectory: paths.artifactDir,
-      workerHeartbeat,
+      workerHealth,
       sqlite,
+      policyBootstrap,
       targetUrl: config.targetUrl,
       targetAllowlistCount: config.targetAllowlist.length,
       evalRunnerPath: config.evalRunnerPath,
@@ -33,35 +39,19 @@ export async function GET() {
   });
 }
 
-function checkWorkerHeartbeat(heartbeatPath: string): ReadinessCheck {
-  try {
-    const stat = fs.statSync(heartbeatPath);
-    const ageMs = Date.now() - stat.mtimeMs;
-
-    if (ageMs > WORKER_STALENESS_MS) {
-      return {
-        status: "degraded",
-        detail: `worker heartbeat is stale (${Math.round(ageMs / 1000)}s old)`
-      };
-    }
-
-    return {
-      status: "ok",
-      detail: heartbeatPath
-    };
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") {
-      return {
-        status: "skipped",
-        detail: "worker heartbeat has not been written yet"
-      };
-    }
-
-    return {
-      status: "degraded",
-      detail: error instanceof Error ? error.message : "could not read worker heartbeat"
-    };
-  }
+function checkWorkerHealth(): ReadinessCheck {
+  const snapshot = getWorkerHealthSnapshot();
+  return {
+    status: snapshot.status === "ok" ? "ok" : "degraded",
+    detail: snapshot.detail,
+    workerId: snapshot.workerId,
+    lastSeenAt: snapshot.lastSeenAt,
+    ageSeconds: snapshot.ageSeconds,
+    queuedJobs: snapshot.queuedJobs,
+    claimedJobs: snapshot.claimedJobs,
+    staleClaimedJobs: snapshot.staleClaimedJobs,
+    recentBackpressureEvents: snapshot.recentBackpressureEvents
+  };
 }
 
 async function checkSqliteIntegrity(sqlitePath: string): Promise<ReadinessCheck> {
@@ -73,8 +63,6 @@ async function checkSqliteIntegrity(sqlitePath: string): Promise<ReadinessCheck>
   }
 
   try {
-    const mod = await importOptional("better-sqlite3");
-    const Database = mod.default ?? mod;
     const db = new Database(sqlitePath, { readonly: true, fileMustExist: true });
     const result = db.prepare("PRAGMA integrity_check").pluck().get();
     db.close();
@@ -91,13 +79,6 @@ async function checkSqliteIntegrity(sqlitePath: string): Promise<ReadinessCheck>
       detail: `integrity_check returned ${String(result)}`
     };
   } catch (error) {
-    if (isNodeError(error) && error.code === "ERR_MODULE_NOT_FOUND") {
-      return {
-        status: "skipped",
-        detail: "better-sqlite3 is not installed until the persistence unit lands"
-      };
-    }
-
     return {
       status: "degraded",
       detail: error instanceof Error ? error.message : "could not run sqlite integrity_check"
@@ -105,10 +86,50 @@ async function checkSqliteIntegrity(sqlitePath: string): Promise<ReadinessCheck>
   }
 }
 
-function importOptional(specifier: string): Promise<any> {
-  return new Function("specifier", "return import(specifier)")(specifier);
-}
+async function checkPolicyBootstrap(sqlitePath: string): Promise<ReadinessCheck> {
+  if (!fs.existsSync(sqlitePath)) {
+    return {
+      status: "skipped",
+      detail: "database has not been initialized yet"
+    };
+  }
 
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error;
+  try {
+    const db = new Database(sqlitePath, { readonly: true, fileMustExist: true });
+    const schemaReady = db.prepare(`
+      SELECT value_json
+      FROM policy_values
+      WHERE key = 'schema_ready'
+    `).pluck().get();
+    const requiredKeys = Object.keys(policySchema.systemReservedRows);
+    const presentRows = db.prepare(`
+        SELECT key
+        FROM policy_values
+        WHERE key IN (${requiredKeys.map(() => "?").join(",")})
+      `).all(...requiredKeys) as Array<{ key: string }>;
+    const presentKeys = new Set(presentRows.map((row) => row.key));
+    db.close();
+
+    const missingKeys = requiredKeys.filter((key) => !presentKeys.has(key));
+    if (schemaReady !== "true" || missingKeys.length > 0) {
+      return {
+        status: "degraded",
+        detail: "policy_values bootstrap is incomplete",
+        schemaReady: schemaReady === "true",
+        missingKeys
+      };
+    }
+
+    return {
+      status: "ok",
+      detail: "policy_values bootstrap is ready",
+      schemaReady: true,
+      systemReservedRows: requiredKeys.length
+    };
+  } catch (error) {
+    return {
+      status: "degraded",
+      detail: error instanceof Error ? error.message : "could not inspect policy_values bootstrap"
+    };
+  }
 }

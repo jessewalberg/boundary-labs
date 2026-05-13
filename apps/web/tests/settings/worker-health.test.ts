@@ -1,11 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { getBoundaryConfig } from "../../src/server/config";
 import { runDatabaseBootstrap } from "../../src/server/db/migrate";
 import { getWorkerHealthSnapshot } from "../../src/server/worker-health/repository";
 import { createSafetyGateContext } from "../safety-gate/helpers";
+
+const originalSqlitePath = process.env.SQLITE_PATH;
+
+afterEach(() => {
+  if (originalSqlitePath == null) {
+    delete process.env.SQLITE_PATH;
+  } else {
+    process.env.SQLITE_PATH = originalSqlitePath;
+  }
+});
 
 describe("worker health snapshot", () => {
   it("reports offline when no worker heartbeat has been written", () => {
