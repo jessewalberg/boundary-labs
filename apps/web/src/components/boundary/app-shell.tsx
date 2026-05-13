@@ -26,38 +26,32 @@ const navGroups = [
     items: [
       { label: "Dashboard", href: "/dashboard", enabled: true, icon: Gauge },
       { label: "Runs", href: "/campaigns", enabled: true, icon: History },
-      { label: "Seeds", href: "/seeds", enabled: false, icon: Crosshair, count: 42 },
-      { label: "Agents", href: "/agents", enabled: false, icon: Bot, count: 5 },
-      { label: "Judges", href: "/judges", enabled: false, icon: ShieldCheck }
+      { label: "Seeds", href: "/seeds", enabled: true, icon: Crosshair, count: 5 },
+      { label: "Agents", href: "/agents", enabled: true, icon: Bot, count: 5 },
+      { label: "Judges", href: "/judges", enabled: true, icon: ShieldCheck }
     ]
   },
   {
     label: "// review",
     items: [
-      { label: "Threat Model", href: "/threat-model", enabled: false, icon: FileWarning },
-      { label: "Coverage", href: "/coverage", enabled: false, icon: Radar },
-      { label: "Findings", href: "/findings", enabled: false, icon: Terminal, count: 3 }
+      { label: "Threat Model", href: "/threat-model", enabled: true, icon: FileWarning },
+      { label: "Coverage", href: "/coverage", enabled: true, icon: Radar },
+      { label: "Findings", href: "/findings", enabled: true, icon: Terminal, count: 4 }
     ]
   },
   {
     label: "// system",
     items: [
-      { label: "Targets", href: "/targets", enabled: false, icon: Crosshair },
-      { label: "Secrets", href: "/secrets", enabled: false, icon: KeyRound },
-      { label: "Schedule", href: "/schedule", enabled: false, icon: History }
+      { label: "Targets", href: "/targets", enabled: true, icon: Crosshair },
+      { label: "Secrets", href: "/secrets", enabled: true, icon: KeyRound },
+      { label: "Schedule", href: "/schedule", enabled: true, icon: History }
     ]
   }
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const crumb = pathname.startsWith("/campaigns")
-    ? pathname === "/campaigns/new"
-      ? "runs / new"
-      : pathname === "/campaigns"
-        ? "runs"
-        : "runs / detail"
-    : pathname.replace(/^\//, "") || "dashboard";
+  const crumb = breadcrumbFor(pathname);
 
   return (
     <main className="min-h-screen bg-bl-graphite text-bl-bone">
@@ -173,4 +167,28 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="min-h-screen px-4 pt-[72px] lg:pl-[256px] lg:pr-6">{children}</div>
     </main>
   );
+}
+
+function breadcrumbFor(pathname: string) {
+  if (pathname.startsWith("/campaigns")) {
+    if (pathname === "/campaigns/new") return "runs / new";
+    if (pathname === "/campaigns") return "runs";
+    if (pathname.includes("/seeds/")) return "runs / seed";
+    return "runs / detail";
+  }
+
+  const labels: Record<string, string> = {
+    "/dashboard": "dashboard",
+    "/seeds": "seeds",
+    "/agents": "agents",
+    "/judges": "judges",
+    "/threat-model": "threat model",
+    "/coverage": "coverage",
+    "/findings": "findings",
+    "/targets": "targets",
+    "/secrets": "secrets",
+    "/schedule": "schedule"
+  };
+
+  return labels[pathname] ?? (pathname.replace(/^\//, "") || "dashboard");
 }
