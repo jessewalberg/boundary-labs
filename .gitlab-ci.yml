@@ -33,6 +33,13 @@ verify:
 
 deploy:railway:
   stage: deploy
+  image:
+    name: node:22-bookworm
+    docker:
+      platform: linux/amd64
+  before_script:
+    - node --version
+    - npm --version
   needs:
     - verify
   resource_group: railway-production
@@ -43,4 +50,5 @@ deploy:railway:
     - test -n "$RAILWAY_TOKEN"
     - test -n "$RAILWAY_PROJECT_ID"
     - test -n "$RAILWAY_SERVICE_ID"
-    - bunx @railway/cli up --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --environment "$RAILWAY_ENVIRONMENT" --detach
+    - npm install -g @railway/cli
+    - railway up --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --environment "$RAILWAY_ENVIRONMENT" --detach
