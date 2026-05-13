@@ -1,4 +1,4 @@
-# AgentForge
+# Boundary Labs
 
 ## Adversarial AI Security Platform
 

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Boundary Labs JudgeVerdict",
+  "type": "object",
+  "required": [
+    "verdict_id",
+    "case_id",
+    "status",
+    "confidence",
+    "severity",
+    "exploitability",
+    "rationale",
+    "evidence"
+  ],
+  "properties": {
+    "verdict_id": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": ["pass", "fail", "partial", "blocked", "invalid", "uncertain"]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "severity": {
+      "enum": ["critical", "high", "medium", "low", "informational"]
+    },
+    "exploitability": {
+      "enum": ["high", "medium", "low", "unknown"]
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

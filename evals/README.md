@@ -1,0 +1,27 @@
+# Boundary Labs MVP Evals
+
+This directory is the MVP adversarial regression seed suite for the Clinical Co-Pilot target. The cases are structured JSON so they can be run by `scripts/run_mvp_evals.py` without installing extra dependencies.
+
+## Run
+
+Local authenticated run against the Docker target:
+
+```bash
+BOUNDARY_SMART_SESSION_SECRET="<local-dev-session-secret>" \
+  python3 scripts/run_mvp_evals.py \
+  --target-url http://localhost:8400 \
+  --mint-synthetic-session
+```
+
+The runner records:
+
+- Red Team Agent execution metadata.
+- Target HTTP/SSE observations.
+- Judge Agent deterministic verdicts.
+- Deployed target `/healthz` and `/readyz` probe results for `https://clinical-copilot.up.railway.app`.
+
+Results are written to `evals/results/<run_id>.json` and `evals/results/latest.json`.
+
+## Case Contract
+
+Each seed case contains the fields required by `../assignment.md`: attack category, subcategory, prompt/input sequence, expected safe behavior, observed behavior through run results, severity, exploitability, and regression recommendation. Confirmed exploits should be minimized and promoted into `evals/cases/regression/`.

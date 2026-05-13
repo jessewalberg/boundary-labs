@@ -30,7 +30,7 @@ Capture each resolved decision (or default) in the "Open Decisions" section as y
 | D2 | Real-PHI policy in MVP: absolute prohibition (L40, L1057) or conditional with approval (L115)? **Regardless of path chosen, ARCHITECTURE.md must add a "Production-Data Policy" subsection specifying: (1) BAA requirement and counterparty; (2) data-at-rest encryption standard (e.g., AES-256, scope: disk vs. column); (3) data-in-transit encryption (TLS 1.2+ minimum); (4) de-identification standard (HIPAA Safe Harbor or Expert Determination); (5) retention period for PHI-touching artifacts; (6) mandatory audit log fields for PHI-touching operations; (7) deletion procedure (cryptographic erasure vs. overwrite).** If MVP path is "absolute prohibition," items 1-7 are still documented as the pre-committed floor for any future carve-out. | Blocks WU-12 (synthetic-data wording), the new "Production-Data Policy" subsection, and any PHI-touching fields surfaced by WU-25 (agent attribute matrix). |
 | D3 | "Approved target" mechanism: where is the allowlist stored, who authorizes, what's the record schema? | Blocks WU-19 (allowlist schema) and Safety Gate spec (L226). |
 | D5 | Persistence transition triggers: SQLite→Postgres (L125), FileStatePersistence→DB persistence (L178), CLI→queue (L126). Name a measurable trigger for each or remove the migration story. | Blocks WU-2 (storage subsection), WU-11 (Postgres reconciliation), and transitively WU-22 (via WU-2). |
-| D12 | Reconciliation with PRD submission rule "GitHub Repository forked from OpenEMR": is `security-auto/` graded standalone, or hosted as a sibling inside the OpenEMR fork? | Blocks Separation Boundary section edits; affects README structure (README authorship itself out of plan scope). |
+| D12 | Reconciliation with PRD submission rule "GitHub Repository forked from OpenEMR": is `boundary-labs/` graded standalone, or hosted as a sibling inside the OpenEMR fork? | Blocks Separation Boundary section edits; affects README structure (README authorship itself out of plan scope). |
 | D13 | **Secrets management strategy.** Specify: (a) secret manager backend (Railway env vars / `.env` file / Vault / AWS Secrets Manager); (b) per-component read-access matrix (e.g., Red Team agent process must NOT read the OpenEMR internal token; Judge process must NOT read SMART client secret); (c) minimum rotation cadence per secret type (Slack signing key, model API keys, internal tokens); (d) environment separation enforcement (dev / staging / prod); (e) prohibition on env inheritance to red-team agent subprocesses. | Blocks WU-2b (Secrets subsection) and shapes how agent processes are spawned in code. |
 
 ### Group B — Branching logic
@@ -94,7 +94,7 @@ As each decision resolves, replace `pending` with a one-line summary of the reso
 ```
 ## Audience and Reading Order
 
-This document is the implementation reference for the engineer building `security-auto`. It exists to remind the author what is being built and how to build it.
+This document is the implementation reference for the engineer building `boundary-labs`. It exists to remind the author what is being built and how to build it.
 
 - Open this doc when stuck mid-implementation and needing to remember a committed decision, a schema, a tool boundary, or a failure-mode plan.
 - Reading order for first pass: Executive Summary → Goals/Non-Goals → System Architecture → Agent Roles → Data Contracts → Build Plan.
@@ -644,7 +644,7 @@ These findings surfaced during the ce-doc-review pass but were deferred rather t
 
 ## Out of scope for this plan
 
-- Implementing the actual `security-auto` codebase (this plan only fixes the architecture doc).
+- Implementing the actual `boundary-labs` codebase (this plan only fixes the architecture doc).
 - **WU-31b: Authoring the seven forward-referenced files** — `THREAT_MODEL.md`, `USERS.md`, `AI_COST_ANALYSIS.md`, `DEMO_SCRIPT.md`, `SOCIAL_POST.md`, `evals/schemas/attack_case.schema.json`, `evals/schemas/judge_verdict.schema.json`. These are graded deliverables but they are separate writing work, not edits to ARCHITECTURE.md. WU-31a in Phase 7 covers the in-doc dagger markers. The engineer authors WU-31b items in a separate work stream.
 - Deploying the target Clinical Co-Pilot (Open Decision #1 in the doc; not a doc-fix item).
 - Acquiring API keys, Logfire project, Slack channel IDs (Open Decisions #4-6; not doc-fix items).

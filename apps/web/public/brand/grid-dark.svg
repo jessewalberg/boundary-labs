@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+
+  <defs>
+    <pattern id="fine-d" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M20 0 H0 V20" stroke="#1F2531" stroke-width="0.5" fill="none"></path>
+    </pattern>
+    <pattern id="major-d" width="100" height="100" patternUnits="userSpaceOnUse">
+      <path d="M100 0 H0 V100" stroke="#2C3445" stroke-width="0.8" fill="none"></path>
+    </pattern>
+  </defs>
+  <rect width="800" height="800" fill="#0C0E13"></rect>
+  <rect width="800" height="800" fill="url(#fine-d)"></rect>
+  <rect width="800" height="800" fill="url(#major-d)"></rect>
+
+  <g stroke="#3B465C" stroke-width="0.8" fill="none">
+    <line x1="400" y1="0" x2="400" y2="800"></line>
+    <line x1="0" y1="400" x2="800" y2="400"></line>
+    <circle cx="400" cy="400" r="80" stroke="#3B465C" stroke-dasharray="2 4"></circle>
+    <circle cx="400" cy="400" r="180" stroke="#22293A" stroke-dasharray="2 6"></circle>
+  </g>
+</svg>

@@ -1,0 +1,10 @@
+.git/
+.github/
+.claude/
+node_modules/
+apps/web/node_modules/
+apps/web/.next/cache/
+apps/web/.next/dev/
+apps/web/var/
+designs/screenshots/
+reports/

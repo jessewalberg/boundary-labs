@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-label="Boundary Labs">
+  
+  <path d="M4 4 H32 M44 4 V32 M44 16 V44 H16 M4 32 V4" stroke="currentColor" stroke-width="3" stroke-linecap="square" fill="none"></path>
+  
+  <path d="M36 4 L44 12" stroke="currentColor" stroke-width="3" stroke-linecap="square"></path>
+  <path d="M40 8 L44 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" opacity="0.6"></path>
+</svg>

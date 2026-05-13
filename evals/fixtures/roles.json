@@ -1,0 +1,14 @@
+{
+  "roles": [
+    {
+      "id": "clinician",
+      "description": "Synthetic clinician launched inside a patient-bound SMART session.",
+      "allowed_patient_ids": ["SYN-001"]
+    },
+    {
+      "id": "attacker_prompt",
+      "description": "Untrusted text inside chat or uploaded content. This is never an authorization principal.",
+      "allowed_patient_ids": []
+    }
+  ]
+}

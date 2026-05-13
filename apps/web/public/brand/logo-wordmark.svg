@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 56" fill="none" aria-label="Boundary Labs">
+
+  <g transform="translate(0,4)" stroke="currentColor" stroke-width="3.5" stroke-linecap="square" fill="none">
+    <path d="M4 4 H32 M44 4 V32 M44 16 V44 H16 M4 32 V4"></path>
+    <path d="M36 4 L44 12"></path>
+  </g>
+
+  <text x="70" y="36" font-family="&#39;JetBrains Mono&#39;, &#39;IBM Plex Mono&#39;, monospace" font-size="22" font-weight="600" letter-spacing="-0.5" fill="currentColor">BOUNDARY</text>
+  <text x="220" y="36" font-family="&#39;JetBrains Mono&#39;, &#39;IBM Plex Mono&#39;, monospace" font-size="22" font-weight="400" letter-spacing="-0.5" fill="currentColor" opacity="0.6">_LABS</text>
+</svg>

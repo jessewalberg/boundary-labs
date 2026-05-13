@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Boundary Labs · Runs</title>
+  <meta name="viewport" content="width=1480"/>
+  <link rel="stylesheet" href="styles/colors_and_type.css"/>
+  <link rel="stylesheet" href="styles/components.css"/>
+  <style>
+    html, body { background: var(--bl-graphite); margin: 0; }
+    body { font-family: var(--font-sans); color: var(--fg-1); -webkit-font-smoothing: antialiased; }
+    button { font: inherit; color: inherit; }
+    code { font-family: var(--font-mono); font-size: 0.92em; }
+    a { color: inherit; }
+    table.bl-table tr { transition: background 80ms; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="app/data.js"></script>
+  <script type="text/babel" data-presets="react" src="app/components.jsx"></script>
+  <script type="text/babel" data-presets="react" src="app/runs.jsx"></script>
+  <script type="text/babel" data-presets="react">
+    // Hash-routed: #/, #runId, #runId/seedId
+    const parseHash = () => {
+      const h = (window.location.hash || "").replace(/^#\/?/, "");
+      if (!h) return { name: "runs" };
+      const [runId, seedId] = h.split("/").filter(Boolean);
+      if (runId && seedId) return { name: "finding", runId, seedId };
+      if (runId) return { name: "run", runId };
+      return { name: "runs" };
+    };
+
+    const RootApp = () => {
+      const [screen, setScreen] = React.useState(parseHash());
+      React.useEffect(() => {
+        const onHash = () => setScreen(parseHash());
+        window.addEventListener("hashchange", onHash);
+        return () => window.removeEventListener("hashchange", onHash);
+      }, []);
+
+      const go = (next) => {
+        if (next.name === "runs") window.location.hash = "";
+        else if (next.name === "run") window.location.hash = next.runId;
+        else if (next.name === "finding") window.location.hash = `${next.runId}/${next.seedId}`;
+      };
+
+      const data = window.BL_DATA;
+      const crumbs = (() => {
+        if (screen.name === "runs") return ["workspace", "runs"];
+        if (screen.name === "run") return ["workspace", "runs", screen.runId];
+        if (screen.name === "finding") return ["workspace", "runs", screen.runId, "seed/" + screen.seedId];
+        return ["workspace", "runs"];
+      })();
+
+      let body = null;
+      if (screen.name === "runs") {
+        body = <RunsScreen runs={data.runs} onOpen={(id) => go({ name: "run", runId: id })}/>;
+      } else if (screen.name === "run") {
+        const run = data.runs.find(r => r.id === screen.runId);
+        if (!run) { body = <RunsScreen runs={data.runs} onOpen={(id) => go({ name: "run", runId: id })}/>; }
+        else {
+          const seeds = data.seeds[run.id] || [];
+          body = <RunDetailScreen run={run} seeds={seeds}
+            onOpenSeed={(sid) => go({ name: "finding", runId: run.id, seedId: sid })}
+            onBack={() => go({ name: "runs" })}/>;
+        }
+      } else if (screen.name === "finding") {
+        const run = data.runs.find(r => r.id === screen.runId);
+        const seed = run && (data.seeds[run.id] || []).find(s => s.id === screen.seedId);
+        if (!run || !seed) { body = <RunsScreen runs={data.runs} onOpen={(id) => go({ name: "run", runId: id })}/>; }
+        else body = <FindingScreen seed={seed} run={run} onBack={() => go({ name: "run", runId: run.id })}/>;
+      }
+
+      return (
+        <div>
+          <Sidebar active="runs"/>
+          <TopBar crumbs={crumbs}/>
+          {body}
+        </div>
+      );
+    };
+    ReactDOM.createRoot(document.getElementById("root")).render(<RootApp/>);
+  </script>
+</body>
+</html>

@@ -1,0 +1,2987 @@
+<!DOCTYPE html>
+<!--
+  ARCHITECTURE.md @ boundary-labs:4f09569
+  FIX_PLAN.md @ boundary-labs:4f09569
+  Diagram-authoritative at stamp time: FIX_PLAN.md
+    - Slide 2 system map: FIX_PLAN.md WU-9a/9b authoritative until applied to ARCHITECTURE.md.
+    - Slide 3 approval sequence: FIX_PLAN.md WU-23 authoritative until applied.
+    - All panel-text content: ARCHITECTURE.md authoritative.
+  R16 typography compromise (U8 fallback path taken): system-font stack in lieu of
+    inlined Source Serif Pro / Inter / JetBrains Mono. Time-box exceeded — font
+    subsetting toolchain and upstream WOFF2 downloads were not executable in this
+    build environment. Font-family lists name the custom faces with system fallbacks
+    so a future rebuild can drop inlined @font-face data URIs without changing
+    selectors. On macOS targets the fallback chain renders cleanly:
+      Headings  -> Source Serif Pro -> Iowan Old Style -> Georgia.
+      Body      -> Inter            -> -apple-system   -> system-ui sans.
+      Monospace -> JetBrains Mono   -> ui-monospace    -> SF Mono.
+  Rebuild instructions: update both commits and regenerate panel content from the matching
+    commit's ARCHITECTURE.md (see docs/plans/2026-05-12-001-feat-interactive-architecture-deck-plan.md).
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1280">
+  <title>Protective Security Agent — Architecture Deck</title>
+  <style>
+    /* === Design tokens (clean-academic, arXiv-anchored) === */
+    :root {
+      --navy: #0F2748;
+      --teal: #117A65;
+      --teal-accent: #1B9E83;
+      --ink: #1A1A1A;
+      --ink-muted: #4A4A4A;
+      --ink-faint: #8A8A8A;
+      --bg: #FAF9F6;
+      --bg-canvas: #FFFFFF;
+      --rule: #D6D2C9;
+
+      /* Trust tiers (muted, arXiv-fitting) */
+      --trust-untrusted:    #C24A4A;
+      --trust-low:          #D88B7A;
+      --trust-medium-low:   #D9A6A8;
+      --trust-medium:       #5C7AAB;
+      --trust-high:         #5E8C5A;
+
+      --canvas-min-width: 720px;
+      --strip-height: 48px;
+    }
+
+    /* === Reset === */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      overflow: hidden;
+    }
+    h1, h2, h3 {
+      font-family: "Source Serif Pro", "Iowan Old Style", Georgia, "Times New Roman", serif;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+    code, .mono {
+      font-family: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    /* === Deck shell === */
+    #deck {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: var(--strip-height);
+      overflow: hidden;
+    }
+    section[data-slide] {
+      position: absolute;
+      inset: 0;
+      padding: 48px 64px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 150ms;
+    }
+    section[data-slide]:not([data-active]) * {
+      /* SVG children can opt back into events with pointer-events: all/stroke. */
+      pointer-events: none !important;
+    }
+    section[data-slide][data-active] {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* === Slide index strip === */
+    #slide-index {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: var(--strip-height);
+      display: flex;
+      align-items: stretch;
+      background: var(--bg-canvas);
+      border-top: 1px solid var(--rule);
+      z-index: 10;
+    }
+    #slide-index button {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--rule);
+      padding: 0 16px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--ink-muted);
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: color 150ms, background 150ms;
+    }
+    #slide-index button:last-child { border-right: none; }
+    #slide-index button:hover { background: rgba(17, 122, 101, 0.06); color: var(--ink); }
+    #slide-index button[data-current] {
+      color: var(--teal);
+      font-weight: 600;
+      background: rgba(17, 122, 101, 0.08);
+    }
+    #slide-index .num {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      color: var(--ink-faint);
+    }
+    #slide-index button[data-current] .num { color: var(--teal); }
+
+    /* === Side panel === */
+    #panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: var(--strip-height);
+      width: 380px;
+      background: var(--bg-canvas);
+      border-left: 1px solid var(--rule);
+      padding: 28px 28px 32px;
+      transform: translateX(100%);
+      transition: transform 150ms;
+      overflow-y: auto;
+      z-index: 5;
+    }
+    #panel[data-mode="open"] { transform: translateX(0); }
+    #panel .panel-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--rule);
+      margin-bottom: 16px;
+    }
+    #panel .panel-header .tier-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      margin-top: 5px;
+      border: 1px solid rgba(0,0,0,0.12);
+    }
+    #panel .panel-header .name {
+      font-family: "Source Serif Pro", "Iowan Old Style", Georgia, serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.2;
+      margin: 0;
+    }
+    #panel .panel-header .meta {
+      font-size: 11px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+    #panel dl { margin: 0; }
+    #panel dt {
+      font-size: 11px;
+      color: var(--ink-faint);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-top: 16px;
+      margin-bottom: 4px;
+    }
+    #panel dt:first-of-type { margin-top: 0; }
+    #panel dd {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--ink);
+    }
+    #panel dd ul {
+      margin: 0;
+      padding-left: 16px;
+    }
+    #panel dd li { margin-bottom: 3px; }
+    #panel dd code {
+      background: rgba(17, 122, 101, 0.08);
+      padding: 1px 4px;
+      border-radius: 2px;
+      color: var(--teal);
+    }
+    #panel .panel-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--ink-faint);
+      font-style: italic;
+      font-size: 13px;
+      text-align: center;
+      padding: 0 16px;
+    }
+
+    /* Trust-tier swatch colors via data attribute */
+    #panel .panel-header[data-trust-tier="untrusted"]   .tier-swatch { background: var(--trust-untrusted); }
+    #panel .panel-header[data-trust-tier="low"]         .tier-swatch { background: var(--trust-low); }
+    #panel .panel-header[data-trust-tier="medium-low"]  .tier-swatch { background: var(--trust-medium-low); }
+    #panel .panel-header[data-trust-tier="medium"]      .tier-swatch { background: var(--trust-medium); }
+    #panel .panel-header[data-trust-tier="high"]        .tier-swatch { background: var(--trust-high); }
+
+    /* Pin icon (U11) — outline by default, filled when locked */
+    #panel .pin-btn {
+      margin-left: auto;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      transition: background 150ms;
+    }
+    #panel .pin-btn:hover { background: rgba(17, 122, 101, 0.08); }
+    #panel .pin-btn svg { width: 18px; height: 18px; fill: var(--ink-faint); }
+    #panel[data-locked] { border-left: 3px solid var(--teal-accent); padding-left: 26px; }
+    #panel[data-locked] .pin-btn svg { fill: var(--teal); }
+
+    /* === Docked-mode rule (R11 + U1 F2 fix) === */
+    @media (max-width: 720px) {
+      #panel {
+        top: auto;
+        bottom: var(--strip-height);
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: 50vh;
+        border-left: none;
+        border-top: 1px solid var(--rule);
+        transform: translateY(100%);
+      }
+      #panel[data-mode="open"] { transform: translateY(0); }
+    }
+
+    /* === Slide 1: Title === */
+    section[data-slide="1"] {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+    section[data-slide="1"] .title {
+      font-size: 56px;
+      color: var(--ink);
+      margin-bottom: 32px;
+    }
+    section[data-slide="1"] .pitch {
+      font-size: 22px;
+      line-height: 1.5;
+      color: var(--ink-muted);
+      max-width: 720px;
+      margin-bottom: 24px;
+    }
+    section[data-slide="1"] .target {
+      font-size: 14px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    section[data-slide="1"] .target .mono {
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--teal);
+    }
+    section[data-slide="1"] .rule {
+      width: 80px;
+      height: 1px;
+      background: var(--rule);
+      margin: 32px auto;
+    }
+
+    /* === Placeholder slide content === */
+    section[data-slide] .placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--ink-faint);
+      font-style: italic;
+      font-size: 14px;
+    }
+
+    /* === Slide 2: System Map === */
+    section[data-slide="2"] { padding: 24px 32px; }
+    section[data-slide="2"] .canvas-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    section[data-slide="2"] svg.system-map {
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      display: block;
+    }
+    section[data-slide="2"] .slide-caption {
+      font-size: 12px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    section[data-slide="2"] .slide-caption strong {
+      color: var(--teal);
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 600;
+    }
+
+    /* Node shapes — base styling */
+    svg.system-map .node-shape {
+      fill: var(--bg-canvas);
+      stroke: var(--ink);
+      stroke-width: 1.4;
+      transition: fill 150ms, stroke 150ms, opacity 150ms;
+    }
+    svg.system-map .node-label {
+      font-family: "Inter", -apple-system, sans-serif;
+      font-size: 12px;
+      fill: var(--ink);
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+    }
+    svg.system-map .node-label.sub {
+      font-size: 10px;
+      fill: var(--ink-faint);
+    }
+
+    /* Node-shape distinctions (R17) */
+    svg.system-map [data-node-shape="rectangle"] .node-shape { rx: 4; ry: 4; }
+    svg.system-map [data-node-shape="hexagon"] .node-shape { fill: var(--bg-canvas); }
+    svg.system-map [data-node-shape="cylinder"] .node-shape { fill: var(--bg-canvas); }
+    svg.system-map [data-node-shape="asymmetric"] .node-shape { fill: var(--bg-canvas); }
+
+    /* Hit-area: invisible rect covering the bounding box of each node group so
+       hover/click reliably fires anywhere within the node's visual footprint
+       (cylinder top-arcs use fill=none and hexagon corners would otherwise be
+       dead zones). Rendered first per group so the visible shape paints over it. */
+    svg.system-map .hit-area {
+      fill: #FFFFFF;
+      fill-opacity: 0;
+      pointer-events: all;
+      stroke: none;
+    }
+
+    /* Edges */
+    svg.system-map .edge {
+      stroke: var(--ink-muted);
+      stroke-width: 1.2;
+      fill: none;
+      transition: stroke 150ms, opacity 150ms;
+    }
+    svg.system-map .edge.async { stroke-dasharray: 4 3; }
+    svg.system-map .arrowhead { fill: var(--ink-muted); }
+
+    /* Section group labels (subgraphs from FIX_PLAN Figure 1) */
+    svg.system-map .group-label {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--ink-muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    svg.system-map .group-rect {
+      fill: none;
+      stroke: var(--rule);
+      stroke-width: 1;
+      stroke-dasharray: 2 3;
+      rx: 6;
+      ry: 6;
+    }
+
+    /* === Slide 5: Threat Coverage heat map === */
+    section[data-slide="5"] { padding: 24px 32px; }
+    section[data-slide="5"] .canvas-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    section[data-slide="5"] .slide-caption {
+      font-size: 12px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    section[data-slide="5"] .slide-caption strong {
+      color: var(--teal);
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 600;
+    }
+    section[data-slide="5"] svg.threat-coverage {
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      display: block;
+    }
+    svg.threat-coverage .t0-header {
+      font-family: "Source Serif Pro", "Iowan Old Style", Georgia, serif;
+      font-size: 18px;
+      font-weight: 600;
+      fill: var(--ink);
+      text-anchor: middle;
+    }
+    svg.threat-coverage .t0-sub {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      fill: var(--ink-faint);
+      text-anchor: middle;
+    }
+    svg.threat-coverage .heat-cell {
+      cursor: pointer;
+    }
+    svg.threat-coverage .heat-cell rect {
+      stroke-width: 1.4;
+      rx: 4; ry: 4;
+      transition: stroke-width 150ms;
+    }
+    svg.threat-coverage .heat-cell[data-state="not-covered"] rect {
+      fill: #EEEAE3;
+      stroke: #BDB6A8;
+    }
+    svg.threat-coverage .heat-cell[data-state="partial"] rect {
+      fill: #F4E4B4;
+      stroke: #C9A658;
+    }
+    svg.threat-coverage .heat-cell[data-state="covered"] rect {
+      fill: #D6E5C4;
+      stroke: #6B8C4E;
+    }
+    svg.threat-coverage .heat-cell-name {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--ink);
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    svg.threat-coverage .heat-cell-state {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 9px;
+      fill: var(--ink-muted);
+      text-anchor: middle;
+      pointer-events: none;
+      letter-spacing: 0.04em;
+    }
+    svg.threat-coverage[data-hover-active] .heat-cell:not([data-hover-self]) rect,
+    svg.threat-coverage[data-hover-active] .heat-cell:not([data-hover-self]) text {
+      opacity: 0.4;
+    }
+    svg.threat-coverage .heat-cell[data-hover-self] rect {
+      stroke: var(--teal);
+      stroke-width: 2.4;
+    }
+    svg.threat-coverage .projected-legend rect.legend-bg {
+      fill: var(--bg-canvas);
+      stroke: var(--rule);
+      stroke-width: 1;
+      rx: 4; ry: 4;
+    }
+    svg.threat-coverage .projected-legend text {
+      font-family: "Inter", sans-serif;
+      font-size: 10px;
+      fill: var(--ink-muted);
+    }
+    svg.threat-coverage .projected-legend .legend-title {
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--ink);
+    }
+    svg.threat-coverage .footnote {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      fill: var(--ink-faint);
+      font-style: italic;
+    }
+    svg.threat-coverage .ref-link {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 10px;
+      fill: var(--teal);
+    }
+
+    /* === Slide 4: Target Attack Surface === */
+    section[data-slide="4"] { padding: 24px 32px; }
+    section[data-slide="4"] .canvas-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    section[data-slide="4"] .slide-caption {
+      font-size: 12px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    section[data-slide="4"] .slide-caption strong {
+      color: var(--teal);
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 600;
+    }
+    section[data-slide="4"] svg.attack-surface {
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      display: block;
+    }
+    svg.attack-surface .surface-card {
+      cursor: pointer;
+    }
+    svg.attack-surface .surface-card rect {
+      fill: var(--bg-canvas);
+      stroke: var(--ink);
+      stroke-width: 1.4;
+      rx: 6; ry: 6;
+      transition: stroke 150ms, stroke-width 150ms;
+    }
+    svg.attack-surface .surface-name {
+      font-family: "Source Serif Pro", "Iowan Old Style", Georgia, serif;
+      font-size: 15px;
+      font-weight: 600;
+      fill: var(--ink);
+      text-anchor: start;
+      pointer-events: none;
+    }
+    svg.attack-surface .surface-path {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 10px;
+      fill: var(--teal);
+      pointer-events: none;
+    }
+    svg.attack-surface .surface-desc {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      fill: var(--ink-muted);
+      pointer-events: none;
+    }
+    svg.attack-surface .surface-warn {
+      font-family: "Inter", sans-serif;
+      font-size: 10px;
+      fill: var(--trust-untrusted);
+      font-style: italic;
+      pointer-events: none;
+    }
+    svg.attack-surface[data-hover-active] .surface-card:not([data-hover-self]) rect,
+    svg.attack-surface[data-hover-active] .surface-card:not([data-hover-self]) text {
+      opacity: 0.4;
+    }
+    svg.attack-surface .surface-card[data-hover-self] rect {
+      stroke: var(--teal);
+      stroke-width: 2.4;
+    }
+
+    /* === Slide 6: Data Contracts === */
+    section[data-slide="6"] { padding: 24px 32px; }
+    section[data-slide="6"] .canvas-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    section[data-slide="6"] .slide-caption {
+      font-size: 12px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    section[data-slide="6"] .slide-caption strong {
+      color: var(--teal);
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 600;
+    }
+    section[data-slide="6"] svg.data-contracts {
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      display: block;
+    }
+    svg.data-contracts .envelope-frame {
+      fill: rgba(17, 122, 101, 0.04);
+      stroke: var(--teal);
+      stroke-width: 1.6;
+      stroke-dasharray: 4 4;
+      rx: 12; ry: 12;
+    }
+    svg.data-contracts .envelope-label {
+      font-family: "Source Serif Pro", "Iowan Old Style", Georgia, serif;
+      font-size: 14px;
+      font-weight: 600;
+      fill: var(--teal);
+    }
+    svg.data-contracts .contract-card {
+      cursor: pointer;
+    }
+    svg.data-contracts .contract-card rect {
+      fill: var(--bg-canvas);
+      stroke: var(--ink);
+      stroke-width: 1.4;
+      rx: 6; ry: 6;
+      transition: stroke 150ms, stroke-width 150ms;
+    }
+    svg.data-contracts .agent-card rect {
+      fill: var(--bg);
+      stroke: var(--ink-muted);
+      stroke-width: 1;
+      rx: 4; ry: 4;
+    }
+    svg.data-contracts .contract-name {
+      font-family: "Source Serif Pro", "Iowan Old Style", Georgia, serif;
+      font-size: 18px;
+      font-weight: 600;
+      fill: var(--ink);
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    svg.data-contracts .contract-desc {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      fill: var(--ink-muted);
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    svg.data-contracts .agent-name {
+      font-family: "Inter", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      fill: var(--ink);
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    svg.data-contracts .arrow-line {
+      stroke: var(--ink-muted);
+      stroke-width: 1.4;
+      fill: none;
+    }
+    svg.data-contracts[data-hover-active] .contract-card:not([data-hover-self]) rect,
+    svg.data-contracts[data-hover-active] .agent-card:not([data-hover-self]) rect {
+      opacity: 0.4;
+    }
+    svg.data-contracts[data-hover-active] .contract-card:not([data-hover-self]) .contract-name,
+    svg.data-contracts[data-hover-active] .contract-card:not([data-hover-self]) .contract-desc,
+    svg.data-contracts[data-hover-active] .agent-card:not([data-hover-self]) .agent-name {
+      opacity: 0.4;
+    }
+    svg.data-contracts .contract-card[data-hover-self] rect,
+    svg.data-contracts .agent-card[data-hover-self] rect {
+      stroke: var(--teal);
+      stroke-width: 2.4;
+    }
+    /* Transparent overlay rect for Envelope frame hover (per F15).
+       pointer-events scoped to the active slide so the rect (which spans most of the
+       viewBox) does not intercept hover on other slides — `pointer-events: all` on the
+       child overrides the inactive section's `pointer-events: none`. */
+    svg.data-contracts .envelope-hit {
+      fill: transparent;
+      stroke: none;
+      pointer-events: none;
+      cursor: pointer;
+    }
+    section[data-slide="6"][data-active] svg.data-contracts .envelope-hit {
+      pointer-events: all;
+    }
+
+    /* === Slide 3: Approval Flow sequence diagram === */
+    section[data-slide="3"] { padding: 24px 32px; }
+    section[data-slide="3"] .canvas-wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    section[data-slide="3"] .slide-caption {
+      font-size: 12px;
+      color: var(--ink-faint);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    section[data-slide="3"] .slide-caption strong {
+      color: var(--teal);
+      letter-spacing: 0;
+      text-transform: none;
+      font-weight: 600;
+    }
+    section[data-slide="3"] svg.sequence-diagram {
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      display: block;
+    }
+    svg.sequence-diagram .lifeline-bg {
+      fill: var(--bg-canvas);
+      stroke: var(--ink);
+      stroke-width: 1.4;
+      rx: 4; ry: 4;
+      cursor: pointer;
+    }
+    svg.sequence-diagram .lifeline-line {
+      stroke: var(--ink-muted);
+      stroke-width: 1;
+      stroke-dasharray: 2 3;
+    }
+    svg.sequence-diagram .lifeline-label {
+      font-family: "Inter", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      fill: var(--ink);
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+    }
+    svg.sequence-diagram .seq-step {
+      stroke: var(--ink-muted);
+      stroke-width: 1.4;
+      fill: none;
+    }
+    svg.sequence-diagram .seq-step.async { stroke-dasharray: 4 3; }
+    svg.sequence-diagram .seq-step.alt-path {
+      stroke: var(--trust-untrusted);
+      stroke-dasharray: 3 3;
+    }
+    svg.sequence-diagram .seq-label {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      fill: var(--ink);
+      pointer-events: none;
+    }
+    svg.sequence-diagram .seq-num {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 10px;
+      font-weight: 600;
+      fill: var(--teal);
+      text-anchor: middle;
+      pointer-events: none;
+    }
+    svg.sequence-diagram .seq-num-bg {
+      fill: var(--bg);
+      stroke: var(--teal);
+      stroke-width: 1;
+      pointer-events: none;
+    }
+    /* Hover/lock on participant lifelines */
+    svg.sequence-diagram[data-hover-active] .lifeline:not([data-hover-self]) { opacity: 0.35; }
+    svg.sequence-diagram[data-hover-active] .seq-step:not([data-hover-related]) { opacity: 0.18; }
+    svg.sequence-diagram[data-hover-active] .seq-label:not([data-hover-related]) { opacity: 0.25; }
+    svg.sequence-diagram[data-hover-active] .seq-num-group:not([data-hover-related]) { opacity: 0.25; }
+    svg.sequence-diagram .lifeline[data-hover-self] .lifeline-bg {
+      stroke: var(--teal);
+      stroke-width: 2.4;
+    }
+    svg.sequence-diagram .seq-step[data-hover-related] {
+      stroke-width: 2.2;
+    }
+    svg.sequence-diagram .seq-step.async[data-hover-related] { stroke: var(--teal-accent); }
+    svg.sequence-diagram .seq-step:not(.async):not(.alt-path)[data-hover-related] { stroke: var(--teal-accent); }
+
+    /* === Hover-dim + connection-highlight (U10) === */
+    svg.system-map [data-component-id]      { cursor: pointer; }
+    svg.system-map .edge                    { pointer-events: stroke; }
+    svg.system-map .edge                    { stroke-width: 1.2; }
+    svg.system-map[data-hover-active] [data-component-id]:not([data-hover-self]) .node-shape,
+    svg.system-map[data-hover-active] [data-component-id]:not([data-hover-self]) .node-label,
+    svg.system-map[data-hover-active] .edge:not([data-hover-related]),
+    svg.system-map[data-hover-active] .group-rect,
+    svg.system-map[data-hover-active] .group-label {
+      opacity: 0.25;
+    }
+    svg.system-map [data-hover-self] .node-shape {
+      stroke: var(--teal);
+      stroke-width: 2.4;
+    }
+    svg.system-map .edge[data-hover-related] {
+      stroke: var(--teal);
+      stroke-width: 1.8;
+    }
+    svg.system-map .edge[data-hover-related] ~ defs .arrowhead,
+    svg.system-map .edge[data-hover-related] { /* re-fill marker on highlight */ }
+
+    /* Trust-tier mode (Slide 2 R5 toggle, wired in U3 — CSS rules here for U10 stub) */
+    svg.system-map[data-trust-mode="active"] [data-trust-tier="untrusted"]    .node-shape { fill: var(--trust-untrusted);   stroke: #7A2828; }
+    svg.system-map[data-trust-mode="active"] [data-trust-tier="low"]          .node-shape { fill: var(--trust-low);          stroke: #8A4A3D; }
+    svg.system-map[data-trust-mode="active"] [data-trust-tier="medium-low"]   .node-shape { fill: var(--trust-medium-low);  stroke: #8A5A5C; }
+    svg.system-map[data-trust-mode="active"] [data-trust-tier="medium"]       .node-shape { fill: var(--trust-medium);       stroke: #2E4566; }
+    svg.system-map[data-trust-mode="active"] [data-trust-tier="high"]         .node-shape { fill: var(--trust-high);         stroke: #34522F; }
+    svg.system-map[data-trust-mode="active"] [data-trust-tier] .node-label    { fill: #FFFFFF; }
+    svg.system-map[data-trust-mode="active"] [data-trust-tier] .node-label.sub { fill: rgba(255,255,255,0.78); }
+
+    /* === Lifecycle overlay (U3) === */
+    svg.system-map[data-active-step] .edge[data-lifecycle-active] {
+      stroke: var(--teal-accent);
+      stroke-width: 2.6;
+      opacity: 1 !important;
+    }
+    svg.system-map[data-active-step] [data-component-id][data-lifecycle-active] .node-shape {
+      stroke: var(--teal-accent);
+      stroke-width: 2.4;
+      opacity: 1 !important;
+    }
+    svg.system-map[data-active-step]:not([data-hover-active]) [data-component-id]:not([data-lifecycle-active]) .node-shape,
+    svg.system-map[data-active-step]:not([data-hover-active]) [data-component-id]:not([data-lifecycle-active]) .node-label,
+    svg.system-map[data-active-step]:not([data-hover-active]) .edge:not([data-lifecycle-active]),
+    svg.system-map[data-active-step]:not([data-hover-active]) .group-rect,
+    svg.system-map[data-active-step]:not([data-hover-active]) .group-label {
+      opacity: 0.4;
+    }
+
+    /* === Canvas toolbar (U3 F3 spec) === */
+    svg.system-map .canvas-toolbar { font-family: "Inter", sans-serif; font-size: 12px; }
+    svg.system-map .canvas-toolbar rect.toolbar-bg {
+      fill: var(--bg-canvas);
+      stroke: var(--rule);
+      stroke-width: 1;
+      rx: 4; ry: 4;
+    }
+    svg.system-map .tool-btn { cursor: pointer; }
+    svg.system-map .tool-btn rect.btn-bg {
+      fill: var(--bg-canvas);
+      stroke: var(--ink-muted);
+      stroke-width: 1;
+      rx: 3; ry: 3;
+      transition: fill 150ms, stroke 150ms;
+    }
+    svg.system-map .tool-btn[data-active] rect.btn-bg {
+      fill: var(--teal);
+      stroke: var(--teal-accent);
+    }
+    svg.system-map .tool-btn text { fill: var(--ink); pointer-events: none; }
+    svg.system-map .tool-btn[data-active] text { fill: #FFFFFF; }
+    svg.system-map .tool-btn:hover rect.btn-bg { stroke: var(--teal-accent); }
+    svg.system-map .step-counter {
+      fill: var(--ink-muted);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      pointer-events: none;
+    }
+    svg.system-map .step-icon {
+      fill: var(--ink);
+      stroke: none;
+      pointer-events: none;
+    }
+    svg.system-map .tool-btn[data-active] .step-icon { fill: #FFFFFF; }
+
+    /* Trust legend overlay (visible when trust-tier mode active) */
+    svg.system-map .trust-legend { display: none; }
+    svg.system-map[data-trust-mode="active"] .trust-legend { display: block; }
+    svg.system-map .trust-legend rect.legend-bg {
+      fill: var(--bg-canvas);
+      stroke: var(--rule);
+      stroke-width: 1;
+      rx: 4; ry: 4;
+    }
+    svg.system-map .trust-legend text {
+      font-family: "Inter", sans-serif;
+      font-size: 10px;
+      fill: var(--ink);
+    }
+  </style>
+</head>
+<body>
+  <main id="deck">
+    <section data-slide="1" data-title="Title" data-active>
+      <h1 class="title">Protective Security Agent</h1>
+      <p class="pitch">
+        A multi-agent adversarial evaluation platform that continuously discovers,
+        evaluates, documents, and regression-tests vulnerabilities in AI-assisted
+        healthcare workflows.
+      </p>
+      <div class="rule"></div>
+      <p class="target">Target system &mdash; <span class="mono">Clinical Co-Pilot</span> in OpenEMR</p>
+    </section>
+
+    <section data-slide="2" data-title="System Map">
+      <div class="canvas-wrap">
+        <div class="slide-caption">Slide 2 &mdash; <strong>System Map</strong> &middot; rectangles = active components, hexagons = deterministic platform services, cylinders = storage, asymmetric = queue</div>
+        <svg class="system-map" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" aria-label="boundary-labs system architecture">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" class="arrowhead"/>
+            </marker>
+          </defs>
+
+          <!-- === Subgraph frames ===
+               Row layout (top-to-bottom):
+                 R1 y=40-120   : Humans | Console | (toolbar gap) | Slack
+                 R2 y=150-230  : Control Plane (Safety Gate, FastAPI, Campaign Runner)
+                 R3 y=280-380  : Campaign Execution (Coverage, Orch, Red Team, Judge, Doc, Regression)
+                 R4 y=420-500  : Target Boundary | Target System
+                 R5 y=560-660  : Storage and Audit | Observability
+               Audit Ledger now lives in R5 (was floating between R1 and R2).
+               Regression Promotion now lives in R3 next to Documentation (was overlapping Clinical Co-Pilot).
+               Queue shifted right to make room for Audit Ledger inside Storage. -->
+          <rect class="group-rect" x="40"  y="40"  width="280" height="80"/>
+          <text class="group-label" x="48" y="34">Humans</text>
+
+          <rect class="group-rect" x="380" y="40"  width="240" height="80"/>
+          <text class="group-label" x="388" y="34">Console (UI surface)</text>
+
+          <rect class="group-rect" x="380" y="150" width="500" height="80"/>
+          <text class="group-label" x="388" y="144">Control Plane</text>
+
+          <rect class="group-rect" x="940" y="40"  width="240" height="80"/>
+          <text class="group-label" x="948" y="34">Slack</text>
+
+          <rect class="group-rect" x="40"  y="280" width="1180" height="100"/>
+          <text class="group-label" x="48" y="274">Campaign Execution</text>
+
+          <rect class="group-rect" x="380" y="420" width="240" height="80"/>
+          <text class="group-label" x="388" y="414">Target Boundary</text>
+
+          <rect class="group-rect" x="940" y="420" width="240" height="80"/>
+          <text class="group-label" x="948" y="414">Target System</text>
+
+          <rect class="group-rect" x="40"  y="560" width="780" height="100"/>
+          <text class="group-label" x="48" y="554">Storage and Audit</text>
+
+          <rect class="group-rect" x="860" y="560" width="360" height="100"/>
+          <text class="group-label" x="868" y="554">Observability</text>
+
+          <!-- === Edges (drawn before nodes so nodes overlay) ===
+               Long routes use orthogonal <path> segments via these row-gap "highways":
+                 y=135       : between R1 and R2 (Slack <-> Safety Gate async)
+                 y=250-265   : between R2 and R3 (Runner -> Coverage, Runner -> Queue)
+                 y=390-405   : between R3 and R4 (Judge -> RP, RP -> Artifacts)
+                 y=545-560   : between R4 and R5 (Doc -> Artifacts, SG -> Audit, API -> DB)
+                 x=50        : far-left vertical corridor (API -> DB)
+                 x=380       : left edge of Target Boundary (SG -> Audit Ledger detour) -->
+
+          <!-- Operator -> Console -->
+          <line class="edge" x1="180" y1="80" x2="380" y2="80" marker-end="url(#arrow)" data-edge-id="op-console" data-source="operator" data-target="security-console"/>
+          <!-- Console -> API (downward) -->
+          <line class="edge" x1="440" y1="110" x2="540" y2="160" marker-end="url(#arrow)" data-edge-id="console-api" data-source="security-console" data-target="fastapi"/>
+          <!-- API -> Safety Gate -->
+          <line class="edge" x1="460" y1="190" x2="455" y2="190" marker-end="url(#arrow)" data-edge-id="api-sg" data-source="fastapi" data-target="safety-gate"/>
+          <!-- API -> Campaign Runner -->
+          <line class="edge" x1="620" y1="190" x2="725" y2="190" marker-end="url(#arrow)" data-edge-id="api-runner" data-source="fastapi" data-target="campaign-runner"/>
+
+          <!-- Safety Gate -> Slack (async dotted, via y=135 highway) -->
+          <path class="edge async" d="M425,165 L425,135 L985,135 L985,110" data-edge-id="sg-slack" data-source="safety-gate" data-target="slack"/>
+          <!-- Slack -> Safety Gate (async dotted, returns via y=140 highway just below) -->
+          <path class="edge async" d="M995,110 L995,140 L435,140 L435,165" marker-end="url(#arrow)" data-edge-id="slack-sg" data-source="slack" data-target="safety-gate"/>
+
+          <!-- Campaign Runner -> Coverage Scoring (R2->R3 left via y=255 highway) -->
+          <path class="edge" d="M760,220 L760,255 L155,255 L155,300" marker-end="url(#arrow)" data-edge-id="runner-cov" data-source="campaign-runner" data-target="coverage-scoring"/>
+          <!-- Coverage -> Orchestrator -->
+          <line class="edge" x1="210" y1="330" x2="240" y2="330" marker-end="url(#arrow)" data-edge-id="cov-orch" data-source="coverage-scoring" data-target="orchestrator"/>
+          <!-- Orchestrator -> Red Team -->
+          <line class="edge" x1="340" y1="330" x2="440" y2="330" marker-end="url(#arrow)" data-edge-id="orch-rt" data-source="orchestrator" data-target="red-team"/>
+          <!-- Red Team -> Target Adapter -->
+          <line class="edge" x1="490" y1="360" x2="480" y2="430" marker-end="url(#arrow)" data-edge-id="rt-ta" data-source="red-team" data-target="target-adapter"/>
+          <!-- Target Adapter <-> Clinical Co-Pilot (parallel arrows) -->
+          <line class="edge" x1="560" y1="455" x2="950" y2="455" marker-end="url(#arrow)" data-edge-id="ta-target" data-source="target-adapter" data-target="clinical-copilot"/>
+          <line class="edge" x1="950" y1="475" x2="560" y2="475" marker-end="url(#arrow)" data-edge-id="target-ta" data-source="clinical-copilot" data-target="target-adapter"/>
+          <!-- Target Adapter -> Judge -->
+          <line class="edge" x1="520" y1="430" x2="700" y2="360" marker-end="url(#arrow)" data-edge-id="ta-judge" data-source="target-adapter" data-target="judge"/>
+          <!-- Judge -> Documentation -->
+          <line class="edge" x1="780" y1="330" x2="940" y2="330" marker-end="url(#arrow)" data-edge-id="judge-doc" data-source="judge" data-target="documentation"/>
+          <!-- Judge -> Regression Promotion (detour below R3 via y=390 to avoid Documentation) -->
+          <path class="edge" d="M760,360 L760,390 L1140,390 L1140,360" marker-end="url(#arrow)" data-edge-id="judge-rp" data-source="judge" data-target="regression-promotion"/>
+
+          <!-- Documentation -> Artifact Store (orthogonal: down past R4, across via y=545, into Artifact Store top) -->
+          <path class="edge" d="M1000,360 L1000,400 L820,400 L820,545 L290,545 L290,575" marker-end="url(#arrow)" data-edge-id="doc-artifacts" data-source="documentation" data-target="artifact-store"/>
+          <!-- Regression Promotion -> Artifact Store (orthogonal via y=405) -->
+          <path class="edge" d="M1140,360 L1140,405 L300,405 L300,560 L290,560 L290,575" marker-end="url(#arrow)" data-edge-id="rp-artifacts" data-source="regression-promotion" data-target="artifact-store"/>
+          <!-- FastAPI -> Security App DB (orthogonal: left corridor at x=50) -->
+          <path class="edge" d="M480,220 L480,250 L50,250 L50,555 L130,555 L130,575" marker-end="url(#arrow)" data-edge-id="api-db" data-source="fastapi" data-target="security-app-db"/>
+          <!-- Safety Gate -> Audit Ledger (orthogonal: detour left of Target Adapter via x=380, y=560) -->
+          <path class="edge" d="M415,215 L415,400 L380,400 L380,560 L450,560 L450,575" marker-end="url(#arrow)" data-edge-id="sg-audit" data-source="safety-gate" data-target="audit-ledger"/>
+          <!-- Campaign Runner -> Queue (orthogonal via y=265 then down) -->
+          <path class="edge" d="M840,220 L840,265 L637,265 L637,575" marker-end="url(#arrow)" data-edge-id="runner-queue" data-source="campaign-runner" data-target="queue"/>
+          <!-- Observability -> Logfire -->
+          <line class="edge" x1="1040" y1="615" x2="1060" y2="615" marker-end="url(#arrow)" data-edge-id="obs-logfire" data-source="observability" data-target="logfire"/>
+
+          <!-- === Nodes ===
+               Each group has a transparent .hit-area rect as its first child so
+               hover fires anywhere within the node's full bounding box (cylinder
+               top-arcs and hexagon corners would otherwise be dead zones). -->
+
+          <!-- Humans -->
+          <g data-component-id="operator" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Operator — the human running the platform: launches campaigns, triages findings, approves high-risk actions in Slack.</title>
+            <rect class="hit-area" x="50"  y="50"  width="130" height="60"/>
+            <rect class="node-shape" x="50"  y="50"  width="130" height="60"/>
+            <text class="node-label" x="115" y="75">Operator</text>
+            <text class="node-label sub" x="115" y="92">human</text>
+          </g>
+          <g data-component-id="security-console" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Security Console — the web UI (served by FastAPI) where the operator launches campaigns, reviews findings, and inspects artifacts.</title>
+            <rect class="hit-area" x="380" y="50"  width="120" height="60"/>
+            <rect class="node-shape" x="380" y="50"  width="120" height="60"/>
+            <text class="node-label" x="440" y="75">Security Console</text>
+            <text class="node-label sub" x="440" y="92">UI</text>
+          </g>
+          <g data-component-id="slack" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Slack Approval Channels — where high/critical approval cards (add target, real-PHI use, scope expansion, budget increase, external disclosure) get routed to humans for sign-off.</title>
+            <rect class="hit-area" x="950" y="50"  width="220" height="60"/>
+            <rect class="node-shape" x="950" y="50"  width="220" height="60"/>
+            <text class="node-label" x="1060" y="75">Slack Approval Channels</text>
+            <text class="node-label sub" x="1060" y="92">async HITL</text>
+          </g>
+
+          <!-- Control plane -->
+          <g data-component-id="safety-gate" data-trust-tier="high" data-node-shape="hexagon">
+            <title>Safety Gate — deterministic pre-flight check that runs before every campaign or high-impact action. Enforces target allowlists, PHI restrictions, budget ceilings, and approval gates. No LLM in the loop.</title>
+            <rect class="hit-area" x="395" y="165" width="60" height="50"/>
+            <polygon class="node-shape" points="395,190 410,165 440,165 455,190 440,215 410,215"/>
+            <text class="node-label" x="425" y="187">Safety Gate</text>
+            <text class="node-label sub" x="425" y="201">Service</text>
+          </g>
+          <g data-component-id="fastapi" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>FastAPI Control Plane — the backend web server. Hosts the Security Console, exposes campaign-launch and approval-callback endpoints, persists campaign state.</title>
+            <rect class="hit-area" x="460" y="160" width="160" height="60"/>
+            <rect class="node-shape" x="460" y="160" width="160" height="60"/>
+            <text class="node-label" x="540" y="183">FastAPI</text>
+            <text class="node-label sub" x="540" y="200">Control Plane</text>
+          </g>
+          <g data-component-id="campaign-runner" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Campaign Runner — executes a campaign as a Pydantic Graph run. Coordinates Safety Gate, Coverage Scoring, Orchestrator, Red Team, Target Adapter, Judge, Regression Promotion, and Documentation through each step.</title>
+            <rect class="hit-area" x="725" y="160" width="150" height="60"/>
+            <rect class="node-shape" x="725" y="160" width="150" height="60"/>
+            <text class="node-label" x="800" y="183">Campaign</text>
+            <text class="node-label sub" x="800" y="200">Runner</text>
+          </g>
+
+          <!-- Campaign Agents -->
+          <g data-component-id="coverage-scoring" data-trust-tier="medium-low" data-node-shape="hexagon">
+            <title>Coverage Scoring Service — deterministic service that tracks which threat-model categories have been tested and which still have gaps. Tells the Orchestrator what to attack next.</title>
+            <rect class="hit-area" x="100" y="300" width="110" height="60"/>
+            <polygon class="node-shape" points="100,330 115,300 195,300 210,330 195,360 115,360"/>
+            <text class="node-label" x="155" y="325">Coverage</text>
+            <text class="node-label sub" x="155" y="340">Scoring Service</text>
+          </g>
+          <g data-component-id="orchestrator" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Orchestrator Agent — the LLM that decides what to test next, when to stop, and when to trigger regression. Emits task packets to Red Team and Judge.</title>
+            <rect class="hit-area" x="240" y="300" width="100" height="60"/>
+            <rect class="node-shape" x="240" y="300" width="100" height="60"/>
+            <text class="node-label" x="290" y="325">Orchestrator</text>
+          </g>
+          <g data-component-id="red-team" data-trust-tier="untrusted" data-node-shape="rectangle">
+            <title>Red Team Agent — LLM (treated as untrusted) that generates novel adversarial inputs and executes them against the target through the Target Adapter. Has a per-attempt frontier-model dollar cap.</title>
+            <rect class="hit-area" x="440" y="300" width="100" height="60"/>
+            <rect class="node-shape" x="440" y="300" width="100" height="60"/>
+            <text class="node-label" x="490" y="325">Red Team</text>
+          </g>
+          <g data-component-id="judge" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Judge Agent — independent LLM grader. Looks at the sanitized attack transcript and decides whether the attack succeeded, failed, partially succeeded, was blocked, or is uncertain. Never sees Red Team's free-text reasoning.</title>
+            <rect class="hit-area" x="680" y="300" width="100" height="60"/>
+            <rect class="node-shape" x="680" y="300" width="100" height="60"/>
+            <text class="node-label" x="730" y="325">Judge</text>
+          </g>
+          <g data-component-id="documentation" data-trust-tier="low" data-node-shape="rectangle">
+            <title>Documentation Agent — LLM that turns confirmed exploits into professional, reproducible vulnerability reports. High/critical reports require human approval before publish.</title>
+            <rect class="hit-area" x="940" y="300" width="120" height="60"/>
+            <rect class="node-shape" x="940" y="300" width="120" height="60"/>
+            <text class="node-label" x="1000" y="325">Documentation</text>
+          </g>
+          <!-- Regression Promotion — moved into R3 next to Documentation
+               (was overlapping Clinical Co-Pilot in R4). -->
+          <g data-component-id="regression-promotion" data-trust-tier="medium-low" data-node-shape="hexagon">
+            <title>Regression Promotion Service — deterministic service that converts confirmed exploits into repeatable test cases under evals/. Strips nonessential content and captures stochastic-tier seeds/temps where needed.</title>
+            <rect class="hit-area" x="1080" y="300" width="120" height="60"/>
+            <polygon class="node-shape" points="1080,330 1095,300 1185,300 1200,330 1185,360 1095,360"/>
+            <text class="node-label" x="1140" y="325">Regression</text>
+            <text class="node-label sub" x="1140" y="340">Promotion Service</text>
+          </g>
+
+          <!-- Target Adapter + Clinical Co-Pilot (R4) -->
+          <g data-component-id="target-adapter" data-trust-tier="untrusted" data-node-shape="rectangle">
+            <title>Target Adapter — the only component allowed to talk to the Clinical Co-Pilot. Exposes start_session / send_turn / upload_test_file / end_session primitives and wraps target responses in the Evidence Wrapper before agents see them.</title>
+            <rect class="hit-area" x="400" y="430" width="160" height="60"/>
+            <rect class="node-shape" x="400" y="430" width="160" height="60"/>
+            <text class="node-label" x="480" y="455">Target Adapter</text>
+            <text class="node-label sub" x="480" y="472">controlled boundary</text>
+          </g>
+          <g data-component-id="clinical-copilot" data-trust-tier="untrusted" data-node-shape="rectangle">
+            <title>Clinical Co-Pilot — the target system under test. A FastAPI clinical AI assistant (OpenEMR-integrated) with /conversation SSE, /copilot/ingest, SMART launch, Pydantic AI supervisor + FHIR tools + guideline RAG.</title>
+            <rect class="hit-area" x="950" y="430" width="220" height="60"/>
+            <rect class="node-shape" x="950" y="430" width="220" height="60"/>
+            <text class="node-label" x="1060" y="455">Clinical Co-Pilot</text>
+            <text class="node-label sub" x="1060" y="472">Target — OpenEMR</text>
+          </g>
+
+          <!-- Storage and Audit (R5) — Audit Ledger now lives here, Queue shifted right -->
+          <g data-component-id="security-app-db" data-trust-tier="medium" data-node-shape="cylinder">
+            <title>Security App DB — SQLite store (MVP) for campaigns, findings, approvals, costs, and reports. Also backs pydantic_graph persistence for Slack-paused campaign nodes.</title>
+            <rect class="hit-area" x="60"  y="575" width="140" height="80"/>
+            <path class="node-shape" d="M60,590 Q60,575 100,575 L160,575 Q200,575 200,590 L200,640 Q200,655 160,655 L100,655 Q60,655 60,640 Z"/>
+            <path class="node-shape" d="M60,590 Q60,605 100,605 L160,605 Q200,605 200,590" fill="none"/>
+            <text class="node-label" x="130" y="625">Security App DB</text>
+            <text class="node-label sub" x="130" y="642">SQLite</text>
+          </g>
+          <g data-component-id="artifact-store" data-trust-tier="medium" data-node-shape="cylinder">
+            <title>Artifact Store — JSONL + evals/ store for attack-attempt transcripts, judge verdicts, vulnerability reports, and eval cases (regression + stochastic). Referenced by artifact:// URIs. PHI auto-redacted on write.</title>
+            <rect class="hit-area" x="220" y="575" width="140" height="80"/>
+            <path class="node-shape" d="M220,590 Q220,575 260,575 L320,575 Q360,575 360,590 L360,640 Q360,655 320,655 L260,655 Q220,655 220,640 Z"/>
+            <path class="node-shape" d="M220,590 Q220,605 260,605 L320,605 Q360,605 360,590" fill="none"/>
+            <text class="node-label" x="290" y="625">Artifact Store</text>
+            <text class="node-label sub" x="290" y="642">JSONL + evals/</text>
+          </g>
+          <g data-component-id="audit-ledger" data-trust-tier="medium" data-node-shape="cylinder">
+            <title>Audit Ledger — append-only record of approvals and Safety Gate decisions. 15-field approval schema (includes containment_plan_ref for real-PHI). Retained for build duration + post-defense archive.</title>
+            <rect class="hit-area" x="380" y="575" width="140" height="80"/>
+            <path class="node-shape" d="M380,590 Q380,575 420,575 L480,575 Q520,575 520,590 L520,640 Q520,655 480,655 L420,655 Q380,655 380,640 Z"/>
+            <path class="node-shape" d="M380,590 Q380,605 420,605 L480,605 Q520,605 520,590" fill="none"/>
+            <text class="node-label" x="450" y="625">Audit Ledger</text>
+            <text class="node-label sub" x="450" y="642">approval + audit</text>
+          </g>
+          <g data-component-id="queue" data-trust-tier="medium" data-node-shape="asymmetric">
+            <title>Queue — worker queue for long-running overnight campaigns (Redis / RQ / Celery). Post-MVP; the synchronous CLI is sufficient for the MVP scope.</title>
+            <rect class="hit-area" x="560" y="575" width="155" height="80"/>
+            <polygon class="node-shape" points="560,575 700,575 715,655 575,655"/>
+            <text class="node-label" x="638" y="615">Queue</text>
+            <text class="node-label sub" x="638" y="632">post-MVP</text>
+          </g>
+
+          <!-- Observability -->
+          <g data-component-id="observability" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Observability Layer — captures traces, cost-ledger rows, and dashboard data per campaign / case / attempt / verdict / report. Tracks agent + model + prompt versions, tool calls, latencies, token usage, and model costs.</title>
+            <rect class="hit-area" x="870" y="585" width="170" height="60"/>
+            <rect class="node-shape" x="870" y="585" width="170" height="60"/>
+            <text class="node-label" x="955" y="610">Observability Layer</text>
+            <text class="node-label sub" x="955" y="627">traces + cost ledger</text>
+          </g>
+          <g data-component-id="logfire" data-trust-tier="medium" data-node-shape="rectangle">
+            <title>Logfire / OpenTelemetry — the trace backend that ingests security-app traces. Separate Logfire project from the target's, with PHI redaction allowlist + secret scrubbing applied before emission.</title>
+            <rect class="hit-area" x="1060" y="585" width="150" height="60"/>
+            <rect class="node-shape" x="1060" y="585" width="150" height="60"/>
+            <text class="node-label" x="1135" y="610">Logfire /</text>
+            <text class="node-label sub" x="1135" y="627">OpenTelemetry</text>
+          </g>
+
+          <!-- === Canvas toolbar (parked in right-side gutter between Slack (R1) and
+                Control Plane (R2) — was at translate(900,0) but overlapped the
+                "Slack" group label at y=34). -->
+          <g class="canvas-toolbar" transform="translate(900, 124)">
+            <rect class="toolbar-bg" x="0" y="6" width="340" height="32"/>
+            <!-- Trust-tier toggle (Base / Tiers) -->
+            <g class="tool-btn" id="toggle-trust" role="button" tabindex="0" aria-label="Toggle trust tiers (T)">
+              <rect class="btn-bg" x="8" y="11" width="60" height="22"/>
+              <text x="38" y="26" text-anchor="middle">Base</text>
+            </g>
+            <!-- Step counter -->
+            <text class="step-counter" x="118" y="26" text-anchor="middle" id="step-counter">— / 13</text>
+            <!-- Step-back button (◀ icon) -->
+            <g class="tool-btn" id="step-back" role="button" tabindex="0" aria-label="Reverse lifecycle step (←)">
+              <rect class="btn-bg" x="156" y="11" width="38" height="22"/>
+              <path class="step-icon" d="M180,17 L170,22 L180,27 Z"/>
+            </g>
+            <!-- Step-forward button (▶ icon; transitions to Replay ↻ at step 13) -->
+            <g class="tool-btn" id="step-forward" role="button" tabindex="0" aria-label="Advance lifecycle step (→)">
+              <rect class="btn-bg" x="202" y="11" width="68" height="22"/>
+              <text x="232" y="26" text-anchor="end" font-size="11">Step</text>
+              <path class="step-icon" id="step-icon" d="M250,17 L260,22 L250,27 Z"/>
+            </g>
+            <!-- Replay button (visible only when lifecycle is at done state) -->
+            <g class="tool-btn" id="replay-btn" role="button" tabindex="0" aria-label="Restart lifecycle (R)" style="display:none">
+              <rect class="btn-bg" x="278" y="11" width="56" height="22"/>
+              <text x="316" y="26" text-anchor="end" font-size="11">Replay</text>
+              <path class="step-icon" d="M308,17 a6,6 0 1,0 6,6 M308,17 L303,21 L308,22 Z" fill="none" stroke="currentColor" stroke-width="1.4"/>
+            </g>
+          </g>
+
+          <!-- Trust legend (visible only in trust-tier mode) -->
+          <g class="trust-legend" transform="translate(40, 680)">
+            <rect class="legend-bg" x="0" y="0" width="640" height="28"/>
+            <g transform="translate(12, 14)">
+              <rect width="10" height="10" y="-5" fill="var(--trust-untrusted)"/><text x="16" y="3">Untrusted</text>
+              <rect width="10" height="10" x="100" y="-5" fill="var(--trust-low)"/><text x="116" y="3">Low</text>
+              <rect width="10" height="10" x="180" y="-5" fill="var(--trust-medium-low)"/><text x="196" y="3">Med-low</text>
+              <rect width="10" height="10" x="280" y="-5" fill="var(--trust-medium)"/><text x="296" y="3">Medium</text>
+              <rect width="10" height="10" x="370" y="-5" fill="var(--trust-high)"/><text x="386" y="3">High</text>
+              <text x="450" y="3" fill="var(--ink-faint)" font-size="9">five-tier trust palette (R17)</text>
+            </g>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <section data-slide="3" data-title="Approval Flow">
+      <!--
+        U4 PARTICIPANT CONTENT-MAP (per F9 sub-deliverable, AE6 carveout — synthesized from the
+        10 numbered steps below, NOT verbatim from ARCHITECTURE.md).
+        Maps each of 6 participants × 5 schema fields (role, messages_sent, messages_received,
+        decision_criteria, ttl_failure_behavior) to step numbers and ARCHITECTURE.md sections:
+
+        Operator      → role from §Users; sends step 4; receives nothing; decides
+                        via Slack card content; failure: no decision → step-10 alt-path TTL.
+        Slack         → role from §Slack HITL; sends step 5; receives step 3 + step 4;
+                        decision criteria: any channel member may approve (MVP); TTL 24h.
+        API           → role from §Recommended Stack / FastAPI; sends step 6+7; receives
+                        step 5; decision: signature + approval-ID + expiration validation.
+        Safety Gate   → role from §Platform Services > Safety Gate; sends step 2+3+8+9 and
+                        alt-path steps; receives step 1+7; decision criteria: allowlist URL
+                        match, PHI mode, budget, approval-record status; TTL alt-path.
+        Campaign Run. → role from §Inter-Agent Coordination; sends step 1; receives step 9
+                        / alt-path abort; decision: none (graph runner persists/resumes).
+        Audit Ledger  → role from §Security Controls; sends nothing; receives step 2+6 +
+                        alt-path auto-reject; decision: append-only writes; failure: write
+                        failure surfaces as failure-mode (per ARCHITECTURE.md Failure Modes).
+      -->
+      <div class="canvas-wrap">
+        <div class="slide-caption">Slide 3 &mdash; <strong>Approval Flow</strong> &middot; 10 numbered steps + TTL alt-path (per FIX_PLAN.md WU-23). Hover a participant to highlight its messages.</div>
+        <svg class="sequence-diagram" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" aria-label="Slack-HITL approval flow sequence diagram">
+          <defs>
+            <marker id="seq-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--ink-muted)"/>
+            </marker>
+            <marker id="seq-arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--teal-accent)"/>
+            </marker>
+            <marker id="seq-arrow-alt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--trust-untrusted)"/>
+            </marker>
+          </defs>
+
+          <!-- Lifelines (vertical dashed lines from y=80 down to y=680) -->
+          <line class="lifeline-line" x1="120"  y1="100" x2="120"  y2="680"/>
+          <line class="lifeline-line" x1="340"  y1="100" x2="340"  y2="680"/>
+          <line class="lifeline-line" x1="560"  y1="100" x2="560"  y2="680"/>
+          <line class="lifeline-line" x1="780"  y1="100" x2="780"  y2="680"/>
+          <line class="lifeline-line" x1="1000" y1="100" x2="1000" y2="680"/>
+          <line class="lifeline-line" x1="1220" y1="100" x2="1220" y2="680"/>
+
+          <!-- Participant headers (clickable lifelines) -->
+          <g class="lifeline" data-participant-id="operator">
+            <rect class="lifeline-bg" x="60"   y="60" width="120" height="40"/>
+            <text class="lifeline-label" x="120" y="83">Operator</text>
+          </g>
+          <g class="lifeline" data-participant-id="slack">
+            <rect class="lifeline-bg" x="280"  y="60" width="120" height="40"/>
+            <text class="lifeline-label" x="340" y="83">Slack</text>
+          </g>
+          <g class="lifeline" data-participant-id="api">
+            <rect class="lifeline-bg" x="500"  y="60" width="120" height="40"/>
+            <text class="lifeline-label" x="560" y="83">FastAPI</text>
+          </g>
+          <g class="lifeline" data-participant-id="safety-gate">
+            <rect class="lifeline-bg" x="720"  y="60" width="120" height="40"/>
+            <text class="lifeline-label" x="780" y="83">Safety Gate</text>
+          </g>
+          <g class="lifeline" data-participant-id="campaign-runner">
+            <rect class="lifeline-bg" x="940"  y="60" width="120" height="40"/>
+            <text class="lifeline-label" x="1000" y="83">Campaign Runner</text>
+          </g>
+          <g class="lifeline" data-participant-id="audit-ledger">
+            <rect class="lifeline-bg" x="1160" y="60" width="120" height="40"/>
+            <text class="lifeline-label" x="1220" y="83">Audit Ledger</text>
+          </g>
+
+          <!-- Step 1: Campaign Runner → Safety Gate (y=140) -->
+          <g class="seq-num-group" data-seq-num="1">
+            <line class="seq-step" data-seq-num="1" data-source="campaign-runner" data-target="safety-gate" x1="1000" y1="140" x2="780" y2="140" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="1" x="890" y="135" text-anchor="middle">campaign requires approval</text>
+            <circle class="seq-num-bg" cx="890" cy="152" r="9"/>
+            <text class="seq-num" data-seq-num="1" x="890" y="156">1</text>
+          </g>
+
+          <!-- Step 2: Safety Gate → Audit Ledger (y=185) -->
+          <g class="seq-num-group" data-seq-num="2">
+            <line class="seq-step" data-seq-num="2" data-source="safety-gate" data-target="audit-ledger" x1="780" y1="185" x2="1220" y2="185" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="2" x="1000" y="180" text-anchor="middle">write approval-request record</text>
+            <circle class="seq-num-bg" cx="1000" cy="197" r="9"/>
+            <text class="seq-num" data-seq-num="2" x="1000" y="201">2</text>
+          </g>
+
+          <!-- Step 3: Safety Gate → Slack (y=230, async) -->
+          <g class="seq-num-group" data-seq-num="3">
+            <line class="seq-step async" data-seq-num="3" data-source="safety-gate" data-target="slack" x1="780" y1="230" x2="340" y2="230" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="3" x="560" y="225" text-anchor="middle">post approval card (async)</text>
+            <circle class="seq-num-bg" cx="560" cy="242" r="9"/>
+            <text class="seq-num" data-seq-num="3" x="560" y="246">3</text>
+          </g>
+
+          <!-- Step 4: Operator → Slack (y=290, async) -->
+          <g class="seq-num-group" data-seq-num="4">
+            <line class="seq-step async" data-seq-num="4" data-source="operator" data-target="slack" x1="120" y1="290" x2="340" y2="290" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="4" x="230" y="285" text-anchor="middle">approve / reject / comment</text>
+            <circle class="seq-num-bg" cx="230" cy="302" r="9"/>
+            <text class="seq-num" data-seq-num="4" x="230" y="306">4</text>
+          </g>
+
+          <!-- Step 5: Slack → API (y=340, async) -->
+          <g class="seq-num-group" data-seq-num="5">
+            <line class="seq-step async" data-seq-num="5" data-source="slack" data-target="api" x1="340" y1="340" x2="560" y2="340" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="5" x="450" y="335" text-anchor="middle">signed callback</text>
+            <circle class="seq-num-bg" cx="450" cy="352" r="9"/>
+            <text class="seq-num" data-seq-num="5" x="450" y="356">5</text>
+          </g>
+
+          <!-- Step 6: API → Audit Ledger (y=390) -->
+          <g class="seq-num-group" data-seq-num="6">
+            <line class="seq-step" data-seq-num="6" data-source="api" data-target="audit-ledger" x1="560" y1="390" x2="1220" y2="390" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="6" x="890" y="385" text-anchor="middle">write decision record</text>
+            <circle class="seq-num-bg" cx="890" cy="402" r="9"/>
+            <text class="seq-num" data-seq-num="6" x="890" y="406">6</text>
+          </g>
+
+          <!-- Step 7: API → Safety Gate (y=435) -->
+          <g class="seq-num-group" data-seq-num="7">
+            <line class="seq-step" data-seq-num="7" data-source="api" data-target="safety-gate" x1="560" y1="435" x2="780" y2="435" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="7" x="670" y="430" text-anchor="middle">notify decision</text>
+            <circle class="seq-num-bg" cx="670" cy="447" r="9"/>
+            <text class="seq-num" data-seq-num="7" x="670" y="451">7</text>
+          </g>
+
+          <!-- Step 8: Safety Gate → Safety Gate (self-loop at y=475) -->
+          <g class="seq-num-group" data-seq-num="8">
+            <path class="seq-step" data-seq-num="8" data-source="safety-gate" data-target="safety-gate" d="M780,475 C835,475 835,505 780,505" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="8" x="845" y="495" text-anchor="start">revalidate scope</text>
+            <circle class="seq-num-bg" cx="819" cy="490" r="9"/>
+            <text class="seq-num" data-seq-num="8" x="819" y="494">8</text>
+          </g>
+
+          <!-- Step 9: Safety Gate → Campaign Runner (y=545) -->
+          <g class="seq-num-group" data-seq-num="9">
+            <line class="seq-step" data-seq-num="9" data-source="safety-gate" data-target="campaign-runner" x1="780" y1="545" x2="1000" y2="545" marker-end="url(#seq-arrow)"/>
+            <text class="seq-label" data-seq-num="9" x="890" y="540" text-anchor="middle">resume OR abort</text>
+            <circle class="seq-num-bg" cx="890" cy="557" r="9"/>
+            <text class="seq-num" data-seq-num="9" x="890" y="561">9</text>
+          </g>
+
+          <!-- Step 10 (alt-path): TTL expires before step 5 → SG → Audit + SG → Runner (abort) -->
+          <g class="seq-num-group" data-seq-num="10">
+            <line class="seq-step alt-path" data-seq-num="10" data-source="safety-gate" data-target="audit-ledger" x1="780" y1="620" x2="1220" y2="620" marker-end="url(#seq-arrow-alt)"/>
+            <text class="seq-label" data-seq-num="10" x="1000" y="615" text-anchor="middle" fill="var(--trust-untrusted)">alt: TTL expires → auto-reject</text>
+            <line class="seq-step alt-path" data-seq-num="10" data-source="safety-gate" data-target="campaign-runner" x1="780" y1="650" x2="1000" y2="650" marker-end="url(#seq-arrow-alt)"/>
+            <text class="seq-label" data-seq-num="10" x="890" y="645" text-anchor="middle" fill="var(--trust-untrusted)">alt: abort campaign</text>
+            <circle class="seq-num-bg" cx="780" cy="635" r="9" stroke="var(--trust-untrusted)"/>
+            <text class="seq-num" data-seq-num="10" x="780" y="639" fill="var(--trust-untrusted)">10</text>
+          </g>
+
+          <!-- Legend at the bottom -->
+          <g transform="translate(40, 700)">
+            <text class="seq-label" x="0" y="0" fill="var(--ink-faint)">— solid: synchronous     —— async: dotted     ⋯ red: alt-path (TTL expires)</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <section data-slide="4" data-title="Target Attack Surface">
+      <div class="canvas-wrap">
+        <div class="slide-caption">Slide 4 &mdash; <strong>Target Attack Surface</strong> &middot; Clinical Co-Pilot endpoints from ARCHITECTURE.md §Target-Specific Attack Surface From Repo Research.</div>
+        <svg class="attack-surface" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" aria-label="Clinical Co-Pilot attack surface map">
+          <!-- 3 columns × 2 rows grid; card box ~360×220 -->
+
+          <!-- Row 1 -->
+          <g class="surface-card" data-surface-id="conversation-sse">
+            <rect x="60" y="60" width="380" height="280"/>
+            <text class="surface-name" x="78" y="92">/conversation (SSE)</text>
+            <text class="surface-path" x="78" y="110">clinical-copilot/app/routers/conversation.py</text>
+            <text class="surface-desc" x="78" y="138">Streams agent / verifier / critic / answer events</text>
+            <text class="surface-desc" x="78" y="156">to the Co-Pilot UI. The primary chat-input boundary.</text>
+            <text class="surface-warn" x="78" y="190">Attacks: multi-turn prompt injection, malformed q,</text>
+            <text class="surface-warn" x="78" y="206">patient-binding mismatch, verifier strip-all,</text>
+            <text class="surface-warn" x="78" y="222">critic bypass.</text>
+            <text class="surface-desc" x="78" y="312" style="fill: var(--ink-faint);">Trust: untrusted output</text>
+          </g>
+
+          <g class="surface-card" data-surface-id="copilot-ingest">
+            <rect x="450" y="60" width="380" height="280"/>
+            <text class="surface-name" x="468" y="92">/copilot/ingest</text>
+            <text class="surface-path" x="468" y="110">app/routers/ingest.py + ingest/orchestrator.py</text>
+            <text class="surface-desc" x="468" y="138">Document ingestion. Calls into OpenEMR's</text>
+            <text class="surface-desc" x="468" y="156">new-documents and binary routes via</text>
+            <text class="surface-desc" x="468" y="174">X-Copilot-Internal-Token (boundary at right).</text>
+            <text class="surface-warn" x="468" y="208">Attacks: malicious uploaded content, MIME</text>
+            <text class="surface-warn" x="468" y="224">mismatch, oversized payload, quote-verification</text>
+            <text class="surface-warn" x="468" y="240">bypass, cached extraction poisoning.</text>
+            <text class="surface-desc" x="468" y="312" style="fill: var(--ink-faint);">Trust: untrusted input</text>
+          </g>
+
+          <g class="surface-card" data-surface-id="copilot-documents">
+            <rect x="840" y="60" width="380" height="280"/>
+            <text class="surface-name" x="858" y="92">/copilot/documents/*</text>
+            <text class="surface-path" x="858" y="110">app/routers/documents.py + source resolver</text>
+            <text class="surface-desc" x="858" y="138">Source-document file endpoint. Resolves</text>
+            <text class="surface-desc" x="858" y="156">UUIDs to PDFs / binaries for source-chip links.</text>
+            <text class="surface-warn" x="858" y="190">Attacks: cross-patient document fetch via UUID</text>
+            <text class="surface-warn" x="858" y="206">guessing, stale UUID reuse, source-chip leakage,</text>
+            <text class="surface-warn" x="858" y="222">bbox / source-metadata tampering.</text>
+            <text class="surface-desc" x="858" y="312" style="fill: var(--ink-faint);">Trust: authz boundary</text>
+          </g>
+
+          <!-- Row 2 -->
+          <g class="surface-card" data-surface-id="smart-launch">
+            <rect x="60" y="370" width="380" height="280"/>
+            <text class="surface-name" x="78" y="402">SMART launch + session</text>
+            <text class="surface-path" x="78" y="420">app/auth/smart_session.py + scope.py</text>
+            <text class="surface-desc" x="78" y="448">EHR-launch flow: iss + launch params, OAuth2</text>
+            <text class="surface-desc" x="78" y="466">callback with PKCE, copilot_smart_session</text>
+            <text class="surface-desc" x="78" y="484">cookie minted post-token-exchange.</text>
+            <text class="surface-warn" x="78" y="518">Attacks: missing scope, stale / invalid session,</text>
+            <text class="surface-warn" x="78" y="534">patient mismatch, scope downgrade,</text>
+            <text class="surface-warn" x="78" y="550">prompts to bypass SMART auth.</text>
+            <text class="surface-desc" x="78" y="622" style="fill: var(--ink-faint);">Trust: session-bound identity</text>
+          </g>
+
+          <g class="surface-card" data-surface-id="pydantic-ai-tools">
+            <rect x="450" y="370" width="380" height="280"/>
+            <text class="surface-name" x="468" y="402">Pydantic AI supervisor tools</text>
+            <text class="surface-path" x="468" y="420">app/agent/pydantic_loop.py</text>
+            <text class="surface-desc" x="468" y="448">Tool registrations: FHIR getters,</text>
+            <text class="surface-desc" x="468" y="466">extract_document, retrieve_evidence,</text>
+            <text class="surface-desc" x="468" y="484">guideline retrieval.</text>
+            <text class="surface-warn" x="468" y="518">Attacks: tool-selection manipulation, forbidden</text>
+            <text class="surface-warn" x="468" y="534">tool success, repeated recoverable scope_missing,</text>
+            <text class="surface-warn" x="468" y="550">tool-call count exhaustion.</text>
+            <text class="surface-desc" x="468" y="600" style="fill: var(--trust-untrusted); font-style: italic;">Limitation: tool traces are</text>
+            <text class="surface-desc" x="468" y="616" style="fill: var(--trust-untrusted); font-style: italic;">internal spans not exposed across</text>
+            <text class="surface-desc" x="468" y="632" style="fill: var(--trust-untrusted); font-style: italic;">separation boundary; MVP grades</text>
+            <text class="surface-desc" x="468" y="648" style="fill: var(--trust-untrusted); font-style: italic;">tool-misuse semantically via Judge.</text>
+          </g>
+
+          <g class="surface-card" data-surface-id="internal-token">
+            <rect x="840" y="370" width="380" height="280"/>
+            <text class="surface-name" x="858" y="402">Internal OpenEMR API token</text>
+            <text class="surface-path" x="858" y="420">InternalAuth (X-Copilot-Internal-Token)</text>
+            <text class="surface-desc" x="858" y="448">Header-bearer boundary between Clinical</text>
+            <text class="surface-desc" x="858" y="466">Co-Pilot and OpenEMR's custom-module</text>
+            <text class="surface-desc" x="858" y="484">routes.</text>
+            <text class="surface-warn" x="858" y="518">Attacks: ensure security app does NOT receive</text>
+            <text class="surface-warn" x="858" y="534">the token. Internal endpoints only probed</text>
+            <text class="surface-warn" x="858" y="550">when explicitly in authorized scope.</text>
+            <text class="surface-desc" x="858" y="622" style="fill: var(--ink-faint);">Trust: secret boundary</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <section data-slide="5" data-title="Threat Coverage">
+      <div class="canvas-wrap">
+        <div class="slide-caption">Slide 5 &mdash; <strong>Threat Coverage</strong> &middot; 10-category heat map. Hover a cell for the Initial defense signal from ARCHITECTURE.md.</div>
+        <svg class="threat-coverage" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" aria-label="Threat-model coverage heat map at T0">
+          <!-- T0 baseline header (per F6 — bake the framing into the slide itself) -->
+          <text class="t0-header" x="500" y="56">Coverage at T0 — pre-eval-suite</text>
+          <text class="t0-sub"    x="500" y="76">Phase 6 populates · commit 4f09569 · eval suite has not been built yet</text>
+
+          <!-- 5x2 grid of cells; cell box ~180x140; gap 20px -->
+          <!-- Row 1 (y=110) -->
+          <g class="heat-cell" data-cell-id="direct-prompt-injection" data-state="not-covered">
+            <rect x="60" y="110" width="180" height="140"/>
+            <text class="heat-cell-name" x="150" y="155">Direct prompt</text>
+            <text class="heat-cell-name" x="150" y="171">injection</text>
+            <text class="heat-cell-state" x="150" y="225">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="indirect-prompt-injection" data-state="not-covered">
+            <rect x="260" y="110" width="180" height="140"/>
+            <text class="heat-cell-name" x="350" y="155">Indirect prompt</text>
+            <text class="heat-cell-name" x="350" y="171">injection</text>
+            <text class="heat-cell-state" x="350" y="225">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="multi-turn-manipulation" data-state="not-covered">
+            <rect x="460" y="110" width="180" height="140"/>
+            <text class="heat-cell-name" x="550" y="155">Multi-turn</text>
+            <text class="heat-cell-name" x="550" y="171">manipulation</text>
+            <text class="heat-cell-state" x="550" y="225">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="phi-leakage" data-state="not-covered">
+            <rect x="660" y="110" width="180" height="140"/>
+            <text class="heat-cell-name" x="750" y="155">PHI leakage</text>
+            <text class="heat-cell-state" x="750" y="225">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="cross-patient-exposure" data-state="not-covered">
+            <rect x="860" y="110" width="180" height="140"/>
+            <text class="heat-cell-name" x="950" y="155">Cross-patient</text>
+            <text class="heat-cell-name" x="950" y="171">exposure</text>
+            <text class="heat-cell-state" x="950" y="225">NOT-COVERED</text>
+          </g>
+
+          <!-- Row 2 (y=270) -->
+          <g class="heat-cell" data-cell-id="authz-bypass" data-state="not-covered">
+            <rect x="60" y="270" width="180" height="140"/>
+            <text class="heat-cell-name" x="150" y="310">Authorization</text>
+            <text class="heat-cell-name" x="150" y="326">bypass + resource</text>
+            <text class="heat-cell-name" x="150" y="342">enumeration</text>
+            <text class="heat-cell-state" x="150" y="385">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="state-corruption" data-state="not-covered">
+            <rect x="260" y="270" width="180" height="140"/>
+            <text class="heat-cell-name" x="350" y="315">State corruption</text>
+            <text class="heat-cell-state" x="350" y="385">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="tool-misuse" data-state="not-covered">
+            <rect x="460" y="270" width="180" height="140"/>
+            <text class="heat-cell-name" x="550" y="315">Tool misuse</text>
+            <text class="heat-cell-state" x="550" y="385">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="recursive-tool-use" data-state="not-covered">
+            <rect x="660" y="270" width="180" height="140"/>
+            <text class="heat-cell-name" x="750" y="315">Recursive tool</text>
+            <text class="heat-cell-name" x="750" y="331">use (DoS / DoW)</text>
+            <text class="heat-cell-state" x="750" y="385">NOT-COVERED</text>
+          </g>
+          <g class="heat-cell" data-cell-id="token-exhaustion" data-state="not-covered">
+            <rect x="860" y="270" width="180" height="140"/>
+            <text class="heat-cell-name" x="950" y="315">Token exhaustion</text>
+            <text class="heat-cell-state" x="950" y="385">NOT-COVERED</text>
+          </g>
+
+          <!-- Persona-hijacking footnote (per F8 — 12px below grid) -->
+          <text class="footnote" x="60" y="445">
+            ¹ Persona hijacking (low-priority): largely neutralized by session-bound identity at app/auth/scope.py; rendered as footnote rather than primary cell.
+          </text>
+
+          <!-- Projected-state legend to the right (per F6) -->
+          <g class="projected-legend" transform="translate(1060, 110)">
+            <rect class="legend-bg" x="0" y="0" width="180" height="300"/>
+            <text class="legend-title" x="14" y="26">Phase 6 target</text>
+            <text x="14" y="50">projected when eval suite populates</text>
+
+            <rect x="14" y="74" width="20" height="14" fill="#D6E5C4" stroke="#6B8C4E"/>
+            <text x="42" y="86">4 covered</text>
+
+            <rect x="14" y="102" width="20" height="14" fill="#F4E4B4" stroke="#C9A658"/>
+            <text x="42" y="114">4 partial</text>
+
+            <rect x="14" y="130" width="20" height="14" fill="#EEEAE3" stroke="#BDB6A8"/>
+            <text x="42" y="142">2 not-covered</text>
+
+            <text x="14" y="180" style="font-style: italic;">Heat-map demonstrates</text>
+            <text x="14" y="195" style="font-style: italic;">the tracking concept;</text>
+            <text x="14" y="210" style="font-style: italic;">today all 10 cells = T0</text>
+            <text x="14" y="225" style="font-style: italic;">baseline (Not-covered)</text>
+            <text x="14" y="240" style="font-style: italic;">since evals/ has not</text>
+            <text x="14" y="255" style="font-style: italic;">been built yet.</text>
+          </g>
+
+          <!-- Reference link at bottom -->
+          <text class="ref-link" x="60" y="500">Full table → ARCHITECTURE.md §Threat Model Scope</text>
+          <text class="footnote" x="60" y="520">
+            Category list authoritative at commit 4f09569 (10 primary categories + 1 low-priority footnote).
+          </text>
+        </svg>
+      </div>
+    </section>
+
+    <section data-slide="6" data-title="Data Contracts">
+      <div class="canvas-wrap">
+        <div class="slide-caption">Slide 6 &mdash; <strong>Data Contracts</strong> &middot; linear chain wrapped by Message Envelope. Hover a card for the contract role + ARCHITECTURE.md reference.</div>
+        <svg class="data-contracts" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" aria-label="Data contracts linear chain">
+          <defs>
+            <marker id="dc-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="var(--ink-muted)"/>
+            </marker>
+          </defs>
+
+          <!-- Message Envelope frame (surrounds all five cards) -->
+          <rect class="envelope-frame" x="80" y="160" width="1120" height="400"/>
+          <text class="envelope-label" x="100" y="190">Message Envelope</text>
+          <text class="contract-desc" x="100" y="208" text-anchor="start" fill="var(--teal)" style="font-size: 10px;">wraps every inter-agent handoff with msg_id, type, campaign_id, case_id, from_agent, to_agent, trace_id, payload_ref</text>
+
+          <!-- Transparent hit-target for envelope (12px inset from frame, per F15) -->
+          <rect class="envelope-hit" data-card-id="envelope" x="92" y="172" width="1096" height="376"/>
+
+          <!-- Arrows on top row (between contract cards) -->
+          <line class="arrow-line" x1="320" y1="320" x2="500" y2="320" marker-end="url(#dc-arrow)"/>
+          <line class="arrow-line" x1="780" y1="320" x2="960" y2="320" marker-end="url(#dc-arrow)"/>
+
+          <!-- Top row: contract cards -->
+          <g class="contract-card" data-card-id="attack-case">
+            <rect x="120" y="260" width="200" height="120"/>
+            <text class="contract-name" x="220" y="305">AttackCase</text>
+            <text class="contract-desc" x="220" y="328">a test case the Red Team</text>
+            <text class="contract-desc" x="220" y="343">executes against the target</text>
+            <text class="contract-desc" x="220" y="362" style="fill: var(--teal); font-size: 10px;">YAML, regression-stable</text>
+          </g>
+          <g class="contract-card" data-card-id="attack-attempt">
+            <rect x="540" y="260" width="240" height="120"/>
+            <text class="contract-name" x="660" y="305">AttackAttempt</text>
+            <text class="contract-desc" x="660" y="328">one execution transcript</text>
+            <text class="contract-desc" x="660" y="343">(inputs, outputs, tool trace, cost)</text>
+            <text class="contract-desc" x="660" y="362" style="fill: var(--teal); font-size: 10px;">JSON, immutable</text>
+          </g>
+          <g class="contract-card" data-card-id="judge-verdict">
+            <rect x="1000" y="260" width="180" height="120"/>
+            <text class="contract-name" x="1090" y="305">JudgeVerdict</text>
+            <text class="contract-desc" x="1090" y="328">independent grading</text>
+            <text class="contract-desc" x="1090" y="343">(status, severity, evidence)</text>
+            <text class="contract-desc" x="1090" y="362" style="fill: var(--teal); font-size: 10px;">JSON, append-only</text>
+          </g>
+
+          <!-- Middle row: agent cards (consume/produce relationships) -->
+          <g class="agent-card" data-card-id="red-team-agent">
+            <rect x="370" y="430" width="100" height="50"/>
+            <text class="agent-name" x="420" y="453">Red Team</text>
+            <text class="contract-desc" x="420" y="470">executes</text>
+          </g>
+          <g class="agent-card" data-card-id="judge-agent">
+            <rect x="810" y="430" width="100" height="50"/>
+            <text class="agent-name" x="860" y="453">Judge</text>
+            <text class="contract-desc" x="860" y="470">grades</text>
+          </g>
+
+          <!-- Connector lines: Red Team consumes AttackCase, produces AttackAttempt -->
+          <path class="arrow-line" d="M 220 380 Q 220 410 370 455" fill="none"/>
+          <path class="arrow-line" d="M 470 455 Q 580 420 660 380" fill="none" marker-end="url(#dc-arrow)"/>
+          <!-- Judge consumes AttackAttempt, produces JudgeVerdict -->
+          <path class="arrow-line" d="M 660 380 Q 700 410 810 455" fill="none"/>
+          <path class="arrow-line" d="M 910 455 Q 1010 420 1090 380" fill="none" marker-end="url(#dc-arrow)"/>
+
+          <!-- Reference line at bottom -->
+          <text class="contract-desc" x="640" y="595" text-anchor="middle" style="font-size: 12px; fill: var(--ink-faint);">
+            Full schemas in ARCHITECTURE.md §Data Contracts
+          </text>
+        </svg>
+      </div>
+    </section>
+  </main>
+
+  <nav id="slide-index" aria-label="Slide index">
+    <button type="button" data-slide-target="1" data-current><span class="num">1</span> Title</button>
+    <button type="button" data-slide-target="2"><span class="num">2</span> System Map</button>
+    <button type="button" data-slide-target="3"><span class="num">3</span> Approval Flow</button>
+    <button type="button" data-slide-target="4"><span class="num">4</span> Target Attack Surface</button>
+    <button type="button" data-slide-target="5"><span class="num">5</span> Threat Coverage</button>
+    <button type="button" data-slide-target="6"><span class="num">6</span> Data Contracts</button>
+  </nav>
+
+  <!-- Inline SVG symbols for pin icon (U11 F13 — Heroicons map-pin outline/solid) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="pin-outline" viewBox="0 0 24 24">
+        <path d="M12 21s-7-6.2-7-12a7 7 0 1 1 14 0c0 5.8-7 12-7 12z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      </symbol>
+      <symbol id="pin-solid" viewBox="0 0 24 24">
+        <path d="M12 21s-7-6.2-7-12a7 7 0 1 1 14 0c0 5.8-7 12-7 12z" fill="currentColor"/>
+        <circle cx="12" cy="9" r="2.5" fill="var(--bg-canvas)"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <aside id="panel" data-mode="hidden" aria-label="Component detail panel">
+    <div class="panel-header" data-trust-tier="">
+      <span class="tier-swatch" aria-hidden="true"></span>
+      <div>
+        <h2 class="name"></h2>
+        <div class="meta"></div>
+      </div>
+      <button type="button" class="pin-btn" id="pin-btn" aria-label="Pin panel (click to lock)">
+        <svg><use href="#pin-outline" id="pin-icon-use"/></svg>
+      </button>
+    </div>
+    <dl class="panel-body"></dl>
+  </aside>
+
+  <script>
+    /* === COMPONENT_PANEL_CONTENT ===
+       R12 schema for system-map components. Sourced from ARCHITECTURE.md @ boundary-labs:4f09569.
+       Per-component panel renders via renderPanel() in U10. */
+    const COMPONENT_PANEL_CONTENT = {
+      "operator": {
+        name: "Operator",
+        meta: "Human actor",
+        type: "human",
+        trust_tier: "medium",
+        purpose: "Launches and oversees adversarial campaigns; reviews findings; approves high-risk actions via Slack.",
+        inputs: ["campaign requests", "approval-card responses (via Slack)"],
+        outputs: ["campaign start signals", "approval / reject decisions", "review notes on findings"]
+      },
+      "security-console": {
+        name: "Security Console",
+        meta: "FastAPI-served UI",
+        type: "surface",
+        trust_tier: "medium",
+        purpose: "Operator's primary surface for launching campaigns, triaging findings, viewing approval queue, and inspecting artifacts.",
+        inputs: ["operator clicks / form submits", "campaign-state polls"],
+        outputs: ["campaign-launch API calls", "finding triage decisions"],
+        failure_modes: ["JS error breaks current view — reload restores from server state"]
+      },
+      "slack": {
+        name: "Slack Approval Channels",
+        meta: "Async HITL surface",
+        type: "surface",
+        trust_tier: "medium",
+        purpose: "Routes high/critical approval cards (target add, real-PHI use, scope expansion, budget increase, external disclosure) and surfaces incident alerts.",
+        inputs: ["approval cards from Safety Gate Service", "callbacks from operator clicks"],
+        outputs: ["signed approval callbacks → FastAPI", "comment capture stored on approval record"],
+        failure_modes: ["TTL expires before approval → auto-reject, abort campaign", "signature mismatch on callback → reject, log incident"]
+      },
+      "safety-gate": {
+        name: "Safety Gate Service",
+        meta: "Deterministic Platform Service",
+        type: "service",
+        trust_tier: "high",
+        purpose: "Enforces platform safety, authorization, PHI restrictions, budget ceilings, and approval gates before any campaign or high-impact action proceeds.",
+        inputs: ["requested campaign + target URL + operator identity", "target allowlist + authorization record", "PHI policy + data-handling mode", "approval-ledger record (on revalidation)"],
+        outputs: ["approval_granted / approval_required / blocked decision", "human-approval payload (when required)", "audit event explaining the decision"],
+        deterministic_checks: ["allowlist URL exact match", "PHI data-mode flag check", "budget remaining > requested budget", "approval-record status lookup"],
+        failure_modes: ["approval expires → auto-reject → graph aborts", "callback signature mismatch → reject + audit"]
+      },
+      "fastapi": {
+        name: "FastAPI Control Plane",
+        meta: "Service entry point",
+        type: "service",
+        trust_tier: "medium",
+        purpose: "Hosts the Security Console, exposes campaign-launch + approval-callback endpoints, persists campaign state and artifact references.",
+        inputs: ["console clicks / form submits", "Slack approval callbacks", "campaign-runner heartbeats"],
+        outputs: ["campaign-launch dispatch to Campaign Runner", "approval-decision writes to Audit Ledger", "console state queries"],
+        failure_modes: ["operator JWT expires → re-auth required", "rate-limit hit → request rejected with retry-after"]
+      },
+      "campaign-runner": {
+        name: "Campaign Runner",
+        meta: "pydantic_graph.Graph",
+        type: "service",
+        trust_tier: "medium",
+        purpose: "Executes campaign lifecycles as Pydantic Graph runs; coordinates between Safety Gate, Coverage Scoring, Orchestrator, Red Team, Target Adapter, Judge, Regression Promotion, and Documentation.",
+        inputs: ["campaign request from FastAPI", "Safety Gate approval", "graph-state on resume"],
+        outputs: ["per-step node invocations", "graph-state persistence", "completion / abort signal back to FastAPI"],
+        failure_modes: ["graph paused at SlackApprovalWaitNode persists state via SQLite", "schema_version mismatch on resume → refuse with clear operator message", "no deploy while any graph is paused (/readyz check)"]
+      },
+      "coverage-scoring": {
+        name: "Coverage Scoring Service",
+        meta: "Deterministic Platform Service",
+        type: "service",
+        trust_tier: "medium-low",
+        purpose: "Maintains the threat-model coverage map and translates gaps into testable coverage objectives for the Orchestrator.",
+        inputs: ["THREAT_MODEL.md (parsed)", "evals/ inventory (file enumeration)", "campaign results + vulnerability reports (DB query)"],
+        outputs: ["coverage matrix (Pydantic model)", "ranked list of recommended next coverage gaps", "proposed THREAT_MODEL.md update diffs"],
+        deterministic_checks: ["pure function over inputs — no LLM step"]
+      },
+      "orchestrator": {
+        name: "Orchestrator Agent",
+        meta: "LLM agent",
+        type: "agent",
+        trust_tier: "medium",
+        purpose: "Decides what the platform should test next and when to stop, redirect, or trigger regression.",
+        inputs: ["threat-model coverage map", "open findings + severity", "prior campaign outcomes", "regression history", "cost + rate-limit telemetry", "target version / deployment event"],
+        outputs: ["campaign plans", "attack category priorities", "Red Team task packets", "Judge task packets", "regression trigger events", "stop / pause / redirect decisions"],
+        decision_logic: [
+          "Ranks the next Red Team target by additive priority: priority = coverage_gap + clinical_impact + exploitability + recent_regression + unresolved_finding − estimated_cost − recent_low_signal_penalty.",
+          "Coverage Scoring Service supplies gap + risk metrics as a pure (no-LLM) function; the Orchestrator LLM applies independent judgment on top — no bandit / RL, deliberate explainability trade-off.",
+          "Stops a campaign on any of: budget consumed without new signal, category has enough passing regression evidence, Judge uncertainty exceeds threshold, target rate-limit / health-check fails, Safety Gate blocks scope.",
+          "Deterministic stop rule fires in the graph runner before each TargetExecutionNode and cannot be overridden by the agent: fail_rate < 5% ∧ uncertain_rate > 40% over rolling 20 attempts ∧ cumulative_cost > 25% of budget."
+        ],
+        allowed_tools: ["read coverage matrix", "read findings + regression history", "emit task packets"],
+        denied_tools: ["generate payloads directly", "judge attack success", "publish reports", "expand scope without Safety Gate"],
+        scale_controls: [
+          "Campaign-level budget ceiling + per-agent token and dollar caps enforced by Safety Gate before launch.",
+          "Per-attempt frontier-model cap of $0.50 enforced independently of campaign budget; overrun → attempt aborted with status cost_capped (Judge maps to invalid).",
+          "Model tiering: local / open-weight models for high-volume mutation post-approval; frontier model reserved for complex multi-turn strategy under strict budget review.",
+          "Per-target rate-limit + concurrency caps live in the Target Adapter; throttling propagates as graph-runner pauses (no retries inside the agent loop).",
+          "Cost + rate-limit telemetry feeds back into the priority function as estimated_cost — expensive categories deprioritize themselves under pressure."
+        ],
+        failure_modes: ["flat coverage scores / stale data → run regression suite, ask Coverage Scoring for gaps", "low-signal campaigns → halt automatically per deterministic stop rule", "target rate-limit hit → pause campaign, surface retry-after to operator (no automatic backoff loop inside agent)"]
+      },
+      "red-team": {
+        name: "Red Team Agent",
+        meta: "LLM agent — untrusted",
+        type: "agent",
+        trust_tier: "untrusted",
+        purpose: "Generates novel adversarial inputs, mutates partially-successful attacks, and executes authorized campaigns against the live target through the Target Adapter.",
+        inputs: ["Orchestrator campaign packet", "category-specific seed cases", "allowed patient fixtures + roles", "prior failed / partial / successful attempts", "target capability map"],
+        outputs: ["AttackCase drafts", "AttackAttempt transcripts", "mutation lineage", "candidate exploit evidence for Judge review"],
+        allowed_tools: ["create attack draft", "mutate attack draft", "execute attack through Target Adapter", "read allowed seed cases", "read prior attempts for the same campaign", "complete task with summary"],
+        denied_tools: ["direct network access outside the allowlisted target", "access to secrets or real PHI", "judge its own attacks", "write vulnerability reports or regression cases directly", "change target defenses"],
+        scale_controls: [
+          "$0.50 frontier-model cap per attempt; overrun aborts attempt as cost_capped (Judge → invalid).",
+          "High-volume mutation runs on local / open-weight models; frontier model called only for hard multi-turn strategy.",
+          "Target Adapter enforces per-target rate + concurrency caps; on throttle the graph runner pauses the campaign rather than retrying inside the loop."
+        ],
+        failure_modes: ["low novelty / repeated invalid cases → redirect category, change seed strategy, lower budget", "frontier-model dollar cap per attempt ($0.50) prevents runaway"]
+      },
+      "judge": {
+        name: "Judge Agent",
+        meta: "LLM agent — independent grader",
+        type: "agent",
+        trust_tier: "medium",
+        purpose: "Independently determines whether an attack succeeded, failed, partially succeeded, was blocked, or is uncertain.",
+        inputs: ["attack category + success criteria", "expected safe behavior", "sanitized attack transcript (Evidence Wrapper)", "target response + tool trace", "policy / rubric for the category", "historical judge calibration examples", "structured attack_intent for multi-turn cases (subcategory, boundary_being_tested, expected_violation)"],
+        outputs: ["JudgeVerdict with status, confidence, evidence spans, severity, exploitability, recommended action", "escalation request for human review when uncertainty is high or clinical impact severe"],
+        allowed_tools: ["read attack transcript", "fetch tool-trace metadata (sanitized)", "emit JudgeVerdict"],
+        denied_tools: ["file reports externally", "modify regression suite files alone", "approve remediation", "see Red Team's free-text reasoning (only structured attack_intent is allowed)"],
+        failure_modes: ["calibration drift → disable judge version, require human review", "agrees with everything → high fail rate on known-safe set triggers audit"]
+      },
+      "documentation": {
+        name: "Documentation Agent",
+        meta: "LLM agent — drafts reports",
+        type: "agent",
+        trust_tier: "low",
+        purpose: "Turns confirmed exploits into professional, reproducible vulnerability reports.",
+        inputs: ["confirmed / human-approved JudgeVerdict", "reproducible attack sequence", "observed vs expected behavior", "severity + exploitability assessment", "regression-case link", "fix-validation history"],
+        outputs: ["vulnerability report in reports/vulnerabilities/", "executive-summary entry for the dashboard", "remediation recommendation draft"],
+        allowed_tools: ["read JudgeVerdict + attack artifacts", "draft markdown report", "request human review for high/critical"],
+        denied_tools: ["publish high/critical reports externally without approval", "recommend production remediation without operator sign-off", "modify target defenses"],
+        failure_modes: ["report false positive → human review rejects → update judge rubric + golden dataset"]
+      },
+      "target-adapter": {
+        name: "Target Adapter",
+        meta: "Controlled boundary",
+        type: "adapter",
+        trust_tier: "untrusted",
+        purpose: "The only component that talks to the Clinical Co-Pilot. Provides start_session / send_turn / upload_test_file / end_session primitives. Wraps target responses in the Evidence Wrapper before agents see them.",
+        inputs: ["agent primitive calls (start_session, send_turn, etc.)", "synthetic patient fixtures", "SMART session token (held in-memory only)"],
+        outputs: ["sanitized target responses to Judge", "raw responses as untrusted artifacts in Artifact Store", "tool-trace stubs (full traces not exposed across separation boundary)"],
+        allowed_tools: ["HTTP/SSE calls to allowlisted target URL", "Playwright UI flows for SMART launch + document upload"],
+        denied_tools: ["network egress outside allowlisted target", "share session secrets / SMART client secret / internal token with agents", "import target Python modules"],
+        failure_modes: ["target unavailable → pause campaign + alert operator", "SSE stream timeout (10s inter-event / 60s total) → JudgeVerdict invalid", "session TTL expires mid-campaign → refresh via session-mint mechanism"]
+      },
+      "clinical-copilot": {
+        name: "Clinical Co-Pilot",
+        meta: "Target System (OpenEMR)",
+        type: "target",
+        trust_tier: "untrusted",
+        purpose: "FastAPI service exposing /conversation (SSE), /copilot/ingest, /copilot/documents/*, SMART launch endpoints; uses Pydantic AI supervisor + FHIR tools + guideline RAG.",
+        inputs: ["SMART-launched session", "user turns via /conversation", "uploaded documents via /copilot/ingest"],
+        outputs: ["SSE event stream (agent / verifier / critic / answer / refused / error)", "extracted document JSON", "audit events to OpenEMR"],
+        failure_modes: ["refused event → JudgeVerdict blocked", "error event → JudgeVerdict invalid", "audit_unavailable event mid-stream → JudgeVerdict invalid (degraded)"]
+      },
+      "regression-promotion": {
+        name: "Regression Promotion Service",
+        meta: "Deterministic Platform Service",
+        type: "service",
+        trust_tier: "medium-low",
+        purpose: "Converts confirmed exploits into deterministic, repeatable tests under evals/cases/ per the Regression Harness rules.",
+        inputs: ["confirmed JudgeVerdict", "minimal reproducible attack sequence", "target version + configuration", "human approval payload (high / critical)"],
+        outputs: ["versioned eval case under evals/cases/regression/ (or stochastic/)", "regression metadata in the run ledger", "baseline expected result", "validation status"],
+        deterministic_checks: ["only promote fail or high-confidence partial", "strip nonessential content", "synthetic identifiers only", "capture temperature / rerank model / seed for stochastic tier"]
+      },
+      "security-app-db": {
+        name: "Security App DB",
+        meta: "SQLite (MVP)",
+        type: "storage",
+        trust_tier: "medium",
+        purpose: "Persists campaigns, findings, approvals, costs, reports. Also backs SQLite-based pydantic_graph persistence for Slack-paused nodes.",
+        retention: "build duration; no PHI persisted by default"
+      },
+      "artifact-store": {
+        name: "Artifact Store",
+        meta: "JSONL + evals/",
+        type: "storage",
+        trust_tier: "medium",
+        purpose: "Stores attack-attempt transcripts, judge verdicts, vulnerability reports, eval cases (regression + stochastic). artifact:// URIs reference entries.",
+        retention: "kept for the build; PHI auto-redacted at write per Security Controls"
+      },
+      "audit-ledger": {
+        name: "Audit Ledger",
+        meta: "Approval + audit records",
+        type: "storage",
+        trust_tier: "medium",
+        purpose: "Append-only record of approvals (15-field schema incl. containment_plan_ref for real-PHI) and Safety Gate decisions.",
+        retention: "build duration + post-defense archive"
+      },
+      "queue": {
+        name: "Queue",
+        meta: "Post-MVP (Redis / RQ / Celery)",
+        type: "queue",
+        trust_tier: "medium",
+        purpose: "Worker queue for long-running overnight campaigns. Synchronous CLI is sufficient for MVP; queue introduced as scale grows.",
+        retention: "ephemeral"
+      },
+      "observability": {
+        name: "Observability Layer",
+        meta: "Traces + cost ledger",
+        type: "service",
+        trust_tier: "medium",
+        purpose: "Captures campaign / case / attempt / verdict / report IDs, agent + model + prompt versions, tool calls, latencies, token usage, model costs, evidence-artifact refs.",
+        outputs: ["per-attempt trace events", "cost-ledger rows", "dashboard data"]
+      },
+      "logfire": {
+        name: "Logfire / OpenTelemetry",
+        meta: "Trace backend",
+        type: "service",
+        trust_tier: "medium",
+        purpose: "Separate Logfire project from the target's. Receives security-app traces with PHI redaction allowlist + secret scrubbing applied before emission.",
+        retention: "per Logfire project policy"
+      }
+    };
+
+    /* === Page-level state object ===
+       Slide-2 fields (active_step, hover_target, locked_target, trust_mode) are wired in U3/U10/U11.
+       U1 only manages slide navigation. */
+    const state = {
+      current_slide: 1,
+      total_slides: 6,
+      // Slide-2 interactive fields (U3/U10/U11 wire these):
+      active_step: null,
+      hover_target: null,
+      locked_target: null,
+      trust_mode: 'base'
+    };
+
+    function gotoSlide(n) {
+      if (n < 1 || n > state.total_slides) return;
+      state.current_slide = n;
+      document.querySelectorAll('section[data-slide]').forEach(s => {
+        if (parseInt(s.dataset.slide, 10) === n) s.setAttribute('data-active', '');
+        else s.removeAttribute('data-active');
+      });
+      document.querySelectorAll('#slide-index button').forEach(b => {
+        if (parseInt(b.dataset.slideTarget, 10) === n) b.setAttribute('data-current', '');
+        else b.removeAttribute('data-current');
+      });
+      /* R5 composition rule (e): reset hover + lock on slide nav; preserve lifecycle + trust-mode.
+         setLock(null) is called inline here without a function reference, because U11's setLock
+         is defined later in the script body — we manually clear the lock UI here and let
+         renderHover() do the canvas reset. The full setLock function is wired post-definition. */
+      state.hover_target = null;
+      if (state.locked_target !== null) {
+        state.locked_target = null;
+        const panel = document.getElementById('panel');
+        const pinUse = document.getElementById('pin-icon-use');
+        if (panel) panel.removeAttribute('data-locked');
+        if (pinUse) pinUse.setAttribute('href', '#pin-outline');
+      }
+      // Render only matters if we're on Slide 2 or returning to it; renderHover is a no-op
+      // when the SVG isn't found.
+      renderHover();
+    }
+
+    /* === U10: hover-dim + side-panel render === */
+
+    /* Renders panel content for a given component-id using COMPONENT_PANEL_CONTENT. */
+    function renderPanel(componentId) {
+      const panel = document.getElementById('panel');
+      const data = COMPONENT_PANEL_CONTENT[componentId];
+      if (!data) {
+        panel.setAttribute('data-mode', 'hidden');
+        return;
+      }
+      const header = panel.querySelector('.panel-header');
+      header.setAttribute('data-trust-tier', data.trust_tier || '');
+      header.querySelector('.name').textContent = data.name;
+      header.querySelector('.meta').textContent = data.meta || '';
+
+      const body = panel.querySelector('.panel-body');
+      body.innerHTML = '';
+      const fieldOrder = ['purpose', 'deterministic_checks', 'inputs', 'outputs',
+                          'decision_logic', 'allowed_tools', 'denied_tools',
+                          'scale_controls', 'failure_modes', 'retention'];
+      const fieldLabel = {
+        purpose: 'Purpose',
+        deterministic_checks: 'Deterministic checks',
+        inputs: 'Inputs',
+        outputs: 'Outputs',
+        decision_logic: 'Decision logic',
+        allowed_tools: 'Allowed tools',
+        denied_tools: 'Denied tools',
+        scale_controls: 'Cost / rate-limit controls',
+        failure_modes: 'Failure modes',
+        retention: 'Retention'
+      };
+      for (const field of fieldOrder) {
+        if (data[field] === undefined) continue;
+        const dt = document.createElement('dt');
+        dt.textContent = fieldLabel[field];
+        body.appendChild(dt);
+        const dd = document.createElement('dd');
+        if (Array.isArray(data[field])) {
+          const ul = document.createElement('ul');
+          data[field].forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            ul.appendChild(li);
+          });
+          dd.appendChild(ul);
+        } else {
+          dd.textContent = data[field];
+        }
+        body.appendChild(dd);
+      }
+      panel.setAttribute('data-mode', 'open');
+    }
+
+    /* Update SVG dim/highlight state based on state.hover_target + state.locked_target.
+       Lock wins over hover per render priority. */
+    function renderHover() {
+      const svg = document.querySelector('section[data-slide="2"] svg.system-map');
+      if (!svg) return;
+      const activeId = state.locked_target || state.hover_target;
+      if (activeId) {
+        svg.setAttribute('data-hover-active', activeId);
+        // Mark the hovered/locked node
+        svg.querySelectorAll('[data-component-id]').forEach(g => {
+          if (g.dataset.componentId === activeId) g.setAttribute('data-hover-self', '');
+          else g.removeAttribute('data-hover-self');
+        });
+        // Mark related edges
+        svg.querySelectorAll('.edge').forEach(e => {
+          if (e.dataset.source === activeId || e.dataset.target === activeId) {
+            e.setAttribute('data-hover-related', '');
+          } else {
+            e.removeAttribute('data-hover-related');
+          }
+        });
+        renderPanel(activeId);
+      } else {
+        svg.removeAttribute('data-hover-active');
+        svg.querySelectorAll('[data-hover-self]').forEach(g => g.removeAttribute('data-hover-self'));
+        svg.querySelectorAll('.edge[data-hover-related]').forEach(e => e.removeAttribute('data-hover-related'));
+        const panel = document.getElementById('panel');
+        panel.setAttribute('data-mode', 'hidden');
+      }
+    }
+
+    /* Wire hover events on the Slide-2 SVG (event delegation on the SVG root). */
+    (function wireSlideTwoHover() {
+      const svg = document.querySelector('section[data-slide="2"] svg.system-map');
+      if (!svg) return;
+
+      svg.addEventListener('mouseover', (e) => {
+        if (state.locked_target) return; // lock wins
+        const nodeGroup = e.target.closest('[data-component-id]');
+        if (nodeGroup) {
+          state.hover_target = nodeGroup.dataset.componentId;
+          renderHover();
+        }
+      });
+
+      svg.addEventListener('mouseout', (e) => {
+        if (state.locked_target) return;
+        const nodeGroup = e.target.closest('[data-component-id]');
+        // mouse leaving the SVG entirely or moving to non-component → check relatedTarget
+        if (!nodeGroup) return;
+        const goingTo = e.relatedTarget && e.relatedTarget.closest
+          ? e.relatedTarget.closest('[data-component-id], #panel')
+          : null;
+        if (!goingTo) {
+          state.hover_target = null;
+          renderHover();
+        }
+      });
+    })();
+
+    /* Persist-into-panel rule (R13): cursor entering the panel should NOT clear hover state.
+       Cursor leaving the panel toward empty page should clear it. */
+    (function wirePanelHover() {
+      const panel = document.getElementById('panel');
+      panel.addEventListener('mouseleave', (e) => {
+        if (state.locked_target) return;
+        const goingTo = e.relatedTarget && e.relatedTarget.closest
+          ? e.relatedTarget.closest('[data-component-id]')
+          : null;
+        if (!goingTo) {
+          state.hover_target = null;
+          renderHover();
+        }
+      });
+    })();
+
+    /* === U3: lifecycle overlay + step controls + trust-tier toggle === */
+
+    /* Lifecycle steps mapped to component-IDs + edge-IDs (per ARCHITECTURE.md
+       ## Inter-Agent Coordination 13-step lifecycle). Each step highlights
+       the nodes + edges involved in that step's handoff. */
+    const LIFECYCLE_STEPS = [
+      { n: 1,  label: "Operator requests campaign",        nodes: ["operator", "security-console"],                        edges: ["op-console"] },
+      { n: 2,  label: "Safety Gate validates",              nodes: ["security-console", "fastapi", "safety-gate"],          edges: ["console-api", "api-sg"] },
+      { n: 3,  label: "Slack approval requested",          nodes: ["safety-gate", "slack"],                                edges: ["sg-slack"] },
+      { n: 4,  label: "Operator decides via Slack",         nodes: ["slack", "safety-gate"],                                edges: ["slack-sg"] },
+      { n: 5,  label: "Safety Gate revalidates scope",      nodes: ["safety-gate", "audit-ledger"],                         edges: ["sg-audit"] },
+      { n: 6,  label: "Coverage Scoring returns gaps",      nodes: ["campaign-runner", "coverage-scoring"],                 edges: ["runner-cov"] },
+      { n: 7,  label: "Orchestrator emits task packets",    nodes: ["coverage-scoring", "orchestrator"],                    edges: ["cov-orch"] },
+      { n: 8,  label: "Red Team generates AttackCase",      nodes: ["orchestrator", "red-team"],                            edges: ["orch-rt"] },
+      { n: 9,  label: "Target Adapter executes",            nodes: ["red-team", "target-adapter", "clinical-copilot"],      edges: ["rt-ta", "ta-target", "target-ta"] },
+      { n: 10, label: "Judge evaluates",                    nodes: ["target-adapter", "judge"],                             edges: ["ta-judge"] },
+      { n: 11, label: "Regression promotion",               nodes: ["judge", "regression-promotion", "artifact-store"],     edges: ["judge-rp", "rp-artifacts"] },
+      { n: 12, label: "Documentation drafts report",        nodes: ["judge", "documentation", "artifact-store"],            edges: ["judge-doc", "doc-artifacts"] },
+      { n: 13, label: "Observability records the run",      nodes: ["observability", "logfire"],                            edges: ["obs-logfire"] }
+    ];
+
+    function applyLifecycleStep(step) {
+      const svg = document.querySelector('section[data-slide="2"] svg.system-map');
+      if (!svg) return;
+      // Clear previous active markers
+      svg.querySelectorAll('[data-lifecycle-active]').forEach(el => el.removeAttribute('data-lifecycle-active'));
+      const counterEl = document.getElementById('step-counter');
+      const replayBtn = document.getElementById('replay-btn');
+      const stepForwardBtn = document.getElementById('step-forward');
+      if (step === null || step < 1 || step > 13) {
+        svg.removeAttribute('data-active-step');
+        if (counterEl) counterEl.textContent = '— / 13';
+        if (replayBtn) replayBtn.style.display = 'none';
+        if (stepForwardBtn) stepForwardBtn.style.display = '';
+        return;
+      }
+      svg.setAttribute('data-active-step', String(step));
+      const cfg = LIFECYCLE_STEPS[step - 1];
+      cfg.nodes.forEach(id => {
+        const node = svg.querySelector(`[data-component-id="${id}"]`);
+        if (node) node.setAttribute('data-lifecycle-active', '');
+      });
+      cfg.edges.forEach(id => {
+        const edge = svg.querySelector(`.edge[data-edge-id="${id}"]`);
+        if (edge) edge.setAttribute('data-lifecycle-active', '');
+      });
+      if (counterEl) counterEl.textContent = `${step} / 13`;
+      // At step 13, swap the step-forward button for a Replay button so the user knows
+      // they can restart the lifecycle (or use ArrowLeft to step back through it).
+      if (step === 13) {
+        if (stepForwardBtn) stepForwardBtn.style.display = 'none';
+        if (replayBtn) replayBtn.style.display = '';
+      } else {
+        if (stepForwardBtn) stepForwardBtn.style.display = '';
+        if (replayBtn) replayBtn.style.display = 'none';
+      }
+    }
+
+    function advanceLifecycle() {
+      if (state.active_step === null) {
+        state.active_step = 1;
+      } else if (state.active_step < 13) {
+        state.active_step += 1;
+      } else {
+        state.active_step = null; // Replay at 13 resets to no step
+      }
+      applyLifecycleStep(state.active_step);
+    }
+
+    function reverseLifecycle() {
+      if (state.active_step === null || state.active_step <= 1) {
+        state.active_step = null;
+      } else {
+        state.active_step -= 1;
+      }
+      applyLifecycleStep(state.active_step);
+    }
+
+    function toggleTrustMode() {
+      const svg = document.querySelector('section[data-slide="2"] svg.system-map');
+      const btn = document.getElementById('toggle-trust');
+      if (state.trust_mode === 'base') {
+        state.trust_mode = 'trust_tiers';
+        svg.setAttribute('data-trust-mode', 'active');
+        btn.setAttribute('data-active', '');
+        btn.querySelector('text').textContent = 'Tiers';
+      } else {
+        state.trust_mode = 'base';
+        svg.removeAttribute('data-trust-mode');
+        btn.removeAttribute('data-active');
+        btn.querySelector('text').textContent = 'Base';
+      }
+    }
+
+    /* Wire toolbar buttons */
+    document.getElementById('toggle-trust').addEventListener('click', toggleTrustMode);
+    document.getElementById('step-forward').addEventListener('click', advanceLifecycle);
+    document.getElementById('step-back').addEventListener('click', reverseLifecycle);
+    document.getElementById('replay-btn').addEventListener('click', () => {
+      state.active_step = null;
+      applyLifecycleStep(null);
+    });
+
+    /* === U4: Slide 3 — Approval Flow participants + panel schema ===
+       PARTICIPANT_PANEL_CONTENT uses a different schema from COMPONENT_PANEL_CONTENT:
+       role / messages_sent / messages_received / decision_criteria / ttl_failure.
+       Per F9 AE6 carveout: synthesized from the 10 numbered steps, not verbatim. */
+    const PARTICIPANT_PANEL_CONTENT = {
+      "operator": {
+        name: "Operator",
+        meta: "Human approver",
+        trust_tier: "medium",
+        role: "Reviews the approval card and decides approve / reject / comment.",
+        messages_sent: ["Step 4: approve / reject / comment → Slack (async)"],
+        messages_received: ["(none — Operator polls Slack on their own time)"],
+        decision_criteria: "Reads the card's risk level, target URL, data mode, budget impact, sanitized evidence summary; decides per organizational policy.",
+        ttl_failure: "If Operator never decides, Step-10 alt-path fires: 24h TTL expires → Safety Gate auto-rejects → campaign aborts."
+      },
+      "slack": {
+        name: "Slack",
+        meta: "Async approval surface",
+        trust_tier: "medium",
+        role: "Hosts approval cards in SECURITY_SLACK_CHANNEL (normal) or SECURITY_INCIDENT_SLACK_CHANNEL (high/critical). Captures Operator decisions.",
+        messages_sent: ["Step 5: signed callback → FastAPI (async)"],
+        messages_received: ["Step 3: approval card payload ← Safety Gate", "Step 4: Operator decision (click)"],
+        decision_criteria: "MVP: any channel member may approve (acknowledged limitation from brainstorm F4 Skip — no requester≠approver enforcement).",
+        ttl_failure: "Approval cards expire after configurable TTL (default 24h per FIX_PLAN.md D7); expired → Step-10 alt-path."
+      },
+      "api": {
+        name: "FastAPI Control Plane",
+        meta: "Callback handler",
+        trust_tier: "medium",
+        role: "Receives Slack callback, validates signature + approval-ID + expiration, writes decision to Audit Ledger, notifies Safety Gate.",
+        messages_sent: ["Step 6: write decision record → Audit Ledger", "Step 7: notify decision → Safety Gate"],
+        messages_received: ["Step 5: signed callback ← Slack"],
+        decision_criteria: "Accept callback only if signature valid AND approval-ID matches a pending record AND expiration not passed AND current graph state expects it.",
+        ttl_failure: "Stale callbacks (signature mismatch / expired / unknown approval-ID) are rejected and logged to platform-side observables."
+      },
+      "safety-gate": {
+        name: "Safety Gate Service",
+        meta: "Deterministic policy enforcer",
+        trust_tier: "high",
+        role: "Validates the campaign at request time and on every decision callback. Owns the alt-path TTL auto-reject branch.",
+        messages_sent: ["Step 2: write approval-request record → Audit Ledger", "Step 3: post approval card → Slack (async)", "Step 8: self-loop revalidate scope", "Step 9: resume OR abort → Campaign Runner", "Step 10 (alt-path): auto-reject → Audit Ledger; abort → Campaign Runner"],
+        messages_received: ["Step 1: campaign requires approval ← Campaign Runner", "Step 7: notify decision ← FastAPI"],
+        decision_criteria: "allowlist URL exact match; PHI data-mode flag check; budget remaining > requested; approval-record status lookup. All deterministic — no LLM judgment.",
+        ttl_failure: "If approval expires before Step 5, alt-path fires: auto-reject the approval, abort the campaign, write reason to Audit Ledger."
+      },
+      "campaign-runner": {
+        name: "Campaign Runner",
+        meta: "pydantic_graph.Graph runner",
+        trust_tier: "medium",
+        role: "Initiates approval flow for high-risk campaigns, then pauses graph at SlackApprovalWaitNode awaiting Safety Gate's resume/abort signal.",
+        messages_sent: ["Step 1: campaign requires approval → Safety Gate"],
+        messages_received: ["Step 9: resume OR abort ← Safety Gate", "Step 10 (alt-path): abort ← Safety Gate"],
+        decision_criteria: "None directly — graph runner persists state via SQLite and resumes / aborts based on Safety Gate signal.",
+        ttl_failure: "Graph state persisted across the pause; no deploy while paused per /readyz check; schema_version guard prevents resume across incompatible code changes."
+      },
+      "audit-ledger": {
+        name: "Audit Ledger",
+        meta: "Append-only record",
+        trust_tier: "medium",
+        role: "Receives approval-request records, decision records, and alt-path auto-reject events. Source of truth for who decided what, when, with which TTL.",
+        messages_sent: ["(none — Audit Ledger is write-only from the approval-flow perspective)"],
+        messages_received: ["Step 2: approval-request record ← Safety Gate", "Step 6: decision record ← FastAPI", "Step 10 (alt-path): auto-reject event ← Safety Gate"],
+        decision_criteria: "Append-only writes; no decision logic. Schema includes containment_plan_ref for real-PHI approvals.",
+        ttl_failure: "Write failures surface as platform-side observables (per Security Controls Observables Table 2) and trigger operator alert."
+      }
+    };
+
+    function renderParticipantPanel(participantId) {
+      const panel = document.getElementById('panel');
+      const data = PARTICIPANT_PANEL_CONTENT[participantId];
+      if (!data) {
+        panel.setAttribute('data-mode', 'hidden');
+        return;
+      }
+      const header = panel.querySelector('.panel-header');
+      header.setAttribute('data-trust-tier', data.trust_tier || '');
+      header.querySelector('.name').textContent = data.name;
+      header.querySelector('.meta').textContent = data.meta || '';
+
+      const body = panel.querySelector('.panel-body');
+      body.innerHTML = '';
+      const fields = [
+        { key: 'role',              label: 'Role' },
+        { key: 'messages_sent',     label: 'Messages sent' },
+        { key: 'messages_received', label: 'Messages received' },
+        { key: 'decision_criteria', label: 'Decision criteria' },
+        { key: 'ttl_failure',       label: 'TTL / failure' }
+      ];
+      for (const f of fields) {
+        if (data[f.key] === undefined) continue;
+        const dt = document.createElement('dt');
+        dt.textContent = f.label;
+        body.appendChild(dt);
+        const dd = document.createElement('dd');
+        if (Array.isArray(data[f.key])) {
+          const ul = document.createElement('ul');
+          data[f.key].forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            ul.appendChild(li);
+          });
+          dd.appendChild(ul);
+        } else {
+          dd.textContent = data[f.key];
+        }
+        body.appendChild(dd);
+      }
+      panel.setAttribute('data-mode', 'open');
+    }
+
+    /* Slide-3 hover + lock wiring (separate from Slide 2's because schemas differ) */
+    (function wireSlideThree() {
+      const svg = document.querySelector('section[data-slide="3"] svg.sequence-diagram');
+      if (!svg) return;
+
+      function renderParticipantHover(activeId) {
+        if (activeId) {
+          svg.setAttribute('data-hover-active', activeId);
+          svg.querySelectorAll('.lifeline').forEach(lf => {
+            if (lf.dataset.participantId === activeId) lf.setAttribute('data-hover-self', '');
+            else lf.removeAttribute('data-hover-self');
+          });
+          svg.querySelectorAll('.seq-step').forEach(s => {
+            if (s.dataset.source === activeId || s.dataset.target === activeId) s.setAttribute('data-hover-related', '');
+            else s.removeAttribute('data-hover-related');
+          });
+          svg.querySelectorAll('.seq-label').forEach(lbl => {
+            const num = lbl.dataset.seqNum;
+            const step = svg.querySelector(`.seq-step[data-seq-num="${num}"]`);
+            if (step && (step.dataset.source === activeId || step.dataset.target === activeId)) {
+              lbl.setAttribute('data-hover-related', '');
+            } else {
+              lbl.removeAttribute('data-hover-related');
+            }
+          });
+          svg.querySelectorAll('.seq-num-group').forEach(grp => {
+            const num = grp.dataset.seqNum;
+            const step = svg.querySelector(`.seq-step[data-seq-num="${num}"]`);
+            if (step && (step.dataset.source === activeId || step.dataset.target === activeId)) {
+              grp.setAttribute('data-hover-related', '');
+            } else {
+              grp.removeAttribute('data-hover-related');
+            }
+          });
+          renderParticipantPanel(activeId);
+        } else {
+          svg.removeAttribute('data-hover-active');
+          svg.querySelectorAll('[data-hover-self]').forEach(el => el.removeAttribute('data-hover-self'));
+          svg.querySelectorAll('[data-hover-related]').forEach(el => el.removeAttribute('data-hover-related'));
+          document.getElementById('panel').setAttribute('data-mode', 'hidden');
+        }
+      }
+
+      svg.addEventListener('mouseover', (e) => {
+        if (state.locked_target) return;
+        const lf = e.target.closest('.lifeline');
+        if (lf) {
+          state.hover_target = lf.dataset.participantId;
+          renderParticipantHover(state.hover_target);
+        }
+      });
+      svg.addEventListener('mouseout', (e) => {
+        if (state.locked_target) return;
+        const lf = e.target.closest('.lifeline');
+        if (!lf) return;
+        const goingTo = e.relatedTarget && e.relatedTarget.closest
+          ? e.relatedTarget.closest('.lifeline, #panel')
+          : null;
+        if (!goingTo) {
+          state.hover_target = null;
+          renderParticipantHover(null);
+        }
+      });
+      svg.addEventListener('click', (e) => {
+        const lf = e.target.closest('.lifeline');
+        if (lf) {
+          // setLock will be defined in U11 below; for Slide 3 we use a participant-specific lock
+          state.locked_target = lf.dataset.participantId;
+          const panel = document.getElementById('panel');
+          const pinUse = document.getElementById('pin-icon-use');
+          panel.setAttribute('data-locked', '');
+          pinUse.setAttribute('href', '#pin-solid');
+          renderParticipantPanel(state.locked_target);
+        } else {
+          if (state.locked_target) {
+            state.locked_target = null;
+            const panel = document.getElementById('panel');
+            const pinUse = document.getElementById('pin-icon-use');
+            panel.removeAttribute('data-locked');
+            pinUse.setAttribute('href', '#pin-outline');
+            renderParticipantHover(state.hover_target);
+          }
+        }
+      });
+    })();
+
+    /* === U6: Slide 5 — Threat Coverage cell content + hover ===
+       Per F8: panel shows category + Initial defense signal sourced from
+       ARCHITECTURE.md §Threat Model Scope. NO rationale text duplicated. */
+    const THREAT_CELL_CONTENT = {
+      "direct-prompt-injection": {
+        name: "Direct prompt injection",
+        meta: "Threat category",
+        trust_tier: "medium",
+        attack_surface: "Chat input (/conversation SSE)",
+        potential_impact: "Scope escape, unsafe advice, hidden instruction disclosure",
+        difficulty: "Low",
+        initial_defense_signal: "System prompt, refusal policy, role checks",
+        coverage_state: "NOT-COVERED — Phase 6 will introduce direct-injection seed cases"
+      },
+      "indirect-prompt-injection": {
+        name: "Indirect prompt injection",
+        meta: "Threat category",
+        trust_tier: "medium",
+        attack_surface: "Uploaded files, retrieved notes, patient docs",
+        potential_impact: "Assistant follows malicious document instructions",
+        difficulty: "Medium",
+        initial_defense_signal: "Retrieval sanitization, source isolation",
+        coverage_state: "NOT-COVERED — Phase 6 uploads via Playwright UI path"
+      },
+      "multi-turn-manipulation": {
+        name: "Multi-turn manipulation",
+        meta: "Threat category",
+        trust_tier: "medium",
+        attack_surface: "Conversation history",
+        potential_impact: "Gradual erosion of safeguards across turns",
+        difficulty: "Medium",
+        initial_defense_signal: "Context window policy, state summaries",
+        coverage_state: "NOT-COVERED — Judge requires structured attack_intent (per R12 + F19)"
+      },
+      "phi-leakage": {
+        name: "PHI leakage",
+        meta: "Threat category",
+        trust_tier: "high",
+        attack_surface: "Chart summaries, search, notes",
+        potential_impact: "Unauthorized disclosure of synthetic or real PHI",
+        difficulty: "High",
+        initial_defense_signal: "Authz checks, row-level filtering",
+        coverage_state: "NOT-COVERED — synthetic-only PHI for MVP"
+      },
+      "cross-patient-exposure": {
+        name: "Cross-patient exposure",
+        meta: "Threat category",
+        trust_tier: "high",
+        attack_surface: "Patient lookup and chart context",
+        potential_impact: "Data from patient B shown in patient A session",
+        difficulty: "High",
+        initial_defense_signal: "Tenant / patient scoping checks",
+        coverage_state: "NOT-COVERED"
+      },
+      "authz-bypass": {
+        name: "Authorization bypass and resource enumeration",
+        meta: "Threat category — added per F32",
+        trust_tier: "high",
+        attack_surface: "/copilot/documents/* source-document endpoint; document-UUID fetch; bbox / source metadata",
+        potential_impact: "Cross-patient document fetch, source-chip leakage, metadata tampering, direct-HTTP enumeration outside agent loop",
+        difficulty: "High",
+        initial_defense_signal: "Server-side authz on document UUIDs, session-bound document scope",
+        coverage_state: "NOT-COVERED — covered as a primary category since F32 swap"
+      },
+      "state-corruption": {
+        name: "State corruption",
+        meta: "Threat category",
+        trust_tier: "medium",
+        attack_surface: "Memory, summaries, cached context",
+        potential_impact: "Future responses influenced by poisoned state",
+        difficulty: "Medium",
+        initial_defense_signal: "Memory write restrictions, provenance",
+        coverage_state: "NOT-COVERED"
+      },
+      "tool-misuse": {
+        name: "Tool misuse",
+        meta: "Threat category",
+        trust_tier: "high",
+        attack_surface: "OpenEMR operations, retrieval tools (Pydantic AI supervisor tools)",
+        potential_impact: "Unintended invocation, parameter tampering",
+        difficulty: "High",
+        initial_defense_signal: "Tool schemas, server-side authz",
+        coverage_state: "NOT-COVERED — Judge-only grading per F12 (tool traces internal to target)"
+      },
+      "recursive-tool-use": {
+        name: "Recursive tool use (DoS / Denial of Wallet)",
+        meta: "Threat category",
+        trust_tier: "medium",
+        attack_surface: "Retrieval or agent loops",
+        potential_impact: "Cost amplification and latency DoS",
+        difficulty: "Medium",
+        initial_defense_signal: "Iteration limits, budget controls",
+        coverage_state: "NOT-COVERED — deterministic low-signal stop covers some cases per F29"
+      },
+      "token-exhaustion": {
+        name: "Token exhaustion",
+        meta: "Threat category",
+        trust_tier: "low",
+        attack_surface: "Long input, uploaded content, chained prompts",
+        potential_impact: "Denial of service and runaway cost",
+        difficulty: "Low",
+        initial_defense_signal: "Token caps, chunking, early abort",
+        coverage_state: "NOT-COVERED — $0.50 per-attempt frontier-model cap per F29"
+      }
+    };
+
+    function renderThreatPanel(cellId) {
+      const panel = document.getElementById('panel');
+      const data = THREAT_CELL_CONTENT[cellId];
+      if (!data) {
+        panel.setAttribute('data-mode', 'hidden');
+        return;
+      }
+      const header = panel.querySelector('.panel-header');
+      header.setAttribute('data-trust-tier', data.trust_tier || '');
+      header.querySelector('.name').textContent = data.name;
+      header.querySelector('.meta').textContent = data.meta || '';
+
+      const body = panel.querySelector('.panel-body');
+      body.innerHTML = '';
+      [
+        { key: 'attack_surface',         label: 'Attack surface' },
+        { key: 'potential_impact',       label: 'Potential impact' },
+        { key: 'difficulty',             label: 'Difficulty' },
+        { key: 'initial_defense_signal', label: 'Initial defense signal' },
+        { key: 'coverage_state',         label: 'Coverage state' }
+      ].forEach(f => {
+        if (data[f.key] === undefined) return;
+        const dt = document.createElement('dt');
+        dt.textContent = f.label;
+        body.appendChild(dt);
+        const dd = document.createElement('dd');
+        dd.textContent = data[f.key];
+        body.appendChild(dd);
+      });
+      panel.setAttribute('data-mode', 'open');
+    }
+
+    (function wireSlideFive() {
+      const svg = document.querySelector('section[data-slide="5"] svg.threat-coverage');
+      if (!svg) return;
+
+      function renderCellHover(activeId) {
+        if (activeId) {
+          svg.setAttribute('data-hover-active', activeId);
+          svg.querySelectorAll('[data-cell-id]').forEach(cell => {
+            if (cell.dataset.cellId === activeId) cell.setAttribute('data-hover-self', '');
+            else cell.removeAttribute('data-hover-self');
+          });
+          renderThreatPanel(activeId);
+        } else {
+          svg.removeAttribute('data-hover-active');
+          svg.querySelectorAll('[data-hover-self]').forEach(c => c.removeAttribute('data-hover-self'));
+          document.getElementById('panel').setAttribute('data-mode', 'hidden');
+        }
+      }
+
+      svg.addEventListener('mouseover', (e) => {
+        if (state.locked_target) return;
+        const cell = e.target.closest('[data-cell-id]');
+        if (cell) {
+          state.hover_target = cell.dataset.cellId;
+          renderCellHover(state.hover_target);
+        }
+      });
+      svg.addEventListener('mouseout', (e) => {
+        if (state.locked_target) return;
+        const cell = e.target.closest('[data-cell-id]');
+        if (!cell) return;
+        const goingTo = e.relatedTarget && e.relatedTarget.closest
+          ? e.relatedTarget.closest('[data-cell-id], #panel')
+          : null;
+        if (!goingTo) {
+          state.hover_target = null;
+          renderCellHover(null);
+        }
+      });
+      svg.addEventListener('click', (e) => {
+        const cell = e.target.closest('[data-cell-id]');
+        if (cell) {
+          state.locked_target = cell.dataset.cellId;
+          const panel = document.getElementById('panel');
+          const pinUse = document.getElementById('pin-icon-use');
+          panel.setAttribute('data-locked', '');
+          pinUse.setAttribute('href', '#pin-solid');
+          renderThreatPanel(state.locked_target);
+        } else {
+          if (state.locked_target) {
+            state.locked_target = null;
+            const panel = document.getElementById('panel');
+            const pinUse = document.getElementById('pin-icon-use');
+            panel.removeAttribute('data-locked');
+            pinUse.setAttribute('href', '#pin-outline');
+            renderCellHover(state.hover_target);
+          }
+        }
+      });
+    })();
+
+    /* === U5: Slide 4 — Target Attack Surface card content + hover === */
+    const SURFACE_PANEL_CONTENT = {
+      "conversation-sse": {
+        name: "/conversation (SSE)",
+        meta: "Primary chat-input boundary",
+        trust_tier: "untrusted",
+        endpoint: "/conversation (Server-Sent Events stream)",
+        evidence: "clinical-copilot/app/routers/conversation.py — streams agent / verifier / critic / answer events to the Co-Pilot UI",
+        test_focus: ["multi-turn prompt injection", "malformed or long q parameter", "patient-binding mismatch (session vs requested patient)", "request-id correlation across SSE events", "verifier strip-all behavior (refused event)", "critic bypass (medical-recommendation paraphrases)"],
+        limitations: "Stream timeout (10s inter-event / 60s total) → JudgeVerdict invalid. refused event → blocked. error event → invalid."
+      },
+      "copilot-ingest": {
+        name: "/copilot/ingest",
+        meta: "Document ingestion",
+        trust_tier: "untrusted",
+        endpoint: "/copilot/ingest (multipart upload)",
+        evidence: "clinical-copilot/app/routers/ingest.py + app/ingest/orchestrator.py — calls into OpenEMR's new-documents and binary routes via X-Copilot-Internal-Token",
+        test_focus: ["malicious uploaded content (indirect injection)", "MIME mismatch", "oversized payload (DoS)", "quote-verification bypass", "partial writeback", "cached extraction poisoning"],
+        limitations: "Security app does NOT receive the OpenEMR internal token. Indirect-injection-via-upload tests use Playwright to drive OpenEMR's authenticated upload UI (per Target Adapter Indirect Injection Upload Path)."
+      },
+      "copilot-documents": {
+        name: "/copilot/documents/*",
+        meta: "Source-document file endpoint",
+        trust_tier: "untrusted",
+        endpoint: "/copilot/documents/<uuid>",
+        evidence: "clinical-copilot/app/routers/documents.py + module source resolver — resolves UUIDs to PDFs / binaries for source-chip links in the Co-Pilot UI",
+        test_focus: ["cross-patient document fetch via UUID guessing", "stale document UUID reuse", "source-chip leakage (UUID exposed in response without authz re-check)", "bbox / source-metadata tampering"],
+        limitations: "This surface is the Authorization-bypass-and-resource-enumeration category from the threat model (Slide 5)."
+      },
+      "smart-launch": {
+        name: "SMART launch + session",
+        meta: "Session-bound identity",
+        trust_tier: "medium",
+        endpoint: "/launch + /oauth/callback (SMART-on-FHIR EHR Launch flow)",
+        evidence: "clinical-copilot/app/auth/smart_session.py + app/auth/scope.py — iss + launch params required; OAuth2 callback with PKCE; copilot_smart_session cookie minted post token exchange",
+        test_focus: ["missing scope (e.g., patient/Patient.rs absent)", "stale or invalid session token", "patient mismatch (session patient ≠ requested patient)", "scope downgrade attempt", "prompt-based attempts to bypass SMART auth"],
+        limitations: "Persona-hijacking attacks are largely neutralized by session-bound identity at the auth layer (per threat-model footnote)."
+      },
+      "pydantic-ai-tools": {
+        name: "Pydantic AI supervisor tools",
+        meta: "Tool-call boundary",
+        trust_tier: "untrusted",
+        endpoint: "Internal — Pydantic AI agent tool registrations",
+        evidence: "clinical-copilot/app/agent/pydantic_loop.py — registers FHIR tools plus extract_document and retrieve_evidence",
+        test_focus: ["tool-selection manipulation", "forbidden tool success", "repeated recoverable scope_missing", "tool-call count exhaustion"],
+        limitations: "Tool traces are internal OpenTelemetry spans NOT exposed across the separation boundary. MVP grades tool-misuse cases semantically via the Judge agent rather than via deterministic tool-trace assertions (per F12 in plan + AI-vs-Deterministic table in ARCHITECTURE.md)."
+      },
+      "internal-token": {
+        name: "Internal OpenEMR API token",
+        meta: "Secret boundary",
+        trust_tier: "high",
+        endpoint: "Header: X-Copilot-Internal-Token (InternalAuth in oe-module-clinical-copilot)",
+        evidence: "interface/modules/custom_modules/oe-module-clinical-copilot/src/Internal/InternalAuth.php — bearer-token boundary between Clinical Co-Pilot and the OpenEMR custom-module routes",
+        test_focus: ["ensure security app does NOT receive the token", "test unauthorized internal calls only when explicitly in authorized campaign scope", "verify no leakage of the token into logs / traces / agent prompts"],
+        limitations: "Internal endpoints (new-documents, binary, audit dispatch) only probed when explicitly in the campaign's allowlisted target scope."
+      }
+    };
+
+    function renderSurfacePanel(surfaceId) {
+      const panel = document.getElementById('panel');
+      const data = SURFACE_PANEL_CONTENT[surfaceId];
+      if (!data) {
+        panel.setAttribute('data-mode', 'hidden');
+        return;
+      }
+      const header = panel.querySelector('.panel-header');
+      header.setAttribute('data-trust-tier', data.trust_tier || '');
+      header.querySelector('.name').textContent = data.name;
+      header.querySelector('.meta').textContent = data.meta || '';
+
+      const body = panel.querySelector('.panel-body');
+      body.innerHTML = '';
+      [
+        { key: 'endpoint',    label: 'Endpoint' },
+        { key: 'evidence',    label: 'Evidence in target repo' },
+        { key: 'test_focus',  label: 'Security-app test focus' },
+        { key: 'limitations', label: 'Known limitations' }
+      ].forEach(f => {
+        if (data[f.key] === undefined) return;
+        const dt = document.createElement('dt');
+        dt.textContent = f.label;
+        body.appendChild(dt);
+        const dd = document.createElement('dd');
+        if (Array.isArray(data[f.key])) {
+          const ul = document.createElement('ul');
+          data[f.key].forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            ul.appendChild(li);
+          });
+          dd.appendChild(ul);
+        } else {
+          dd.textContent = data[f.key];
+        }
+        body.appendChild(dd);
+      });
+      panel.setAttribute('data-mode', 'open');
+    }
+
+    (function wireSlideFour() {
+      const svg = document.querySelector('section[data-slide="4"] svg.attack-surface');
+      if (!svg) return;
+
+      function renderSurfaceHover(activeId) {
+        if (activeId) {
+          svg.setAttribute('data-hover-active', activeId);
+          svg.querySelectorAll('[data-surface-id]').forEach(card => {
+            if (card.dataset.surfaceId === activeId) card.setAttribute('data-hover-self', '');
+            else card.removeAttribute('data-hover-self');
+          });
+          renderSurfacePanel(activeId);
+        } else {
+          svg.removeAttribute('data-hover-active');
+          svg.querySelectorAll('[data-hover-self]').forEach(c => c.removeAttribute('data-hover-self'));
+          document.getElementById('panel').setAttribute('data-mode', 'hidden');
+        }
+      }
+
+      svg.addEventListener('mouseover', (e) => {
+        if (state.locked_target) return;
+        const card = e.target.closest('[data-surface-id]');
+        if (card) {
+          state.hover_target = card.dataset.surfaceId;
+          renderSurfaceHover(state.hover_target);
+        }
+      });
+      svg.addEventListener('mouseout', (e) => {
+        if (state.locked_target) return;
+        const card = e.target.closest('[data-surface-id]');
+        if (!card) return;
+        const goingTo = e.relatedTarget && e.relatedTarget.closest
+          ? e.relatedTarget.closest('[data-surface-id], #panel')
+          : null;
+        if (!goingTo) {
+          state.hover_target = null;
+          renderSurfaceHover(null);
+        }
+      });
+      svg.addEventListener('click', (e) => {
+        const card = e.target.closest('[data-surface-id]');
+        if (card) {
+          state.locked_target = card.dataset.surfaceId;
+          const panel = document.getElementById('panel');
+          const pinUse = document.getElementById('pin-icon-use');
+          panel.setAttribute('data-locked', '');
+          pinUse.setAttribute('href', '#pin-solid');
+          renderSurfacePanel(state.locked_target);
+        } else {
+          if (state.locked_target) {
+            state.locked_target = null;
+            const panel = document.getElementById('panel');
+            const pinUse = document.getElementById('pin-icon-use');
+            panel.removeAttribute('data-locked');
+            pinUse.setAttribute('href', '#pin-outline');
+            renderSurfaceHover(state.hover_target);
+          }
+        }
+      });
+    })();
+
+    /* === U7: Slide 6 — Data Contracts card schema + hover === */
+    const CONTRACT_PANEL_CONTENT = {
+      "envelope": {
+        name: "Message Envelope",
+        meta: "Inter-agent handoff wrapper",
+        trust_tier: "medium",
+        role: "Wraps every inter-agent handoff between Orchestrator → Red Team → Judge → Documentation. Carries IDs (msg_id, campaign_id, case_id, from_agent, to_agent, target_version, trace_id) and a payload_ref to the artifact-store entry.",
+        reference: "ARCHITECTURE.md §Data Contracts → Message Envelope"
+      },
+      "attack-case": {
+        name: "AttackCase",
+        meta: "Versioned test case",
+        trust_tier: "medium",
+        role: "A test case the Red Team executes — category, subcategory, target_roles, preconditions, sequence of turns, expected_safe_behavior, success_criteria (prohibited_outcomes), severity_hint, regression_candidate flag.",
+        reference: "ARCHITECTURE.md §Data Contracts → AttackCase"
+      },
+      "attack-attempt": {
+        name: "AttackAttempt",
+        meta: "Single execution transcript",
+        trust_tier: "medium",
+        role: "One execution of an AttackCase: attempt_id, case_id, campaign_id, target_url, target_version, started_at, completed_at, inputs_ref / outputs_ref / tool_trace_ref artifact:// URIs, cost breakdown (red_team_tokens, target_tokens, judge_tokens, usd), status.",
+        reference: "ARCHITECTURE.md §Data Contracts → AttackAttempt"
+      },
+      "judge-verdict": {
+        name: "JudgeVerdict",
+        meta: "Independent grading",
+        trust_tier: "medium",
+        role: "The Judge's evaluation of an AttackAttempt: verdict_id, attempt_id, status (pass/fail/partial/blocked/invalid/uncertain), confidence (0-1), severity, exploitability, impact, evidence_refs, deterministic_checks results, recommended_action, requires_human_review.",
+        reference: "ARCHITECTURE.md §Data Contracts → JudgeVerdict"
+      },
+      "red-team-agent": {
+        name: "Red Team Agent",
+        meta: "Consumes AttackCase → produces AttackAttempt",
+        trust_tier: "untrusted",
+        role: "Reads category-specific seed AttackCases, generates / mutates them, executes through the Target Adapter, and produces AttackAttempt transcripts for the Judge.",
+        reference: "ARCHITECTURE.md §Agent Roles → Red Team Agent"
+      },
+      "judge-agent": {
+        name: "Judge Agent",
+        meta: "Consumes AttackAttempt → produces JudgeVerdict",
+        trust_tier: "medium",
+        role: "Independently grades each AttackAttempt using rubric + golden calibration; never sees Red Team's free-text reasoning (only structured attack_intent for multi-turn cases).",
+        reference: "ARCHITECTURE.md §Agent Roles → Judge Agent"
+      }
+    };
+
+    function renderContractPanel(cardId) {
+      const panel = document.getElementById('panel');
+      const data = CONTRACT_PANEL_CONTENT[cardId];
+      if (!data) {
+        panel.setAttribute('data-mode', 'hidden');
+        return;
+      }
+      const header = panel.querySelector('.panel-header');
+      header.setAttribute('data-trust-tier', data.trust_tier || '');
+      header.querySelector('.name').textContent = data.name;
+      header.querySelector('.meta').textContent = data.meta || '';
+
+      const body = panel.querySelector('.panel-body');
+      body.innerHTML = '';
+      [
+        { key: 'role',      label: 'Role' },
+        { key: 'reference', label: 'Full schema' }
+      ].forEach(f => {
+        if (data[f.key] === undefined) return;
+        const dt = document.createElement('dt');
+        dt.textContent = f.label;
+        body.appendChild(dt);
+        const dd = document.createElement('dd');
+        dd.textContent = data[f.key];
+        body.appendChild(dd);
+      });
+      panel.setAttribute('data-mode', 'open');
+    }
+
+    (function wireSlideSix() {
+      const svg = document.querySelector('section[data-slide="6"] svg.data-contracts');
+      if (!svg) return;
+
+      function renderCardHover(activeId) {
+        if (activeId) {
+          svg.setAttribute('data-hover-active', activeId);
+          svg.querySelectorAll('[data-card-id]').forEach(card => {
+            if (card.dataset.cardId === activeId) card.setAttribute('data-hover-self', '');
+            else card.removeAttribute('data-hover-self');
+          });
+          renderContractPanel(activeId);
+        } else {
+          svg.removeAttribute('data-hover-active');
+          svg.querySelectorAll('[data-hover-self]').forEach(c => c.removeAttribute('data-hover-self'));
+          document.getElementById('panel').setAttribute('data-mode', 'hidden');
+        }
+      }
+
+      svg.addEventListener('mouseover', (e) => {
+        if (state.locked_target) return;
+        const card = e.target.closest('[data-card-id]');
+        if (card) {
+          state.hover_target = card.dataset.cardId;
+          renderCardHover(state.hover_target);
+        }
+      });
+      svg.addEventListener('mouseout', (e) => {
+        if (state.locked_target) return;
+        const card = e.target.closest('[data-card-id]');
+        if (!card) return;
+        const goingTo = e.relatedTarget && e.relatedTarget.closest
+          ? e.relatedTarget.closest('[data-card-id], #panel')
+          : null;
+        if (!goingTo) {
+          state.hover_target = null;
+          renderCardHover(null);
+        }
+      });
+      svg.addEventListener('click', (e) => {
+        const card = e.target.closest('[data-card-id]');
+        if (card) {
+          state.locked_target = card.dataset.cardId;
+          const panel = document.getElementById('panel');
+          const pinUse = document.getElementById('pin-icon-use');
+          panel.setAttribute('data-locked', '');
+          pinUse.setAttribute('href', '#pin-solid');
+          renderContractPanel(state.locked_target);
+        } else {
+          if (state.locked_target) {
+            state.locked_target = null;
+            const panel = document.getElementById('panel');
+            const pinUse = document.getElementById('pin-icon-use');
+            panel.removeAttribute('data-locked');
+            pinUse.setAttribute('href', '#pin-outline');
+            renderCardHover(state.hover_target);
+          }
+        }
+      });
+    })();
+
+    /* === U11: click-to-lock state machine === */
+
+    function setLock(componentId) {
+      state.locked_target = componentId;
+      const panel = document.getElementById('panel');
+      const pinUse = document.getElementById('pin-icon-use');
+      if (componentId) {
+        panel.setAttribute('data-locked', '');
+        pinUse.setAttribute('href', '#pin-solid');
+        renderPanel(componentId);
+        renderHover(); // render priority: locked > hover
+      } else {
+        panel.removeAttribute('data-locked');
+        pinUse.setAttribute('href', '#pin-outline');
+        // After releasing lock, fall back to current hover state (or empty)
+        renderHover();
+      }
+    }
+
+    /* Click handlers on the Slide-2 SVG: click on a node sets/transfers lock;
+       click on empty canvas releases lock. */
+    (function wireSlideTwoClick() {
+      const svg = document.querySelector('section[data-slide="2"] svg.system-map');
+      if (!svg) return;
+
+      svg.addEventListener('click', (e) => {
+        // Don't treat toolbar clicks as canvas clicks
+        if (e.target.closest('.canvas-toolbar')) return;
+        const nodeGroup = e.target.closest('[data-component-id]');
+        if (nodeGroup) {
+          // Lock or transfer-lock
+          setLock(nodeGroup.dataset.componentId);
+        } else {
+          // Click on empty canvas → release lock
+          if (state.locked_target) setLock(null);
+        }
+      });
+    })();
+
+    /* Pin button → release lock */
+    document.getElementById('pin-btn').addEventListener('click', () => {
+      if (state.locked_target) setLock(null);
+    });
+
+    /* Escape → release lock (works on any slide). */
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && state.locked_target) {
+        e.preventDefault();
+        setLock(null);
+      }
+    });
+
+    /* Slide-2 keyboard hooks (R5 right-arrow precedence; T toggle).
+       The base ArrowLeft/Right handler in the slide-nav block treats both as
+       slide-nav globally; this listener intercepts when on Slide 2 in capture
+       phase and stops propagation if lifecycle should advance instead. */
+    document.addEventListener('keydown', (e) => {
+      if (state.current_slide !== 2) {
+        // Only Escape (locked-target release in U11) matters off-slide-2
+        return;
+      }
+      if (e.key === 'T' || e.key === 't') {
+        e.preventDefault();
+        toggleTrustMode();
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        if (state.active_step === null || state.active_step < 13) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          advanceLifecycle();
+        }
+        // else fall through to slide-nav (advance to slide 3)
+      }
+      if (e.key === 'ArrowLeft') {
+        if (state.active_step !== null && state.active_step >= 1) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          reverseLifecycle();
+        }
+        // else fall through to slide-nav (back to slide 1)
+      }
+    }, true /* capture phase so we run before the global slide-nav handler */);
+
+    /* === Click handlers on slide-index === */
+    document.querySelectorAll('#slide-index button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        gotoSlide(parseInt(btn.dataset.slideTarget, 10));
+      });
+    });
+
+    /* === Keyboard navigation ===
+       U3 will hook ArrowRight/ArrowLeft on Slide 2 for lifecycle precedence.
+       U3 will hook "T" for trust-tier toggle.
+       U11 will hook Escape for click-to-lock release.
+       U1 wires the base case: arrow keys advance/reverse slides. */
+    document.addEventListener('keydown', (e) => {
+      // Slide-2 precedence (U3 will hook the lifecycle path here);
+      // for now, all slides treat arrows as slide-nav.
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        gotoSlide(state.current_slide + 1);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        gotoSlide(state.current_slide - 1);
+      }
+      /* "T" and Escape: hooked by U3/U11 */
+    });
+  </script>
+</body>
+</html>

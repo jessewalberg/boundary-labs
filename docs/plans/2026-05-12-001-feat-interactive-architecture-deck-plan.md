@@ -10,7 +10,7 @@ origin: docs/brainstorms/2026-05-12-interactive-architecture-deck-requirements.m
 
 ## Summary
 
-A single self-contained HTML file built with hand-authored SVG and vanilla JavaScript, structured in eleven implementation units (U1–U11 — U1/U2/U3 were split into finer units during round-1 plan review for atomic-commit hygiene). Custom fonts inlined as base64 WOFF2 data URIs with a system-font fallback; lifecycle animation driven by a `data-step` attribute on the canvas; verification is manual browser checks per unit logged in the Verification Log at the bottom of this plan. The deck stamps both ARCHITECTURE.md and FIX_PLAN.md at security-auto commit `4f09569` and is a defense-day artifact (drift acceptable after the Architecture Defense gate).
+A single self-contained HTML file built with hand-authored SVG and vanilla JavaScript, structured in eleven implementation units (U1–U11 — U1/U2/U3 were split into finer units during round-1 plan review for atomic-commit hygiene). Custom fonts inlined as base64 WOFF2 data URIs with a system-font fallback; lifecycle animation driven by a `data-step` attribute on the canvas; verification is manual browser checks per unit logged in the Verification Log at the bottom of this plan. The deck stamps both ARCHITECTURE.md and FIX_PLAN.md at boundary-labs commit `4f09569` and is a defense-day artifact (drift acceptable after the Architecture Defense gate).
 
 ---
 
@@ -22,7 +22,7 @@ The deck exists to give the Architecture Defense gate and future-you walkthrough
 
 ## Requirements
 
-- R1. Single self-contained HTML file checked into the security-auto repo under a stable path inside `docs/`.
+- R1. Single self-contained HTML file checked into the boundary-labs repo under a stable path inside `docs/`.
 - R2. Loads and renders correctly when opened directly in a modern desktop browser without a server, package install, or build step required of the viewer.
 - R3. Two content sources with explicit roles, both version-stamped: ARCHITECTURE.md for text content, FIX_PLAN.md for diagram structure until the WU sequence lands. The 13-step lifecycle count overrides FIX_PLAN.md WU-9b's 11-step validation. (See origin.)
 - R4. **Slide 1 — Title.** Names the platform, states what it does in 1–2 sentences (elevator pitch), identifies the target.
@@ -564,7 +564,7 @@ Eleven units total. U1, U2, U3 carry their original-concept identity from the ro
 ## Documentation / Operational Notes
 
 - The version-stamp comment block at the top of the HTML file documents both source commits + the diagram-authoritative-at-stamp-time note. Downstream consumers can verify panel content against ARCHITECTURE.md at that commit using `git show 4f09569:ARCHITECTURE.md` (pipe to a pager or write to a scratch file; do not compare against the working tree if any local edits have landed).
-- Once the security-auto README is authored (separate work, out of scope), add a link to `docs/architecture-deck.html` from the README's documentation section.
+- Once the boundary-labs README is authored (separate work, out of scope), add a link to `docs/architecture-deck.html` from the README's documentation section.
 - The deck is a single-use defense-day artifact. Patterns worth lifting forward for any future deck: the state-priority render order (locked > hover > idle), the `data-step` lifecycle attribute pattern, the two-source version-stamp model. The hand-positioned coordinates and per-slide custom panel schemas are NOT reusable; future decks should rebuild from scratch.
 
 ---
