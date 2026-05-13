@@ -1,16 +1,6 @@
 name: Deploy Railway
 
 on:
-  push:
-    branches:
-      - feat/architecture-deck
-    paths:
-      - ".github/workflows/deploy-railway.yml"
-      - ".railwayignore"
-      - "railway.toml"
-      - "package.json"
-      - "bun.lock"
-      - "apps/web/**"
   workflow_dispatch:
 
 concurrency:
