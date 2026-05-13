@@ -454,6 +454,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--cases-dir", default="evals/seeds")
     parser.add_argument("--results-dir", default="evals/results")
+    parser.add_argument("--run-id", default="")
     parser.add_argument("--timeout-seconds", type=float, default=75.0)
     parser.add_argument(
         "--smart-session-cookie",
@@ -478,6 +479,8 @@ def main() -> int:
     args = build_parser().parse_args()
     cases_dir = Path(args.cases_dir)
     results_dir = Path(args.results_dir)
+    if args.run_id and args.results_dir == "evals/results":
+        results_dir = Path(os.environ.get("BOUNDARY_ARTIFACT_DIR", "evals/results")) / "runs" / args.run_id
     results_dir.mkdir(parents=True, exist_ok=True)
     cases = load_cases(cases_dir)
 
@@ -485,10 +488,16 @@ def main() -> int:
     red_team = RedTeamAgent(args.target_url, cookie or None, args.timeout_seconds)
     judge = JudgeAgent()
     started_at = datetime.now(UTC)
-    run_id = f"mvp-{started_at.strftime('%Y%m%d-%H%M%S')}"
+    run_id = args.run_id or f"mvp-{started_at.strftime('%Y%m%d-%H%M%S')}"
+    sentinel_base = results_dir / run_id
+    out_path = results_dir / f"{run_id}.json"
+    if args.run_id and out_path.exists():
+        write_failed_sentinel(sentinel_base, "runner_refused_overwrite", {"artifact": str(out_path)})
+        raise SystemExit(f"Refusing to overwrite existing run artifact: {out_path}")
 
     results: list[dict[str, Any]] = []
     for case in cases:
+        write_heartbeat_sentinel(sentinel_base, {"run_id": run_id, "case_id": case["id"], "at": datetime.now(UTC).isoformat()})
         observations = red_team.execute_case(case)
         verdict = judge.judge(case, observations)
         results.append(
@@ -534,12 +543,16 @@ def main() -> int:
         "results": results,
     }
 
-    out_path = results_dir / f"{run_id}.json"
     out_path.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
-    latest_path = results_dir / "latest.json"
-    latest_path.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
+    if not args.run_id:
+        latest_path = results_dir / "latest.json"
+        latest_path.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
+    else:
+        write_complete_sentinel(sentinel_base, {"run_id": run_id, "artifact": str(out_path), "summary": summary})
 
     print(json.dumps({"run_id": run_id, "results_path": str(out_path), "summary": summary}, indent=2))
+    if args.run_id:
+        return 0
     return 0 if summary["fail"] == 0 and summary["invalid"] == 0 else 1
 
 
@@ -549,6 +562,24 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, int]:
         status = item["judge_agent"]["status"]
         counts[status] = counts.get(status, 0) + 1
     return counts
+
+
+def write_heartbeat_sentinel(base: Path, metadata: dict[str, Any]) -> None:
+    base.parent.mkdir(parents=True, exist_ok=True)
+    (base.parent / f"{base.name}.heartbeat").write_text(json.dumps(metadata, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def write_complete_sentinel(base: Path, metadata: dict[str, Any]) -> None:
+    base.parent.mkdir(parents=True, exist_ok=True)
+    (base.parent / f"{base.name}.complete").write_text(json.dumps(metadata, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def write_failed_sentinel(base: Path, reason: str, metadata: dict[str, Any] | None = None) -> None:
+    base.parent.mkdir(parents=True, exist_ok=True)
+    (base.parent / f"{base.name}.failed").write_text(
+        json.dumps({"reason": reason, **(metadata or {})}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 if __name__ == "__main__":
