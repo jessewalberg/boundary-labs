@@ -38,6 +38,7 @@ const navGroups = [
     items: [
       { label: "Threat Model", href: "/threat-model", enabled: true, icon: FileWarning },
       { label: "Coverage", href: "/coverage", enabled: true, icon: Radar },
+      { label: "Approvals", href: "/approvals", enabled: true, icon: ShieldCheck },
       { label: "Findings", href: "/findings", enabled: true, icon: Terminal, count: 4 }
     ]
   },
@@ -193,6 +194,7 @@ function breadcrumbFor(pathname: string) {
     "/judges": "judges",
     "/threat-model": "threat model",
     "/coverage": "coverage",
+    "/approvals": "approvals",
     "/findings": "findings",
     "/targets": "targets",
     "/audit": "audit",
