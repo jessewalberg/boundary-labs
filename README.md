@@ -69,13 +69,13 @@ The runner writes `evals/results/<run_id>.json` and updates `evals/results/lates
 
 ## Run The Boundary Web Console
 
-The web console is a Bun workspace app under `apps/web`. It currently contains the
+The web console is a pnpm workspace app under `apps/web`. It currently contains the
 Tailwind CSS 4/shadcn-compatible design-system foundation plus the U1 app shell,
 health routes, readiness route, and typed server-side module boundaries.
 
 ```bash
-bun install
-bun run dev
+pnpm install
+pnpm run dev
 ```
 
 Default local web URL: `http://localhost:3000`.

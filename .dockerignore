@@ -1,0 +1,14 @@
+.git/
+.github/
+.claude/
+.codex/
+node_modules/
+apps/web/node_modules/
+apps/web/.next/
+apps/web/var/
+designs/screenshots/
+reports/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example

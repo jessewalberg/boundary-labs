@@ -1,10 +1,11 @@
 [build]
-builder = "NIXPACKS"
-buildCommand = "bun install --frozen-lockfile && bun run build && mkdir -p apps/web/.next/standalone/apps/web/.next/static apps/web/.next/standalone/apps/web/public && cp -R apps/web/.next/static/. apps/web/.next/standalone/apps/web/.next/static/ && cp -R apps/web/public/. apps/web/.next/standalone/apps/web/public/"
+builder = "DOCKERFILE"
 
 [deploy]
-startCommand = "HOSTNAME=0.0.0.0 node apps/web/.next/standalone/apps/web/server.js"
 healthcheckPath = "/healthz"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
+
+[[deploy.volumes]]
+mountPath = "/data"

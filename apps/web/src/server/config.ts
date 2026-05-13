@@ -1,27 +1,49 @@
+import fs from "node:fs";
 import path from "node:path";
 
 export type BoundaryConfig = {
   sqlitePath: string;
   artifactDir: string;
+  workerHeartbeatPath: string;
   targetUrl: string;
   targetAllowlist: string[];
   evalRunnerPath: string;
+  betterAuthUrl?: string;
+  baaDocumentHash?: string;
+  workerSecrets: {
+    anthropicApiKeyConfigured: boolean;
+    openaiApiKeyConfigured: boolean;
+  };
   dataMode: "synthetic";
 };
 
 export function getBoundaryConfig(): BoundaryConfig {
+  const dataRoot = getDefaultDataRoot();
+
   return {
-    sqlitePath: process.env.SQLITE_PATH ?? path.join(process.cwd(), "var", "boundary.db"),
+    sqlitePath: process.env.SQLITE_PATH ?? path.join(dataRoot, "boundary.db"),
     artifactDir:
-      process.env.BOUNDARY_ARTIFACT_DIR ?? path.join(process.cwd(), "var", "artifacts"),
+      process.env.BOUNDARY_ARTIFACT_DIR ?? path.join(dataRoot, "artifacts"),
+    workerHeartbeatPath:
+      process.env.BOUNDARY_WORKER_HEARTBEAT_PATH ?? path.join(dataRoot, "worker.heartbeat"),
     targetUrl:
       process.env.BOUNDARY_TARGET_URL ?? "https://clinical-copilot.up.railway.app",
     targetAllowlist: parseList(
       process.env.BOUNDARY_TARGET_ALLOWLIST ?? "https://clinical-copilot.up.railway.app"
     ),
     evalRunnerPath: process.env.BOUNDARY_EVAL_RUNNER ?? path.join("scripts", "run_mvp_evals.py"),
+    betterAuthUrl: process.env.BETTER_AUTH_URL,
+    baaDocumentHash: process.env.BAA_DOCUMENT_HASH,
+    workerSecrets: {
+      anthropicApiKeyConfigured: Boolean(process.env.ANTHROPIC_API_KEY),
+      openaiApiKeyConfigured: Boolean(process.env.OPENAI_API_KEY)
+    },
     dataMode: "synthetic"
   };
+}
+
+function getDefaultDataRoot() {
+  return fs.existsSync("/data") ? "/data" : path.join(process.cwd(), "var");
 }
 
 function parseList(value: string) {
