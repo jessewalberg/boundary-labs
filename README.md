@@ -67,6 +67,36 @@ BOUNDARY_SMART_SESSION_SECRET="<local-dev-session-secret>" \
 
 The runner writes `evals/results/<run_id>.json` and updates `evals/results/latest.json`.
 
+## Run The Boundary Web Console
+
+The web console is a Bun workspace app under `apps/web`. It currently contains the
+Tailwind CSS 4/shadcn-compatible design-system foundation plus the U1 app shell,
+health routes, readiness route, and typed server-side module boundaries.
+
+```bash
+bun install
+bun run dev
+```
+
+Default local web URL: `http://localhost:3000`.
+
+Useful routes:
+
+- `GET /healthz` returns app liveness.
+- `GET /readyz` checks local state paths and console configuration.
+- `/dashboard` renders the protected-shell placeholder that U2 will wire to Better Auth.
+- `/design-system` keeps the U0 visual reference surface available.
+
+Optional local config lives in `apps/web/.env.example`:
+
+```bash
+SQLITE_PATH=./var/boundary.db
+BOUNDARY_ARTIFACT_DIR=./var/artifacts
+BOUNDARY_TARGET_URL=https://clinical-copilot.up.railway.app
+BOUNDARY_TARGET_ALLOWLIST=https://clinical-copilot.up.railway.app,http://localhost:8400
+BOUNDARY_EVAL_RUNNER=scripts/run_mvp_evals.py
+```
+
 ## Target Setup
 
 From the OpenEMR fork checkout:
