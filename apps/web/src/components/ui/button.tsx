@@ -13,7 +13,8 @@ const buttonVariants = cva(
           "border-bl-line-2 bg-transparent text-bl-bone hover:border-bl-line-3 hover:bg-bl-panel",
         ghost: "border-transparent bg-transparent text-bl-bone-2 hover:bg-bl-panel hover:text-bl-bone",
         danger: "border-bl-alarm-deep bg-bl-alarm text-white hover:bg-bl-alarm-deep",
-        signal: "border-bl-signal-deep bg-bl-signal text-bl-graphite hover:bg-bl-signal-deep hover:text-black"
+        signal:
+          "border-bl-signal-deep bg-bl-signal-deep text-bl-bone shadow-[inset_0_1px_0_rgba(200,255,0,0.22)] hover:border-bl-signal hover:bg-[#9abf33] hover:text-bl-graphite"
       },
       size: {
         default: "h-7 px-3 text-[11px]",

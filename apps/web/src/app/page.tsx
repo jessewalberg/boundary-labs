@@ -93,7 +93,7 @@ export default function HomePage() {
               into evidence, verdicts, and regression coverage.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild variant="signal" className="text-black">
+              <Button asChild variant="signal">
                 <Link href="/dashboard">
                   <Gauge size={13} aria-hidden="true" /> Open dashboard
                 </Link>
