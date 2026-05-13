@@ -18,7 +18,7 @@ export type BoundaryRun = {
   seedCount: number;
   coverage: string[];
   trigger: "scheduler" | "manual" | "cli";
-  status?: "draft" | "queued" | "running" | "completed" | "failed";
+  status?: "draft" | "queued" | "running" | "completed" | "failed" | "cancelled";
 };
 
 export type SeedAttempt = {

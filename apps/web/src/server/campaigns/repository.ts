@@ -76,6 +76,63 @@ export async function getStoredCampaign(id: string) {
   return campaigns.find((campaign) => campaign.id === id);
 }
 
+export function cancelCampaign(campaignId: string, actorId: string, reason: string | null = null) {
+  const trimmedReason = reason?.trim() ?? "";
+  if (trimmedReason.length > 1000) {
+    throw new Error("Cancel reason must be 1000 characters or fewer.");
+  }
+
+  const db = openDatabase();
+  try {
+    const now = new Date().toISOString();
+    const cancel = db.transaction(() => {
+      const campaign = db.prepare("SELECT id, status FROM campaigns WHERE id = ?").get(campaignId) as
+        | { id: string; status: StoredCampaignRecord["status"] }
+        | undefined;
+
+      if (!campaign) {
+        throw new Error("Campaign not found.");
+      }
+
+      if (!["queued", "running"].includes(campaign.status)) {
+        throw new Error("Only queued or running campaigns can be cancelled.");
+      }
+
+      db.prepare(`
+        UPDATE campaigns
+        SET status = 'cancelled', updated_at = ?
+        WHERE id = ?
+      `).run(now, campaignId);
+
+      db.prepare(`
+        UPDATE campaign_jobs
+        SET status = 'cancelled', claim_token = NULL, claimed_at = NULL, updated_at = ?
+        WHERE campaign_id = ? AND status IN ('queued', 'claimed')
+      `).run(now, campaignId);
+
+      db.prepare(`
+        INSERT INTO audit_events (
+          id, occurred_at, actor_type, actor_id, action, target_type, target_id,
+          outcome, rule_ref, policy_snapshot_hash, metadata_json
+        ) VALUES (
+          @id, @occurred_at, 'operator', @actor_id, 'campaign:cancel', 'campaign', @target_id,
+          'ok', 'R24', NULL, @metadata_json
+        )
+      `).run({
+        id: ulid(),
+        occurred_at: now,
+        actor_id: actorId,
+        target_id: campaignId,
+        metadata_json: JSON.stringify({ reason: trimmedReason || null })
+      });
+    });
+
+    cancel();
+  } finally {
+    db.close();
+  }
+}
+
 export function storedCampaignToRun(record: StoredCampaignRecord): BoundaryRun {
   return {
     id: record.id,

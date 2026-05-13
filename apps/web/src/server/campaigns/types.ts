@@ -1,4 +1,4 @@
-export type CampaignStatus = "draft" | "queued" | "running" | "completed" | "failed";
+export type CampaignStatus = "draft" | "queued" | "running" | "completed" | "failed" | "cancelled";
 
 export type CampaignRecord = {
   id: string;

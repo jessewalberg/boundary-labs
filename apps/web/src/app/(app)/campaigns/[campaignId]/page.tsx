@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight, Copy, Download, Play } from "lucide-react";
+import { CampaignStatusPoller } from "@/components/boundary/campaign-status-poller";
 import { Chip } from "@/components/boundary/chip";
+import { ConfirmModal } from "@/components/boundary/confirm-modal";
 import { EvidencePane } from "@/components/boundary/evidence-pane";
 import { Panel } from "@/components/boundary/panel";
 import { SeverityBadge } from "@/components/boundary/severity-badge";
@@ -11,6 +13,7 @@ import { listAttemptsForRun } from "@/server/attempts/repository";
 import { getStoredCampaign, storedCampaignToRun } from "@/server/campaigns/repository";
 import type { SeedAttempt } from "@/server/campaigns/fixtures";
 import { getRun } from "@/server/runs/repository";
+import { cancelCampaignAction } from "./cancel/actions";
 
 const startedFormatter = new Intl.DateTimeFormat("en", {
   year: "numeric",
@@ -38,6 +41,8 @@ export default async function CampaignDetailPage({
 
   const seeds = listAttemptsForRun(run.id);
   const selectedSeed = seeds[0];
+  const activeRun = run.status === "queued" || run.status === "running";
+  const cancelAction = cancelCampaignAction.bind(null, run.id);
 
   return (
     <div className="pb-8">
@@ -62,6 +67,7 @@ export default async function CampaignDetailPage({
             <code>
               {run.branch}@{run.commit}
             </code>
+            <CampaignStatusPoller active={activeRun} />
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -74,6 +80,18 @@ export default async function CampaignDetailPage({
           <Button>
             <Play size={12} aria-hidden="true" /> Re-run
           </Button>
+          {activeRun ? (
+            <ConfirmModal label="Cancel" confirmLabel="Cancel run" action={cancelAction}>
+              <label className="grid gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-bl-bone-3">
+                Reason
+                <textarea
+                  name="reason"
+                  maxLength={1000}
+                  className="min-h-24 resize-none border border-bl-line bg-bl-trough p-2 text-xs normal-case tracking-normal text-bl-bone outline-none"
+                />
+              </label>
+            </ConfirmModal>
+          ) : null}
         </div>
       </section>
 
