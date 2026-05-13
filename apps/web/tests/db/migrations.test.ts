@@ -36,7 +36,8 @@ describe("database migrations", () => {
         "schema_migrations"
       ])
     );
-    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({ count: 2 });
+    expect(tableNames).toEqual(expect.arrayContaining(["user", "session", "account", "verification"]));
+    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({ count: 3 });
     expect(db.prepare("SELECT value_json FROM policy_values WHERE key = 'schema_ready'").get()).toMatchObject({
       value_json: "true"
     });

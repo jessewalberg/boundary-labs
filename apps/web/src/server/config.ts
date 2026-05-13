@@ -9,6 +9,9 @@ export type BoundaryConfig = {
   targetAllowlist: string[];
   evalRunnerPath: string;
   betterAuthUrl?: string;
+  betterAuthSecret: string;
+  ownerEmail?: string;
+  operatorEmailAllowlist: string[];
   baaDocumentHash?: string;
   workerSecrets: {
     anthropicApiKeyConfigured: boolean;
@@ -32,7 +35,14 @@ export function getBoundaryConfig(): BoundaryConfig {
       process.env.BOUNDARY_TARGET_ALLOWLIST ?? "https://clinical-copilot.up.railway.app"
     ),
     evalRunnerPath: process.env.BOUNDARY_EVAL_RUNNER ?? path.join("scripts", "run_mvp_evals.py"),
-    betterAuthUrl: process.env.BETTER_AUTH_URL,
+    betterAuthUrl: process.env.BETTER_AUTH_URL ?? getDefaultAuthUrl(),
+    betterAuthSecret:
+      process.env.BETTER_AUTH_SECRET ??
+      "boundary-labs-local-development-secret-change-before-production",
+    ownerEmail: process.env.BOUNDARY_OWNER_EMAIL?.toLowerCase(),
+    operatorEmailAllowlist: parseList(
+      process.env.BOUNDARY_OPERATOR_EMAIL_ALLOWLIST ?? process.env.BOUNDARY_OWNER_EMAIL ?? ""
+    ).map((email) => email.toLowerCase()),
     baaDocumentHash: process.env.BAA_DOCUMENT_HASH,
     workerSecrets: {
       anthropicApiKeyConfigured: Boolean(process.env.ANTHROPIC_API_KEY),
@@ -44,6 +54,11 @@ export function getBoundaryConfig(): BoundaryConfig {
 
 function getDefaultDataRoot() {
   return fs.existsSync("/data") ? "/data" : path.join(process.cwd(), "var");
+}
+
+function getDefaultAuthUrl() {
+  if (process.env.NODE_ENV === "production") return undefined;
+  return `http://localhost:${process.env.PORT ?? "3000"}`;
 }
 
 function parseList(value: string) {

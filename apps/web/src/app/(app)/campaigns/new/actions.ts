@@ -1,15 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getCurrentOperator } from "@/server/auth/current-operator";
 import { createQueuedCampaign } from "@/server/campaigns/repository";
 import { can } from "@/server/policies";
 
-const currentOperator = {
-  id: "boundary.ops",
-  role: "operator" as const
-};
-
 export async function queueCampaign(formData: FormData) {
+  const currentOperator = await getCurrentOperator();
+
   if (!can(currentOperator.role, "campaign:create")) {
     throw new Error("Current operator is not allowed to create campaigns.");
   }
