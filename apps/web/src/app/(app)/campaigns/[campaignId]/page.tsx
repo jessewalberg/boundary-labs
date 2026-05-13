@@ -7,8 +7,10 @@ import { Panel } from "@/components/boundary/panel";
 import { SeverityBadge } from "@/components/boundary/severity-badge";
 import { VerdictPill } from "@/components/boundary/verdict-pill";
 import { Button } from "@/components/ui/button";
-import { getRunById, getSeedsForRun, type SeedAttempt } from "@/server/campaigns/fixtures";
+import { listAttemptsForRun } from "@/server/attempts/repository";
 import { getStoredCampaign, storedCampaignToRun } from "@/server/campaigns/repository";
+import type { SeedAttempt } from "@/server/campaigns/fixtures";
+import { getRun } from "@/server/runs/repository";
 
 const startedFormatter = new Intl.DateTimeFormat("en", {
   year: "numeric",
@@ -28,13 +30,13 @@ export default async function CampaignDetailPage({
 }) {
   const { campaignId } = await params;
   const storedCampaign = await getStoredCampaign(campaignId);
-  const run = getRunById(campaignId) ?? (storedCampaign ? storedCampaignToRun(storedCampaign) : undefined);
+  const run = await getRun(campaignId) ?? (storedCampaign ? storedCampaignToRun(storedCampaign) : undefined);
 
   if (!run) {
     notFound();
   }
 
-  const seeds = getSeedsForRun(run.id);
+  const seeds = listAttemptsForRun(run.id);
   const selectedSeed = seeds[0];
 
   return (

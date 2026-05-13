@@ -5,7 +5,7 @@ import { Panel } from "@/components/boundary/panel";
 import { SeverityBadge } from "@/components/boundary/severity-badge";
 import { VerdictPill } from "@/components/boundary/verdict-pill";
 import { Button } from "@/components/ui/button";
-import { seedAttempts } from "@/server/campaigns/fixtures";
+import { listSeedUsageRecords } from "@/server/seeds/repository";
 import type { Verdict } from "@/components/boundary/verdict-pill";
 
 type SeedRecord = {
@@ -20,9 +20,7 @@ type SeedRecord = {
 };
 
 export default function SeedsPage() {
-  const seeds = Object.entries(seedAttempts).flatMap(([runId, attempts]) =>
-    attempts.map((attempt) => ({ runId, ...attempt }))
-  ) satisfies SeedRecord[];
+  const seeds = listSeedUsageRecords() satisfies SeedRecord[];
   const categories = Array.from(new Set(seeds.map((seed) => seed.category)));
 
   return (

@@ -4,11 +4,14 @@ import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
 import { SeverityBadge } from "@/components/boundary/severity-badge";
 import { Button } from "@/components/ui/button";
-import { boundaryRuns, findings, seedAttempts } from "@/server/campaigns/fixtures";
+import { listSeedAttemptRecords } from "@/server/attempts/repository";
+import { listFindings } from "@/server/findings/repository";
 
 const statusOrder = ["open", "fixed", "deferred"] as const;
 
 export default function FindingsPage() {
+  const findings = listFindings();
+  const seedAttempts = listSeedAttemptRecords();
   const counts = statusOrder.map((status) => ({
     status,
     count: findings.filter((finding) => finding.status === status).length
@@ -43,7 +46,7 @@ export default function FindingsPage() {
                 <span className="bl-watermark">{status}</span>
               </div>
               {findings.filter((finding) => finding.status === status).map((finding) => {
-                const reference = findSeedReference(finding.seed);
+                const reference = findSeedReference(seedAttempts, finding.seed);
                 return (
                   <article key={finding.id} className="grid gap-3 border-b border-bl-line px-4 py-3 last:border-b-0 md:grid-cols-[1fr_auto]">
                     <div>
@@ -104,10 +107,7 @@ export default function FindingsPage() {
   );
 }
 
-function findSeedReference(seedId: string) {
-  for (const run of boundaryRuns) {
-    const seed = seedAttempts[run.id]?.find((attempt) => attempt.id === seedId);
-    if (seed) return { runId: run.id, seedId: seed.id };
-  }
-  return null;
+function findSeedReference(seedAttempts: ReturnType<typeof listSeedAttemptRecords>, seedId: string) {
+  const seed = seedAttempts.find((attempt) => attempt.id === seedId);
+  return seed ? { runId: seed.runId, seedId: seed.id } : null;
 }

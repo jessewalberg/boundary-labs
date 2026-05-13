@@ -7,7 +7,8 @@ import { Panel } from "@/components/boundary/panel";
 import { SeverityBadge } from "@/components/boundary/severity-badge";
 import { VerdictPill } from "@/components/boundary/verdict-pill";
 import { Button } from "@/components/ui/button";
-import { getRunById, getSeedForRun } from "@/server/campaigns/fixtures";
+import { getAttemptForRun } from "@/server/attempts/repository";
+import { getRun } from "@/server/runs/repository";
 
 export default async function SeedDetailPage({
   params
@@ -15,8 +16,8 @@ export default async function SeedDetailPage({
   params: Promise<{ campaignId: string; seedId: string }>;
 }) {
   const { campaignId, seedId } = await params;
-  const run = getRunById(campaignId);
-  const seed = getSeedForRun(campaignId, seedId);
+  const run = await getRun(campaignId);
+  const seed = getAttemptForRun(campaignId, seedId);
 
   if (!run || !seed) {
     notFound();

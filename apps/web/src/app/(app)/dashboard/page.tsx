@@ -6,18 +6,15 @@ import { RunRow } from "@/components/boundary/run-row";
 import { SeverityBadge } from "@/components/boundary/severity-badge";
 import { VerdictPill } from "@/components/boundary/verdict-pill";
 import { Button } from "@/components/ui/button";
-import {
-  agents,
-  boundaryRuns,
-  feedEvents,
-  findings,
-  sparkBuckets,
-  targetHealth,
-  threatCoverage,
-  type BoundaryRun,
-  type FeedEvent
-} from "@/server/campaigns/fixtures";
+import type { BoundaryRun, FeedEvent, SparkBucket } from "@/server/campaigns/fixtures";
+import { listAgentStatuses } from "@/server/agents/repository";
+import { listThreatCoverage } from "@/server/coverage/query";
 import { getBoundaryConfig } from "@/server/config";
+import { listFeedEvents } from "@/server/events/repository";
+import { listFindings } from "@/server/findings/repository";
+import { listSparkBuckets } from "@/server/metrics/repository";
+import { listRuns } from "@/server/runs/repository";
+import { listTargetHealth } from "@/server/targets/repository";
 
 const startedFormatter = new Intl.DateTimeFormat("en", {
   month: "2-digit",
@@ -28,8 +25,15 @@ const startedFormatter = new Intl.DateTimeFormat("en", {
   timeZone: "UTC"
 });
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
   const config = getBoundaryConfig();
+  const boundaryRuns = await listRuns();
+  const agents = listAgentStatuses();
+  const feedEvents = listFeedEvents();
+  const findings = listFindings();
+  const sparkBuckets = listSparkBuckets();
+  const targetHealth = listTargetHealth();
+  const threatCoverage = listThreatCoverage();
   const latestRuns = boundaryRuns.slice(0, 6);
   const totalSeeds = boundaryRuns.reduce((sum, run) => sum + run.seedCount, 0);
   const passed = boundaryRuns.reduce((sum, run) => sum + run.summary.pass, 0);
@@ -84,7 +88,7 @@ export default function DashboardPage() {
               00 {"->"} 24 UTC
             </span>
           </div>
-          <Sparkline />
+          <Sparkline buckets={sparkBuckets} />
         </div>
       </section>
 
@@ -280,16 +284,16 @@ function KpiCell({
   );
 }
 
-function Sparkline() {
+function Sparkline({ buckets }: { buckets: SparkBucket[] }) {
   const height = 78;
   const width = 480;
-  const barWidth = width / sparkBuckets.length;
+  const barWidth = width / buckets.length;
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="block w-full">
       <line x1="0" y1={height - 8} x2={width} y2={height - 8} stroke="var(--bl-line)" strokeWidth="0.5" />
       <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="var(--bl-line)" strokeDasharray="2 3" strokeWidth="0.5" />
-      {sparkBuckets.map((bucket, index) => {
+      {buckets.map((bucket, index) => {
         const x = index * barWidth + 2;
         const pass = bucket.pass ?? 0;
         const barHeight = bucket.runs === 0 ? 2 : Math.max(3, pass * (height - 18));

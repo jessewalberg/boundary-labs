@@ -2,10 +2,11 @@ import { Crosshair } from "lucide-react";
 import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
 import { getBoundaryConfig } from "@/server/config";
-import { targetHealth } from "@/server/campaigns/fixtures";
+import { listTargetHealth } from "@/server/targets/repository";
 
 export default function TargetsPage() {
   const config = getBoundaryConfig();
+  const targetHealth = listTargetHealth();
   const healthy = targetHealth.filter((check) => check.state === "ok").length;
 
   return (

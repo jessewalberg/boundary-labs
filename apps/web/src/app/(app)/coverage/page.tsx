@@ -3,9 +3,12 @@ import { ArrowRight, Radar } from "lucide-react";
 import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
 import { Button } from "@/components/ui/button";
-import { findings, threatCoverage } from "@/server/campaigns/fixtures";
+import { listThreatCoverage } from "@/server/coverage/query";
+import { listFindings } from "@/server/findings/repository";
 
 export default function CoveragePage() {
+  const threatCoverage = listThreatCoverage();
+  const findings = listFindings();
   const covered = threatCoverage.filter((item) => item.status === "covered").length;
   const gaps = threatCoverage.length - covered;
 

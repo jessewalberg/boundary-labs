@@ -1,3 +1,6 @@
 export async function register() {
-  // Startup recovery and ingest sweeps land in the later execution units.
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+
+  const { sweepArtifactIngest } = await import("@/server/ingest/sweep");
+  sweepArtifactIngest();
 }

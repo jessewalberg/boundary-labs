@@ -1,7 +1,7 @@
 import { Bot, Network, ShieldCheck } from "lucide-react";
 import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
-import { agents } from "@/server/campaigns/fixtures";
+import { listAgentStatuses } from "@/server/agents/repository";
 
 const roleCards = [
   { role: "Red Team", icon: Bot, input: "Threat model gaps + seed corpus", output: "Attack candidates and mutated payloads", owner: "attack generation" },
@@ -10,6 +10,8 @@ const roleCards = [
 ];
 
 export default function AgentsPage() {
+  const agents = listAgentStatuses();
+
   return (
     <div className="pb-8">
       <section className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">

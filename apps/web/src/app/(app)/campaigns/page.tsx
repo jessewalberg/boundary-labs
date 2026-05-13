@@ -4,8 +4,8 @@ import { Activity, Plus } from "lucide-react";
 import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
 import { Button } from "@/components/ui/button";
-import { boundaryRuns, type BoundaryRun } from "@/server/campaigns/fixtures";
-import { listStoredCampaigns, storedCampaignToRun } from "@/server/campaigns/repository";
+import type { BoundaryRun } from "@/server/campaigns/fixtures";
+import { listRuns } from "@/server/runs/repository";
 
 type CampaignsPageProps = {
   searchParams?: Promise<{ filter?: string }>;
@@ -24,8 +24,7 @@ const startedFormatter = new Intl.DateTimeFormat("en", {
 
 export default async function CampaignsPage({ searchParams }: CampaignsPageProps) {
   const params = await searchParams;
-  const storedRuns = (await listStoredCampaigns()).map(storedCampaignToRun);
-  const runs = [...storedRuns, ...boundaryRuns];
+  const runs = await listRuns();
   const filter = params?.filter ?? "all";
   const visibleRuns = runs.filter((run) => {
     if (filter === "main") return run.branch === "main";
