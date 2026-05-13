@@ -32,10 +32,11 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=web-build /usr/local/bin/node /usr/local/bin/node
-COPY --from=web-build /usr/local/bin/corepack /usr/local/bin/corepack
-COPY --from=web-build /usr/local/bin/pnpm /usr/local/bin/pnpm
 COPY --from=web-build /usr/local/lib/node_modules/corepack /usr/local/lib/node_modules/corepack
 COPY --from=worker-deps /opt/venv /opt/venv
+
+RUN ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack \
+  && ln -sf ../lib/node_modules/corepack/dist/pnpm.js /usr/local/bin/pnpm
 
 WORKDIR /app
 ENV NODE_ENV=production
@@ -50,6 +51,13 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY --from=web-build /app/apps/web/.next/standalone ./
 COPY --from=web-build /app/apps/web/.next/static apps/web/.next/static
 COPY --from=web-build /app/apps/web/public apps/web/public
+COPY --from=web-build /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml ./
+COPY --from=web-build /app/node_modules node_modules
+COPY --from=web-build /app/apps/web/package.json apps/web/package.json
+COPY --from=web-build /app/apps/web/node_modules apps/web/node_modules
+COPY --from=web-build /app/apps/web/tsconfig.json apps/web/tsconfig.json
+COPY --from=web-build /app/apps/web/src apps/web/src
+COPY policy_seed.json policy_seed.json
 COPY scripts scripts
 COPY evals evals
 COPY worker worker
