@@ -5,6 +5,11 @@ import { z } from "zod";
 import { getBoundaryConfig } from "@/server/config";
 import { openDatabase, type BoundaryDatabase } from "@/server/db/client";
 import { bootstrapSeeds } from "@/server/seeds/bootstrap";
+import {
+  assertSystemReservedRowsPresent,
+  loadPolicyValues
+} from "@/server/safety-gate/load";
+import { snapshotPolicyValues } from "@/server/safety-gate/snapshot";
 
 const policySeedSchema = z.object({
   values: z.array(
@@ -71,6 +76,9 @@ export function runMigrations(db: BoundaryDatabase, migrationsDir: string) {
 export function bootstrapPolicyValues(db: BoundaryDatabase, policySeedPath: string) {
   const parsed = policySeedSchema.parse(JSON.parse(fs.readFileSync(policySeedPath, "utf8")));
   const now = new Date().toISOString();
+  const existing = new Set(
+    db.prepare("SELECT key FROM policy_values").all().map((row) => (row as { key: string }).key)
+  );
 
   const insert = db.prepare(`
     INSERT INTO policy_values (
@@ -96,17 +104,25 @@ export function bootstrapPolicyValues(db: BoundaryDatabase, policySeedPath: stri
 
   insertMany();
 
+  const policyRows = loadPolicyValues(db);
+  assertSystemReservedRowsPresent(policyRows);
+  const snapshot = snapshotPolicyValues(policyRows);
+  const insertedKeys = parsed.values.map((value) => value.key).filter((key) => !existing.has(key));
+
   db.prepare(`
     INSERT INTO audit_events (
       id, occurred_at, actor_type, actor_id, action, target_type, target_id,
       outcome, rule_ref, policy_snapshot_hash, metadata_json
-    ) VALUES (?, ?, 'system', NULL, 'policy_loaded', 'policy_values', 'bootstrap', 'ok', 'R15', NULL, ?)
+    ) VALUES (?, ?, 'system', NULL, 'policy_loaded', 'policy_values', 'bootstrap', 'ok', 'R15', ?, ?)
   `).run(
     ulid(),
     now,
+    snapshot.hash,
     JSON.stringify({
       policySeedPath,
-      rows: parsed.values.length
+      rows: policyRows.length,
+      insertedKeys,
+      schemaVersion: snapshot.schemaVersion
     })
   );
 }
