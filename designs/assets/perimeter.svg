@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" fill="none" aria-label="Perimeter diagram">
+  
+  <rect width="640" height="360" fill="#0C0E13"></rect>
+  
+  <g stroke="#1F2531" stroke-width="0.5">
+    <path d="M0 60 H640 M0 120 H640 M0 180 H640 M0 240 H640 M0 300 H640"></path>
+    <path d="M80 0 V360 M160 0 V360 M240 0 V360 M320 0 V360 M400 0 V360 M480 0 V360 M560 0 V360"></path>
+  </g>
+  
+  <rect x="80" y="60" width="480" height="240" stroke="#3B465C" stroke-width="1" stroke-dasharray="4 4" fill="none"></rect>
+  <text x="560" y="50" text-anchor="end" font-family="&#39;JetBrains Mono&#39;, monospace" font-size="9" letter-spacing="3" fill="#7B8597">PERIMETER · AUTHORIZED</text>
+  
+  <rect x="230" y="140" width="180" height="80" fill="#131722" stroke="#3B465C" stroke-width="1"></rect>
+  <text x="320" y="180" text-anchor="middle" font-family="&#39;JetBrains Mono&#39;, monospace" font-size="10" letter-spacing="3" font-weight="500" fill="#E8ECF3">TARGET</text>
+  <text x="320" y="200" text-anchor="middle" font-family="&#39;JetBrains Mono&#39;, monospace" font-size="9" letter-spacing="1" fill="#7B8597">clinical-copilot</text>
+  
+  <g stroke="#FF2D2D" stroke-width="1.2" fill="none">
+    <path d="M40 100 L230 160" marker-end="url(#arr2)"></path>
+    <path d="M40 180 L230 180" marker-end="url(#arr2)"></path>
+    <path d="M40 260 L230 200" marker-end="url(#arr2)"></path>
+  </g>
+  <g font-family="&#39;JetBrains Mono&#39;, monospace" font-size="9" letter-spacing="2" fill="#FF2D2D">
+    <text x="40" y="90">PROMPT-INJ</text>
+    <text x="40" y="170">AUTHZ</text>
+    <text x="40" y="250">TOOL-ABUSE</text>
+  </g>
+  
+  <g transform="translate(440,140)">
+    <circle cx="0" cy="0" r="6" fill="#C8FF00"></circle>
+    <text x="14" y="3" font-family="&#39;JetBrains Mono&#39;, monospace" font-size="9" letter-spacing="2" fill="#C8FF00">LOCK</text>
+  </g>
+  <defs>
+    <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#FF2D2D"></path>
+    </marker>
+  </defs>
+</svg>

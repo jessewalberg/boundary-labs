@@ -1,0 +1,275 @@
+/* =========================================================================
+   Boundary Labs — Foundations (v2 · forensic console)
+   Cold dark surfaces, mono-led headers, one alarm-red, one signal-lime.
+   This file replaces v1's warm paper system entirely.
+   ========================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ---------- Surfaces (default = console dark) ---------- */
+  --bl-void:         #06070A;   /* outermost: page bg */
+  --bl-graphite:     #0C0E13;   /* primary surface */
+  --bl-panel:        #131722;   /* raised panel / card */
+  --bl-panel-2:      #1A1F2C;   /* hover, table-row alt */
+  --bl-trough:       #090B11;   /* sunken: code, pre, table thead bg */
+
+  /* ---------- Lines & rules ---------- */
+  --bl-line:         #1F2531;   /* hairline divider */
+  --bl-line-2:       #2C3445;   /* mid divider */
+  --bl-line-3:       #3B465C;   /* strong border, focus ring */
+
+  /* ---------- Text on dark ---------- */
+  --bl-bone:         #E8ECF3;   /* primary text */
+  --bl-bone-2:       #B6BDCC;   /* secondary text */
+  --bl-bone-3:       #7B8597;   /* tertiary, metadata */
+  --bl-bone-4:       #525B6E;   /* disabled, deep tertiary */
+
+  /* ---------- Inverse (rare: print, alerts on light) ---------- */
+  --bl-chalk:        #ECEEF2;
+  --bl-ink:          #0C0E13;
+
+  /* ---------- Signal — one alarm, one liveness, one info ----------
+     Boundary Labs is forensic; color is a *flag*, not an accent.
+     Never tint chrome with these. They label state and only state.        */
+  --bl-alarm:        #FF2D2D;   /* fail / red-team / critical breach */
+  --bl-alarm-deep:   #B81F1F;
+  --bl-alarm-glow:   rgba(255,45,45,0.16);
+  --bl-alarm-wash:   #2A1414;
+
+  --bl-signal:       #C8FF00;   /* live / pass / running / signal lock */
+  --bl-signal-deep:  #88B000;
+  --bl-signal-glow:  rgba(200,255,0,0.12);
+  --bl-signal-wash:  #1F2710;
+
+  --bl-amber:        #FFB020;   /* partial / re-review / degraded */
+  --bl-amber-wash:   #2B200C;
+
+  --bl-cyan:         #22D3EE;   /* judge / info / observation */
+  --bl-cyan-wash:    #0E2329;
+
+  /* ---------- Semantic aliases ---------- */
+  --fg-1: var(--bl-bone);
+  --fg-2: var(--bl-bone-2);
+  --fg-3: var(--bl-bone-3);
+  --fg-4: var(--bl-bone-4);
+  --bg-1: var(--bl-graphite);
+  --bg-2: var(--bl-panel);
+  --bg-3: var(--bl-panel-2);
+  --surface: var(--bl-panel);
+  --border: var(--bl-line);
+  --border-strong: var(--bl-line-3);
+  --accent: var(--bl-alarm);
+
+  /* ---------- Typography ----------
+     Serif is dropped. The system reads as terminal-native: sans for UI
+     prose, mono for everything else (titles, IDs, labels, data).          */
+  --font-sans:  'IBM Plex Sans', 'Helvetica Neue', system-ui, sans-serif;
+  --font-mono:  'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+
+  /* ---------- Scale — denser; analytical UIs run a touch smaller ---------- */
+  --t-xxs: 10px;
+  --t-xs:  11px;
+  --t-sm:  12px;
+  --t-md:  13px;
+  --t-lg:  15px;
+  --t-xl:  18px;
+  --t-2xl: 22px;
+  --t-3xl: 28px;
+  --t-4xl: 36px;
+  --t-5xl: 48px;
+
+  --lh-tight: 1.06;
+  --lh-snug:  1.18;
+  --lh-body:  1.5;
+  --tr-tight: -0.015em;
+  --tr-norm:  0;
+  --tr-mono:  0;
+  --tr-tag:   0.1em;
+  --tr-wide:  0.22em;     /* watermark */
+
+  /* ---------- Spacing — 4px base, used at higher density ---------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-7: 32px;
+  --s-8: 40px;
+  --s-9: 56px;
+  --s-10: 72px;
+
+  /* ---------- Radius — sharp ---------- */
+  --r-0: 0;
+  --r-1: 2px;     /* default */
+  --r-2: 3px;     /* cards */
+  --r-pill: 999px;
+
+  /* ---------- Borders ---------- */
+  --bw-1: 1px;
+  --bw-2: 2px;
+
+  /* ---------- Elevation — flat. Borders dominate. ---------- */
+  --elev-0: none;
+  --elev-1: 0 0 0 1px var(--bl-line);
+  --elev-2: 0 0 0 1px var(--bl-line), 0 1px 0 0 rgba(0,0,0,0.4);
+  --elev-3: 0 0 0 1px var(--bl-line-3), 0 12px 32px -12px rgba(0,0,0,0.7);
+  --elev-overlay: 0 0 0 1px var(--bl-line-3), 0 32px 80px -16px rgba(0,0,0,0.85);
+
+  /* Inner glow on focused field */
+  --ring-focus: 0 0 0 1px var(--bl-bone), 0 0 0 3px rgba(232,236,243,0.08);
+
+  /* ---------- Motion ---------- */
+  --ease-out:    cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-snap:   cubic-bezier(0.3, 1.2, 0.4, 1);
+  --dur-1: 80ms;
+  --dur-2: 140ms;
+  --dur-3: 240ms;
+  --dur-4: 420ms;
+
+  /* ---------- Layout ---------- */
+  --container-max: 1480px;
+  --rail-w: 232px;
+  --topbar-h: 48px;
+}
+
+/* =========================================================================
+   Page baseline — dark by default. Light surfaces are an opt-in (.bl-light)
+   used only for print/PDF report covers.
+   ========================================================================= */
+
+html, body {
+  background: var(--bl-graphite);
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: var(--t-md);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'kern', 'ss01';
+}
+
+/* =========================================================================
+   Semantic element styles
+   ========================================================================= */
+
+.bl-prose {
+  color: var(--fg-1);
+  text-wrap: pretty;
+}
+
+/* Display & headings — mono for analytic surfaces; sans is for body. */
+.bl-display, .bl-h0 {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--t-5xl);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tr-tight);
+  color: var(--bl-bone);
+}
+
+.bl-h1 {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--t-3xl);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--tr-tight);
+  color: var(--bl-bone);
+}
+
+.bl-h2 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--t-xl);
+  line-height: var(--lh-snug);
+  color: var(--bl-bone);
+}
+
+.bl-h3 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--t-lg);
+  line-height: var(--lh-snug);
+  color: var(--bl-bone);
+}
+
+.bl-h4 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--t-md);
+  color: var(--bl-bone);
+}
+
+.bl-p {
+  font-family: var(--font-sans);
+  font-size: var(--t-md);
+  line-height: var(--lh-body);
+  color: var(--fg-2);
+}
+
+.bl-small {
+  font-family: var(--font-sans);
+  font-size: var(--t-xs);
+  color: var(--fg-3);
+}
+
+/* Eyebrow / overline — mono uppercase, the system's signature mannerism. */
+.bl-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--t-xxs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tr-tag);
+  color: var(--fg-3);
+}
+
+/* Watermark — wider tracking, used on every panel header. */
+.bl-watermark {
+  font-family: var(--font-mono);
+  font-size: var(--t-xxs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tr-wide);
+  color: var(--fg-3);
+}
+
+/* Inline code / IDs */
+.bl-code, code, kbd, samp {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  font-feature-settings: 'zero', 'ss01';
+  color: var(--bl-bone);
+  background: var(--bl-trough);
+  padding: 1px 6px;
+  border-radius: var(--r-1);
+  border: 1px solid var(--bl-line);
+}
+
+.bl-pre, pre {
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  line-height: 1.6;
+  background: var(--bl-trough);
+  color: var(--bl-bone);
+  padding: var(--s-5);
+  border-radius: 0;
+  overflow: auto;
+  border-top: 1px solid var(--bl-line);
+}
+
+/* Links */
+.bl-prose a, a.bl-link {
+  color: var(--bl-bone);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--bl-line-3);
+}
+.bl-prose a:hover, a.bl-link:hover {
+  color: var(--bl-alarm);
+  text-decoration-color: var(--bl-alarm);
+}
+
+/* Selection */
+::selection { background: var(--bl-alarm-glow); color: var(--bl-bone); }
