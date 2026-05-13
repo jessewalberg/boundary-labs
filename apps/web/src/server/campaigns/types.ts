@@ -8,3 +8,15 @@ export type CampaignRecord = {
   dataMode: "synthetic";
   budgetCents: number;
 };
+
+export type StoredCampaignRecord = CampaignRecord & {
+  createdAt: string;
+  updatedAt: string;
+  requestedBy: string;
+  artifactPath: string;
+  runnerCommand: {
+    scriptPath: string;
+    targetUrl: string;
+    resultDir: "evals/results";
+  };
+};

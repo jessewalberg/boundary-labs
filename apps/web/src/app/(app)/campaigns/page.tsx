@@ -5,6 +5,7 @@ import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
 import { Button } from "@/components/ui/button";
 import { boundaryRuns, type BoundaryRun } from "@/server/campaigns/fixtures";
+import { listStoredCampaigns, storedCampaignToRun } from "@/server/campaigns/repository";
 
 type CampaignsPageProps = {
   searchParams?: Promise<{ filter?: string }>;
@@ -23,19 +24,22 @@ const startedFormatter = new Intl.DateTimeFormat("en", {
 
 export default async function CampaignsPage({ searchParams }: CampaignsPageProps) {
   const params = await searchParams;
+  const storedRuns = (await listStoredCampaigns()).map(storedCampaignToRun);
+  const runs = [...storedRuns, ...boundaryRuns];
   const filter = params?.filter ?? "all";
-  const visibleRuns = boundaryRuns.filter((run) => {
+  const visibleRuns = runs.filter((run) => {
     if (filter === "main") return run.branch === "main";
     if (filter === "fail") return run.summary.fail > 0 || run.summary.partial > 0 || run.summary.invalid > 0;
     if (filter === "pass") return run.summary.fail === 0 && run.summary.partial === 0 && run.summary.invalid === 0;
     return true;
   });
 
-  const allPass = boundaryRuns.filter((run) => run.summary.fail === 0 && run.summary.partial === 0 && run.summary.invalid === 0).length;
-  const failing = boundaryRuns.filter((run) => run.summary.fail > 0).length;
-  const partial = boundaryRuns.filter((run) => run.summary.fail === 0 && run.summary.partial > 0).length;
-  const invalid = boundaryRuns.filter((run) => run.summary.invalid > 0).length;
-  const latest = boundaryRuns[0];
+  const completedRuns = runs.filter((run) => !run.status || run.status === "completed");
+  const allPass = completedRuns.filter((run) => run.summary.fail === 0 && run.summary.partial === 0 && run.summary.invalid === 0).length;
+  const failing = completedRuns.filter((run) => run.summary.fail > 0).length;
+  const partial = completedRuns.filter((run) => run.summary.fail === 0 && run.summary.partial > 0).length;
+  const invalid = completedRuns.filter((run) => run.summary.invalid > 0).length;
+  const latest = runs[0];
 
   return (
     <div className="pb-8">
@@ -67,7 +71,7 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
       </section>
 
       <section className="mb-4 grid overflow-hidden rounded-[var(--radius-bl-panel)] border border-bl-line bg-bl-panel md:grid-cols-4">
-        <Metric label="Total runs · 7d" value={boundaryRuns.length} />
+        <Metric label="Total runs · 7d" value={runs.length} />
         <Metric label="All pass" value={allPass} tone="signal" glow />
         <Metric label="Fail / partial" value={`${failing}/${partial}`} tone={failing > 0 ? "alarm" : "amber"} glow={failing > 0} />
         <Metric label="Invalid · deferred" value={invalid} tone="muted" />
@@ -87,7 +91,7 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
         ))}
         <div className="flex-1" />
         <span className="bl-watermark text-bl-bone-4">
-          {visibleRuns.length} / {boundaryRuns.length} runs · 7d
+          {visibleRuns.length} / {runs.length} runs · 7d
         </span>
       </div>
 
@@ -170,12 +174,15 @@ function Metric({
 }
 
 function RunsTableRow({ run }: { run: BoundaryRun }) {
-  const tone = run.summary.invalid > 0 ? "invalid" : run.summary.fail > 0 ? "fail" : run.summary.partial > 0 ? "partial" : "pass";
+  const pending = run.status === "queued" || run.status === "running" || run.status === "draft";
+  const tone = pending ? "pending" : run.summary.invalid > 0 ? "invalid" : run.summary.fail > 0 ? "fail" : run.summary.partial > 0 ? "partial" : "pass";
   const bar =
     tone === "fail"
       ? "bg-bl-alarm shadow-[0_0_6px_var(--bl-alarm)]"
       : tone === "partial"
         ? "bg-bl-amber"
+        : tone === "pending"
+          ? "bg-bl-cyan shadow-[0_0_6px_var(--bl-cyan)]"
         : tone === "invalid"
           ? "bg-bl-bone-3"
           : "bg-bl-signal shadow-[0_0_6px_var(--bl-signal)]";
@@ -186,11 +193,17 @@ function RunsTableRow({ run }: { run: BoundaryRun }) {
         <div className={`h-8 w-[3px] ${bar}`} />
       </td>
       <td className="px-3 py-2 tabular-nums">
-        <span className="text-bl-signal">{run.summary.pass}</span>
-        <span className="text-bl-bone-4">/</span>
-        <span className={run.summary.fail ? "text-bl-alarm" : "text-bl-bone-4"}>{run.summary.fail}</span>
-        <span className="text-bl-bone-4">/</span>
-        <span className={run.summary.partial ? "text-bl-amber" : "text-bl-bone-4"}>{run.summary.partial}</span>
+        {pending ? (
+          <span className="text-bl-cyan">{run.status}</span>
+        ) : (
+          <>
+            <span className="text-bl-signal">{run.summary.pass}</span>
+            <span className="text-bl-bone-4">/</span>
+            <span className={run.summary.fail ? "text-bl-alarm" : "text-bl-bone-4"}>{run.summary.fail}</span>
+            <span className="text-bl-bone-4">/</span>
+            <span className={run.summary.partial ? "text-bl-amber" : "text-bl-bone-4"}>{run.summary.partial}</span>
+          </>
+        )}
       </td>
       <td className="truncate px-3 py-2 text-bl-bone">
         <Link href={`/campaigns/${run.id}`} className="hover:text-bl-signal">
@@ -213,8 +226,8 @@ function RunsTableRow({ run }: { run: BoundaryRun }) {
         <span className="text-bl-bone-3">{run.commit}</span>
       </td>
       <td className="px-3 py-2">
-        <span className={`border border-bl-line-2 px-1.5 py-px uppercase tracking-[0.14em] ${run.trigger === "scheduler" ? "text-bl-signal" : "text-bl-bone-3"}`}>
-          {run.trigger}
+        <span className={`border border-bl-line-2 px-1.5 py-px uppercase tracking-[0.14em] ${run.trigger === "scheduler" ? "text-bl-signal" : pending ? "text-bl-cyan" : "text-bl-bone-3"}`}>
+          {pending ? run.status : run.trigger}
         </span>
       </td>
       <td className="px-3 py-2 text-right text-bl-bone-3">{startedFormatter.format(new Date(run.startedAt))}</td>

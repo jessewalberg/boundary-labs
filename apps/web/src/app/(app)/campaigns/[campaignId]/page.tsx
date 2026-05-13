@@ -8,6 +8,7 @@ import { SeverityBadge } from "@/components/boundary/severity-badge";
 import { VerdictPill } from "@/components/boundary/verdict-pill";
 import { Button } from "@/components/ui/button";
 import { getRunById, getSeedsForRun, type SeedAttempt } from "@/server/campaigns/fixtures";
+import { getStoredCampaign, storedCampaignToRun } from "@/server/campaigns/repository";
 
 const startedFormatter = new Intl.DateTimeFormat("en", {
   year: "numeric",
@@ -26,7 +27,8 @@ export default async function CampaignDetailPage({
   params: Promise<{ campaignId: string }>;
 }) {
   const { campaignId } = await params;
-  const run = getRunById(campaignId);
+  const storedCampaign = await getStoredCampaign(campaignId);
+  const run = getRunById(campaignId) ?? (storedCampaign ? storedCampaignToRun(storedCampaign) : undefined);
 
   if (!run) {
     notFound();
@@ -91,8 +93,8 @@ export default async function CampaignDetailPage({
         {seeds.length > 0 ? (
           seeds.map((seed) => <SeedRow key={seed.id} seed={seed} runId={run.id} />)
         ) : (
-            <div className="px-4 py-6 text-sm text-bl-bone-3">
-            No seed-level fixture has been attached to this historical run yet.
+          <div className="px-4 py-6 text-sm text-bl-bone-3">
+            No seed-level artifact has been attached to this campaign yet.
           </div>
         )}
       </Panel>
@@ -135,6 +137,26 @@ export default async function CampaignDetailPage({
               2
             )}
           />
+        </section>
+      ) : storedCampaign ? (
+        <section className="grid gap-4 xl:grid-cols-2">
+          <EvidencePane
+            label={`// artifact · ${storedCampaign.artifactPath}`}
+            className="xl:col-span-2"
+            value={JSON.stringify(storedCampaign, null, 2)}
+          />
+          <Panel watermark="// runner · pending" right={<Chip tone="cyan">{storedCampaign.status}</Chip>}>
+            <pre className="m-0 overflow-x-auto font-mono text-[11px] leading-5 text-bl-bone-2">
+{`${storedCampaign.runnerCommand.scriptPath} --target-url ${storedCampaign.runnerCommand.targetUrl} --results-dir ${storedCampaign.runnerCommand.resultDir}`}
+            </pre>
+          </Panel>
+          <Panel watermark="// guardrails" right={<Chip tone="signal">recorded</Chip>}>
+            <div className="grid gap-2 font-mono text-[11px] text-bl-bone-2">
+              <div>requested_by · {storedCampaign.requestedBy}</div>
+              <div>budget_cents · {storedCampaign.budgetCents}</div>
+              <div>data_mode · {storedCampaign.dataMode}</div>
+            </div>
+          </Panel>
         </section>
       ) : null}
     </div>
