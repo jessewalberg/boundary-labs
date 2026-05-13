@@ -53,7 +53,7 @@ export default function SeedsPage() {
               {seeds.filter((seed) => seed.category === category).map((seed) => (
                 <Link
                   key={`${seed.runId}-${seed.id}`}
-                  href={`/campaigns/${seed.runId}/seeds/${seed.id}`}
+                  href={`/seeds/${seed.id}`}
                   className="grid gap-3 border-b border-bl-line px-4 py-3 transition-colors hover:bg-bl-panel-2 last:border-b-0 md:grid-cols-[1fr_120px_90px_80px_14px] md:items-center"
                 >
                   <div className="min-w-0">

@@ -57,7 +57,11 @@ export default function FindingsPage() {
                           {finding.status}
                         </Chip>
                       </div>
-                      <h2 className="m-0 text-sm font-medium text-bl-bone">{finding.title}</h2>
+                      <h2 className="m-0 text-sm font-medium text-bl-bone">
+                        <Link href={`/findings/${finding.id}`} className="hover:text-bl-signal">
+                          {finding.title}
+                        </Link>
+                      </h2>
                       <p className="mt-2 max-w-[760px] text-xs leading-5 text-bl-bone-2">{finding.note}</p>
                       <div className="mt-2 font-mono text-[10px] text-bl-bone-4">
                         seed/{finding.seed} · last fail {new Date(finding.lastFail).toISOString().slice(0, 16)}Z
