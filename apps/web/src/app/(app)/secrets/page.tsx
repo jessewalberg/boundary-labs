@@ -1,18 +1,22 @@
 import { KeyRound } from "lucide-react";
 import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
-
-const secrets = [
-  { name: "RAILWAY_TOKEN", scope: "deploy", state: "configured", unlocks: "GitLab main deploy to Railway" },
-  { name: "RAILWAY_PROJECT_ID", scope: "deploy", state: "configured", unlocks: "Project targeting" },
-  { name: "RAILWAY_SERVICE_ID", scope: "deploy", state: "configured", unlocks: "boundary-web service deploy" },
-  { name: "SQLITE_PATH", scope: "runtime", state: "configured", unlocks: "persistent local database path" },
-  { name: "BOUNDARY_ARTIFACT_DIR", scope: "runtime", state: "configured", unlocks: "campaign artifacts and eval output" },
-  { name: "BOUNDARY_TARGET_URL", scope: "runtime", state: "configured", unlocks: "default target adapter URL" },
-  { name: "BETTER_AUTH_SECRET", scope: "auth", state: "planned", unlocks: "future Better Auth session signing" }
-];
+import { getBoundaryConfig } from "@/server/config";
 
 export default function SecretsPage() {
+  const config = getBoundaryConfig();
+  const secrets = [
+    { name: "BETTER_AUTH_SECRET", scope: "auth", configured: config.betterAuthSecret.length > 0, unlocks: "session signing" },
+    { name: "BETTER_AUTH_URL", scope: "auth", configured: Boolean(config.betterAuthUrl), unlocks: "OAuth callback pinning" },
+    { name: "BAA_DOCUMENT_HASH", scope: "policy", configured: Boolean(config.baaDocumentHash), unlocks: "BAA acknowledgement gate" },
+    { name: "ANTHROPIC_API_KEY", scope: "worker", configured: config.workerSecrets.anthropicApiKeyConfigured, unlocks: "Anthropic agent provider" },
+    { name: "OPENAI_API_KEY", scope: "worker", configured: config.workerSecrets.openaiApiKeyConfigured, unlocks: "OpenAI agent provider" },
+    { name: "SQLITE_PATH", scope: "runtime", configured: Boolean(config.sqlitePath), unlocks: "persistent local database path" },
+    { name: "BOUNDARY_ARTIFACT_DIR", scope: "runtime", configured: Boolean(config.artifactDir), unlocks: "campaign artifacts and eval output" },
+    { name: "BOUNDARY_TARGET_URL", scope: "runtime", configured: Boolean(config.targetUrl), unlocks: "default target adapter URL" },
+    { name: "BOUNDARY_TARGET_ALLOWLIST", scope: "runtime", configured: config.targetAllowlist.length > 0, unlocks: "target launch allowlist" }
+  ];
+
   return (
     <div className="pb-8">
       <section className="mb-5">
@@ -30,23 +34,29 @@ export default function SecretsPage() {
             <div key={secret.name} className="grid gap-3 border-b border-bl-line px-4 py-3 last:border-b-0 md:grid-cols-[220px_110px_110px_1fr] md:items-center">
               <span className="font-mono text-xs text-bl-bone">{secret.name}</span>
               <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-bl-bone-4">{secret.scope}</span>
-              <Chip tone={secret.state === "configured" ? "signal" : "muted"}>{secret.state}</Chip>
+              <Chip tone={secret.configured ? "signal" : "amber"}>{secret.configured ? "configured" : "missing"}</Chip>
               <span className="text-xs text-bl-bone-2">{secret.unlocks}</span>
             </div>
           ))}
         </Panel>
 
-        <Panel watermark="// access model" right={<Chip tone="amber">future auth</Chip>}>
+        <Panel watermark="// rotation" right={<Chip tone="amber">admin</Chip>}>
           <KeyRound size={22} className="mb-4 text-bl-bone-3" aria-hidden="true" />
           <p className="m-0 text-sm leading-6 text-bl-bone-2">
-            Runtime secrets should stay in Railway/GitLab. The application API should expose only
+            Runtime secrets stay in Railway and GitHub. The application API exposes only
             derived readiness state, masked names, and policy outcomes to operators.
           </p>
-          <div className="mt-5 grid gap-2 font-mono text-[11px] text-bl-bone-3">
-            <div>viewer · names only</div>
-            <div>operator · readiness state</div>
-            <div>admin · rotate out-of-band</div>
-          </div>
+          <details className="mt-5 border-t border-bl-line pt-4">
+            <summary className="cursor-pointer font-mono text-[11px] uppercase tracking-[0.14em] text-bl-bone">
+              Rotation drawer
+            </summary>
+            <div className="mt-3 grid gap-2 font-mono text-[11px] text-bl-bone-3">
+              <div>1. rotate in provider console</div>
+              <div>2. update Railway variable</div>
+              <div>3. redeploy container</div>
+              <div>4. verify /readyz and worker heartbeat</div>
+            </div>
+          </details>
         </Panel>
       </section>
     </div>

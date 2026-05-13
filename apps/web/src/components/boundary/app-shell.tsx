@@ -16,6 +16,7 @@ import {
   Search,
   SlidersHorizontal,
   ShieldCheck,
+  ShieldEllipsis,
   Terminal
 } from "lucide-react";
 import { Chip } from "@/components/boundary/chip";
@@ -53,6 +54,7 @@ const navGroups = [
     label: "// settings",
     items: [
       { label: "Policy", href: "/settings/policy", enabled: true, icon: SlidersHorizontal },
+      { label: "BAA", href: "/settings/baa", enabled: true, icon: ShieldEllipsis },
       { label: "Secrets", href: "/secrets", enabled: true, icon: KeyRound },
       { label: "Schedule", href: "/schedule", enabled: true, icon: History }
     ]
@@ -199,6 +201,7 @@ function breadcrumbFor(pathname: string) {
     "/targets": "targets",
     "/audit": "audit",
     "/settings/policy": "settings / policy",
+    "/settings/baa": "settings / baa",
     "/secrets": "secrets",
     "/schedule": "schedule"
   };

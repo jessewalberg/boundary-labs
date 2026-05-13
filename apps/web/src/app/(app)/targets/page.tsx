@@ -1,12 +1,15 @@
 import { Crosshair } from "lucide-react";
 import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
+import { WorkerHealthTile } from "@/components/boundary/worker-health-tile";
 import { getBoundaryConfig } from "@/server/config";
 import { listTargetHealth } from "@/server/targets/repository";
+import { getWorkerHealthSnapshot } from "@/server/worker-health/repository";
 
 export default function TargetsPage() {
   const config = getBoundaryConfig();
   const targetHealth = listTargetHealth();
+  const workerHealth = getWorkerHealthSnapshot({ config });
   const healthy = targetHealth.filter((check) => check.state === "ok").length;
 
   return (
@@ -39,16 +42,20 @@ export default function TargetsPage() {
           ))}
         </Panel>
 
-        <Panel watermark="// adapter config" right={<Chip tone="cyan">read-only</Chip>}>
-          <Crosshair size={22} className="mb-4 text-bl-bone-3" aria-hidden="true" />
-          <div className="grid gap-3 font-mono text-[11px] text-bl-bone-2">
-            <Row label="target_url" value={config.targetUrl} />
-            <Row label="allowlist" value={config.targetAllowlist.join(", ")} />
-            <Row label="artifact_dir" value={config.artifactDir} />
-            <Row label="sqlite_path" value={config.sqlitePath} />
-            <Row label="eval_runner" value={config.evalRunnerPath} />
-          </div>
-        </Panel>
+        <div className="grid gap-4">
+          <WorkerHealthTile snapshot={workerHealth} />
+
+          <Panel watermark="// adapter config" right={<Chip tone="cyan">read-only</Chip>}>
+            <Crosshair size={22} className="mb-4 text-bl-bone-3" aria-hidden="true" />
+            <div className="grid gap-3 font-mono text-[11px] text-bl-bone-2">
+              <Row label="target_url" value={config.targetUrl} />
+              <Row label="allowlist" value={config.targetAllowlist.join(", ")} />
+              <Row label="artifact_dir" value={config.artifactDir} />
+              <Row label="sqlite_path" value={config.sqlitePath} />
+              <Row label="eval_runner" value={config.evalRunnerPath} />
+            </div>
+          </Panel>
+        </div>
       </section>
     </div>
   );
