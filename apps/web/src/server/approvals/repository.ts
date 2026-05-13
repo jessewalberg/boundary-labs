@@ -45,6 +45,42 @@ export function countPendingApprovals() {
   return listApprovals("pending").length;
 }
 
+export function createApproval(input: {
+  action: string;
+  requestedBy: string;
+  targetType: string;
+  targetId: string | null;
+  payload: unknown;
+}) {
+  const db = openDatabase();
+  try {
+    const id = ulid();
+    const now = new Date().toISOString();
+    const payloadJson = JSON.stringify(input.payload);
+    db.prepare(`
+      INSERT INTO approvals (
+        id, action, status, requested_by, target_type, target_id, canonical_hash,
+        payload_json, created_at
+      ) VALUES (
+        @id, @action, 'pending', @requested_by, @target_type, @target_id, @canonical_hash,
+        @payload_json, @created_at
+      )
+    `).run({
+      id,
+      action: input.action,
+      requested_by: input.requestedBy,
+      target_type: input.targetType,
+      target_id: input.targetId,
+      canonical_hash: canonicalHash(input.payload),
+      payload_json: payloadJson,
+      created_at: now
+    });
+    return id;
+  } finally {
+    db.close();
+  }
+}
+
 export function getApproval(id: string) {
   return listApprovals().find((approval) => approval.id === id);
 }

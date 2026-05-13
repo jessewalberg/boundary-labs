@@ -1,7 +1,9 @@
 import { Chip } from "@/components/boundary/chip";
 import { FieldCard } from "@/components/boundary/field-card";
 import { Panel } from "@/components/boundary/panel";
+import { Button } from "@/components/ui/button";
 import { listPolicyValues } from "@/server/policy/repository";
+import { requestPolicyEditAction } from "./actions";
 
 export default function PolicyPage() {
   const rows = listPolicyValues().filter((row) => row.system_reserved === 0);
@@ -38,13 +40,34 @@ export default function PolicyPage() {
             padded={false}
           >
             {domainRows.map((row) => (
-              <FieldCard
-                key={row.key}
-                label={row.key}
-                value={formatPolicyValue(row.value_json)}
-                description={row.description}
-                approvalPath={row.approval_path}
-              />
+              <div key={row.key} className="border-b border-bl-line last:border-b-0">
+                <FieldCard
+                  label={row.key}
+                  value={formatPolicyValue(row.value_json)}
+                  description={row.description}
+                  approvalPath={row.approval_path}
+                />
+                <form action={requestPolicyEditAction.bind(null, row.key)} className="grid gap-2 px-4 pb-4 md:grid-cols-[1fr_180px_auto] md:items-end">
+                  <label className="grid gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-bl-bone-4">
+                    Value JSON
+                    <textarea
+                      name="valueJson"
+                      defaultValue={formatPolicyValue(row.value_json)}
+                      className="min-h-20 resize-none border border-bl-line bg-bl-trough p-2 text-xs normal-case tracking-normal text-bl-bone outline-none"
+                    />
+                  </label>
+                  <label className="grid gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-bl-bone-4">
+                    Approval path
+                    <select name="approvalPath" defaultValue={row.approval_path} className="h-9 border border-bl-line bg-bl-trough px-2 text-xs text-bl-bone outline-none">
+                      <option value="auto">auto</option>
+                      <option value="reviewer">reviewer</option>
+                      <option value="admin">admin</option>
+                      <option value="deny">deny</option>
+                    </select>
+                  </label>
+                  <Button type="submit" variant="secondary" size="sm">Request edit</Button>
+                </form>
+              </div>
             ))}
           </Panel>
         ))}
