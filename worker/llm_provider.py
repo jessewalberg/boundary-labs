@@ -11,6 +11,7 @@ PROVIDER_ENV_KEYS = {
 }
 OPENROUTER_DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_LLM_AGENT_TIMEOUT_SECONDS = 45.0
+_OBSERVABILITY_CONFIGURED = False
 
 
 def provider_for_role(role: str, policy_values: dict[str, object] | None = None) -> str:
@@ -85,6 +86,10 @@ def agent_for_role(role: str, instructions: str, policy_values: dict[str, object
         return None
 
     from pydantic_ai import Agent
+    from pydantic_ai.capabilities import Instrumentation
+
+    configure_boundary_observability()
+    capabilities = [Instrumentation(boundary_instrumentation_settings())]
 
     if config.provider == "openrouter":
         from pydantic_ai.models.openai import OpenAIChatModel
@@ -98,9 +103,55 @@ def agent_for_role(role: str, instructions: str, policy_values: dict[str, object
                 api_key=os.environ["OPENROUTER_API_KEY"],
             ),
         )
-        return Agent(model, instructions=instructions, defer_model_check=True)
+        return Agent(
+            model,
+            instructions=instructions,
+            defer_model_check=True,
+            capabilities=capabilities,
+            metadata={"boundary.agent_role": role, "boundary.provider": config.provider},
+        )
 
-    return Agent(config.model, instructions=instructions, defer_model_check=True)
+    return Agent(
+        config.model,
+        instructions=instructions,
+        defer_model_check=True,
+        capabilities=capabilities,
+        metadata={"boundary.agent_role": role, "boundary.provider": config.provider},
+    )
+
+
+def boundary_instrumentation_settings():
+    from pydantic_ai.agent import InstrumentationSettings
+
+    return InstrumentationSettings(
+        version=5,
+        include_content=os.environ.get("BOUNDARY_TRACE_INCLUDE_CONTENT") == "1",
+        include_binary_content=False,
+    )
+
+
+def configure_boundary_observability() -> None:
+    global _OBSERVABILITY_CONFIGURED
+    if _OBSERVABILITY_CONFIGURED:
+        return
+    _OBSERVABILITY_CONFIGURED = True
+    token = os.environ.get("BOUNDARY_LOGFIRE_TOKEN") or os.environ.get("LOGFIRE_TOKEN")
+    if not token:
+        return
+    try:
+        import logfire
+
+        logfire.configure(
+            token=token,
+            service_name=os.environ.get("BOUNDARY_OBSERVABILITY_SERVICE_NAME", "boundary-labs-worker"),
+            environment=os.environ.get("BOUNDARY_ENVIRONMENT", os.environ.get("RAILWAY_ENVIRONMENT", "local")),
+            send_to_logfire=True,
+            inspect_arguments=False,
+        )
+    except Exception:
+        # JSONL artifacts remain the local source of truth if optional
+        # observability export is unavailable or misconfigured.
+        return
 
 
 def model_name_for_provider(config: AgentProviderConfig) -> str:

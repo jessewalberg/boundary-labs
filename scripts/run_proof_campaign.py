@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -46,6 +47,7 @@ def main() -> int:
     parser.add_argument("--openemr-username", default=os.environ.get("BOUNDARY_OPENEMR_USERNAME", os.environ.get("OPENEMR_USERNAME", "admin")))
     parser.add_argument("--openemr-password", default=os.environ.get("BOUNDARY_OPENEMR_PASSWORD", os.environ.get("OPENEMR_PASSWORD", "pass")))
     parser.add_argument("--openemr-patient-pid", type=int, default=int(os.environ.get("BOUNDARY_OPENEMR_PATIENT_PID", "13")))
+    parser.add_argument("--quiet", action="store_true", help="Suppress progress logs; final JSON is still printed.")
     parser.add_argument("--mock-target", action="store_true", help="Run against a local mock target for offline proof-runner verification.")
     parser.add_argument("--output-file", type=Path, help="Optional path to write proof result JSON.")
     parser.add_argument("--synthetic-patient-pid", type=int, default=13)
@@ -58,12 +60,14 @@ def main() -> int:
         print("--acquire-smart-session and --mint-synthetic-session are mutually exclusive.")
         return 2
     if not args.allow_deterministic:
+        progress(args, "runtime.preflight.start", require_smart_secret=args.mint_synthetic_session)
         missing = proof_runtime_missing(require_smart_secret=args.mint_synthetic_session)
         if missing:
             print("Provider proof runtime environment is missing required values:")
             for item in missing:
                 print(f"- {item}")
             return 1
+        progress(args, "runtime.preflight.end")
 
     mock_server: ThreadingHTTPServer | None = None
     mock_thread: threading.Thread | None = None
@@ -73,6 +77,7 @@ def main() -> int:
         mock_thread.start()
         args.target_url = f"http://127.0.0.1:{mock_server.server_address[1]}"
         args.deployed_url = args.target_url
+        progress(args, "mock_target.started", target_url=args.target_url)
 
     root = Path(tempfile.mkdtemp(prefix="boundary-proof-campaign-"))
     sqlite_path = (args.sqlite_path or root / "boundary.db").resolve()
@@ -82,7 +87,9 @@ def main() -> int:
 
     try:
         configure_worker_environment(sqlite_path, artifact_dir, args.target_url)
+        progress(args, "run.paths", sqlite_path=str(sqlite_path), artifact_dir=str(artifact_dir), target_url=args.target_url)
         if args.acquire_smart_session:
+            progress(args, "smart_session.acquire.start", openemr_url=args.openemr_url, patient_pid=args.openemr_patient_pid)
             auth_result = acquire_smart_session(
                 openemr_url=args.openemr_url,
                 copilot_url=args.target_url,
@@ -93,19 +100,31 @@ def main() -> int:
                 timeout_seconds=min(max(args.timeout_seconds, 15.0), 120.0),
             )
             os.environ["BOUNDARY_SMART_SESSION_COOKIE"] = str(auth_result["smart_session_cookie"])
+            progress(
+                args,
+                "smart_session.acquire.end",
+                auth_session_status=auth_result["auth_session_status"],
+                redirect_count=auth_result["redirect_count"],
+                final_url=auth_result["final_url"],
+            )
 
         if args.bootstrap or not sqlite_path.exists():
+            progress(args, "database.bootstrap.start")
             bootstrap_database(sqlite_path, artifact_dir)
+            progress(args, "database.bootstrap.end")
 
         if not args.allow_deterministic:
+            progress(args, "provider.preflight.start")
             preflight_errors = asyncio.run(provider_agent_preflight(sqlite_path))
             if preflight_errors:
                 print("Provider-backed agent preflight failed:")
                 for error in preflight_errors:
                     print(f"- {error}")
                 return 1
+            progress(args, "provider.preflight.end")
 
         job_id = f"job-{uuid4().hex}"
+        progress(args, "campaign.insert_job.start", job_id=job_id, run_id=args.run_id)
         insert_claimed_campaign_job(
             sqlite_path,
             job_id=job_id,
@@ -117,9 +136,13 @@ def main() -> int:
             synthetic_patient_pid=args.synthetic_patient_pid,
         )
 
+        progress(args, "campaign.graph.start", job_id=job_id, run_id=args.run_id)
+        started = time.monotonic()
         process_job(sqlite_path, artifact_dir, job_id, args.run_id)
+        progress(args, "campaign.graph.end", duration_ms=int((time.monotonic() - started) * 1000))
         artifact_path = sentinel_paths(artifact_dir, args.run_id).artifact
         expected_cases = load_cases(Path("evals/seeds"))
+        progress(args, "artifact.verify.start", artifact=str(artifact_path), expected_total=len(expected_cases))
         errors = verify_artifact(
             artifact_path,
             expected_total=len(expected_cases),
@@ -133,6 +156,7 @@ def main() -> int:
             for error in errors:
                 print(f"- {error}")
             return 1
+        progress(args, "artifact.verify.end")
 
         result = {
             "ok": True,
@@ -147,6 +171,7 @@ def main() -> int:
         if args.output_file:
             args.output_file.parent.mkdir(parents=True, exist_ok=True)
             args.output_file.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+            progress(args, "output.write", output_file=str(args.output_file))
         print(json.dumps(result, indent=2))
         return 0
     finally:
@@ -176,6 +201,17 @@ def configure_worker_environment(sqlite_path: Path, artifact_dir: Path, target_u
 
 def normalize_argv(argv: list[str]) -> list[str]:
     return [arg for arg in argv if arg != "--"]
+
+
+def progress(args: argparse.Namespace, event: str, **fields: object) -> None:
+    if getattr(args, "quiet", False):
+        return
+    payload = {
+        "at": datetime.now(UTC).isoformat(),
+        "event": event,
+        **fields,
+    }
+    print(f"[proof] {json.dumps(payload, sort_keys=True)}", flush=True)
 
 
 def proof_runtime_missing(*, require_smart_secret: bool) -> list[str]:

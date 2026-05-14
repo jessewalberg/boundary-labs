@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sqlite3
+import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -30,7 +31,7 @@ from scripts.run_mvp_evals import (
 )
 from worker.fallback.orchestrator import coverage_gap_schedule
 from worker.llm_provider import agent_for_role, llm_agent_timeout_seconds, provider_config_for_role
-from worker.sentinels import SentinelPaths, sentinel_paths, write_complete, write_run_heartbeat
+from worker.sentinels import SentinelPaths, sentinel_paths, write_complete, write_run_heartbeat, write_trace_event
 
 
 SCHEMA_VERSION = "boundary.campaign_graph.v1"
@@ -113,10 +114,12 @@ class CampaignGraphState:
 class SafetyGateNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]]):
     async def run(self, ctx: GraphRunContext[CampaignGraphState, CampaignGraphDeps]) -> CoverageScoreNode:
         record_node_heartbeat(ctx, "SafetyGateNode")
+        trace_event(ctx.deps, "graph.node.start", node="SafetyGateNode")
         if not ctx.deps.run_id:
             raise ValueError("run_id is required")
         if not ctx.deps.target_url.startswith(("http://", "https://")):
             raise ValueError(f"target_url must be http(s): {ctx.deps.target_url}")
+        trace_event(ctx.deps, "graph.node.end", node="SafetyGateNode", target_url=ctx.deps.target_url)
         return CoverageScoreNode()
 
 
@@ -124,12 +127,21 @@ class SafetyGateNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, A
 class CoverageScoreNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]]):
     async def run(self, ctx: GraphRunContext[CampaignGraphState, CampaignGraphDeps]) -> OrchestratorNode:
         record_node_heartbeat(ctx, "CoverageScoreNode")
+        trace_event(ctx.deps, "graph.node.start", node="CoverageScoreNode")
         selected = [normalize_category(category) for category in ctx.deps.categories]
         ctx.state.selected_categories = selected
         cases = load_cases(Path("evals/seeds"))
         if selected:
             cases = [case for case in cases if category_selected(normalize_category(str(case["category"])), selected)]
         ctx.state.cases = cases
+        trace_event(
+            ctx.deps,
+            "graph.node.end",
+            node="CoverageScoreNode",
+            selected_categories=selected,
+            case_count=len(cases),
+            case_ids=[case["id"] for case in cases],
+        )
         return OrchestratorNode()
 
 
@@ -137,6 +149,7 @@ class CoverageScoreNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str
 class OrchestratorNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]]):
     async def run(self, ctx: GraphRunContext[CampaignGraphState, CampaignGraphDeps]) -> RedTeamNode:
         record_node_heartbeat(ctx, "OrchestratorNode")
+        trace_event(ctx.deps, "graph.node.start", node="OrchestratorNode")
         categories = sorted({normalize_category(str(case["category"])) for case in ctx.state.cases})
         ctx.state.schedule = coverage_gap_schedule(categories)
         await maybe_run_agent(
@@ -145,6 +158,7 @@ class OrchestratorNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str,
             "You are the Boundary Labs Orchestrator. Return a concise execution note for the selected categories.",
             f"Run {ctx.deps.run_id}; categories={categories}; cases={len(ctx.state.cases)}",
         )
+        trace_event(ctx.deps, "graph.node.end", node="OrchestratorNode", schedule=ctx.state.schedule)
         return RedTeamNode()
 
 
@@ -152,6 +166,7 @@ class OrchestratorNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str,
 class RedTeamNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]]):
     async def run(self, ctx: GraphRunContext[CampaignGraphState, CampaignGraphDeps]) -> TargetExecutionNode:
         record_node_heartbeat(ctx, "RedTeamNode")
+        trace_event(ctx.deps, "graph.node.start", node="RedTeamNode")
         red_team_review = await maybe_run_agent(
             ctx,
             "red_team",
@@ -182,6 +197,13 @@ class RedTeamNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]
             red_team_review,
             [case["id"] for case in ctx.state.cases],
         )
+        trace_event(
+            ctx.deps,
+            "graph.node.end",
+            node="RedTeamNode",
+            planned_cases=sorted(ctx.state.red_team_plans),
+            plan_error=ctx.state.red_team_plan_error,
+        )
         return TargetExecutionNode()
 
 
@@ -189,9 +211,21 @@ class RedTeamNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]
 class TargetExecutionNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]]):
     async def run(self, ctx: GraphRunContext[CampaignGraphState, CampaignGraphDeps]) -> JudgeNode:
         record_node_heartbeat(ctx, "TargetExecutionNode")
+        trace_event(ctx.deps, "graph.node.start", node="TargetExecutionNode", case_count=len(ctx.state.cases))
         cookie = resolve_smart_session_cookie(ctx.deps)
         red_team = RedTeamAgent(ctx.deps.target_url, cookie, ctx.deps.timeout_seconds)
         for case in ctx.state.cases:
+            started = time.monotonic()
+            trace_event(
+                ctx.deps,
+                "target.case.start",
+                node="TargetExecutionNode",
+                case_id=case["id"],
+                category=case.get("category"),
+                subcategory=case.get("subcategory"),
+                turn_count=len(case.get("sequence", [])) if isinstance(case.get("sequence"), list) else None,
+                authenticated=bool(cookie),
+            )
             write_run_heartbeat(
                 ctx.deps.paths,
                 {
@@ -202,6 +236,18 @@ class TargetExecutionNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[s
                 },
             )
             ctx.state.observations[case["id"]] = red_team.execute_case(case)
+            observations = ctx.state.observations[case["id"]]
+            trace_event(
+                ctx.deps,
+                "target.case.end",
+                node="TargetExecutionNode",
+                case_id=case["id"],
+                duration_ms=int((time.monotonic() - started) * 1000),
+                statuses=[observation.http.status for observation in observations],
+                errors=[observation.http.error for observation in observations if observation.http.error],
+                event_counts=[len(observation.events) for observation in observations],
+            )
+        trace_event(ctx.deps, "graph.node.end", node="TargetExecutionNode", case_count=len(ctx.state.observations))
         return JudgeNode()
 
 
@@ -209,11 +255,22 @@ class TargetExecutionNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[s
 class JudgeNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]]):
     async def run(self, ctx: GraphRunContext[CampaignGraphState, CampaignGraphDeps]) -> DocumentationNode:
         record_node_heartbeat(ctx, "JudgeNode")
+        trace_event(ctx.deps, "graph.node.start", node="JudgeNode")
         judge = JudgeAgent()
         judged_cases: list[tuple[dict[str, Any], list[Any], dict[str, Any]]] = []
         for case in ctx.state.cases:
             observations = ctx.state.observations.get(case["id"], [])
             verdict = judge.judge(case, observations)
+            trace_event(
+                ctx.deps,
+                "judge.deterministic",
+                node="JudgeNode",
+                case_id=case["id"],
+                status=verdict.get("status"),
+                confidence=verdict.get("confidence"),
+                matched_checks=verdict.get("matched_checks", []),
+                requires_human_review=verdict.get("requires_human_review"),
+            )
             judged_cases.append((case, observations, verdict))
 
         judge_review = await maybe_run_agent(
@@ -248,6 +305,16 @@ class JudgeNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]])
             provider_verdict = provider_verdicts.get(str(case["id"]))
             provider_plan = ctx.state.red_team_plans.get(str(case["id"]))
             final_verdict = apply_provider_verdict(verdict, provider_verdict) if provider_verdict else verdict
+            trace_event(
+                ctx.deps,
+                "judge.final",
+                node="JudgeNode",
+                case_id=case["id"],
+                status=final_verdict.get("status"),
+                provider_decision="applied" if provider_verdict else "fallback",
+                provider_status=agent_connection_status("judge", ctx.state.agent_connections),
+                requires_human_review=final_verdict.get("requires_human_review"),
+            )
             ctx.state.results.append(
                 {
                     "run_id": ctx.deps.run_id,
@@ -291,6 +358,13 @@ class JudgeNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]])
                     },
                 }
             )
+        trace_event(
+            ctx.deps,
+            "graph.node.end",
+            node="JudgeNode",
+            summary=summarize(ctx.state.results),
+            provider_decision_error=provider_decision_error,
+        )
         return DocumentationNode()
 
 
@@ -298,6 +372,7 @@ class JudgeNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]])
 class DocumentationNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]]):
     async def run(self, ctx: GraphRunContext[CampaignGraphState, CampaignGraphDeps]) -> WriteArtifactNode:
         record_node_heartbeat(ctx, "DocumentationNode")
+        trace_event(ctx.deps, "graph.node.start", node="DocumentationNode")
         await maybe_run_agent(
             ctx,
             "documentation",
@@ -316,6 +391,7 @@ class DocumentationNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str
                         "provider_note": ctx.state.agent_notes.get("documentation"),
                     }
                 )
+        trace_event(ctx.deps, "graph.node.end", node="DocumentationNode", documentation_count=len(ctx.state.documentation))
         return WriteArtifactNode()
 
 
@@ -323,6 +399,7 @@ class DocumentationNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str
 class WriteArtifactNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str, Any]]):
     async def run(self, ctx: GraphRunContext[CampaignGraphState, CampaignGraphDeps]) -> End[dict[str, Any]]:
         record_node_heartbeat(ctx, "WriteArtifactNode")
+        trace_event(ctx.deps, "graph.node.start", node="WriteArtifactNode")
         completed_at = datetime.now(UTC).isoformat()
         artifact = {
             "schema_version": SCHEMA_VERSION,
@@ -343,6 +420,7 @@ class WriteArtifactNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str
                     for role in ("orchestrator", "red_team", "judge", "documentation")
                 },
                 "agent_connections": ctx.state.agent_connections,
+                "trace_path": str(ctx.deps.paths.trace),
             },
             "coverage_schedule": ctx.state.schedule,
             "documentation_agent": ctx.state.documentation,
@@ -355,6 +433,13 @@ class WriteArtifactNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str
             raise FileExistsError(f"Refusing to overwrite existing run artifact: {ctx.deps.paths.artifact}")
         ctx.deps.paths.artifact.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
         write_complete(ctx.deps.paths, {"run_id": ctx.deps.run_id, "artifact": str(ctx.deps.paths.artifact), "summary": artifact["summary"]})
+        trace_event(
+            ctx.deps,
+            "graph.node.end",
+            node="WriteArtifactNode",
+            artifact=str(ctx.deps.paths.artifact),
+            summary=artifact["summary"],
+        )
         return End(artifact)
 
 
@@ -373,6 +458,7 @@ campaign_graph = Graph(
 
 
 async def run_campaign_graph(deps: CampaignGraphDeps) -> dict[str, Any]:
+    trace_event(deps, "graph.run.start", target_url=deps.target_url, artifact_dir=str(deps.artifact_dir))
     persistence: FileBackedFullStatePersistence[CampaignGraphState, dict[str, Any]] = FileBackedFullStatePersistence(deps=deps)
     if deps.paths.graph_history.exists() and not deps.paths.complete.exists() and not deps.paths.artifact.exists():
         persistence.set_graph_types(campaign_graph)
@@ -385,6 +471,7 @@ async def run_campaign_graph(deps: CampaignGraphDeps) -> dict[str, Any]:
                 write_graph_history(deps, persistence)
                 raise
             write_graph_history(deps, persistence)
+            trace_event(deps, "graph.run.end", resumed=True, status="completed")
             return result
 
     state = CampaignGraphState()
@@ -392,8 +479,10 @@ async def run_campaign_graph(deps: CampaignGraphDeps) -> dict[str, Any]:
         result = await campaign_graph.run(SafetyGateNode(), state=state, deps=deps, persistence=persistence)
     except Exception:
         write_graph_history(deps, persistence)
+        trace_event(deps, "graph.run.error", status="failed")
         raise
     write_graph_history(deps, persistence)
+    trace_event(deps, "graph.run.end", resumed=False, status="completed")
     return result.output
 
 
@@ -652,14 +741,26 @@ async def maybe_run_agent(
     prompt: str,
 ) -> str | None:
     config = provider_config_for_role(role, ctx.deps.policy_values)
+    trace_event(
+        ctx.deps,
+        "agent.call.start",
+        role=role,
+        provider=config.provider,
+        model=config.model,
+        enabled=config.enabled,
+        api_key_configured=config.api_key_configured,
+        prompt_chars=len(prompt),
+    )
     agent = agent_for_role(role, instructions, ctx.deps.policy_values)
     if agent is None:
         status = "disabled" if not config.enabled else "missing_secret"
         detail = "BOUNDARY_ENABLE_LLM_AGENTS is not enabled" if not config.enabled else f"{config.provider} API key is not configured"
         ctx.state.agent_connections[role] = agent_connection_snapshot(config, status=status, detail=detail)
         ctx.state.agent_notes[role] = "deterministic-fallback"
+        trace_event(ctx.deps, "agent.call.skip", role=role, status=status, detail=detail)
         return None
     ctx.state.agent_connections[role] = agent_connection_snapshot(config, status="ready", detail="agent constructed")
+    started = time.monotonic()
     try:
         result = await asyncio.wait_for(agent.run(prompt), timeout=llm_agent_timeout_seconds())
     except Exception as exc:
@@ -669,11 +770,40 @@ async def maybe_run_agent(
             detail=f"{type(exc).__name__}: {exc}",
         )
         ctx.state.agent_notes[role] = "agent-failed; deterministic-fallback"
+        trace_event(
+            ctx.deps,
+            "agent.call.error",
+            role=role,
+            provider=config.provider,
+            model=config.model,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            error_type=type(exc).__name__,
+            error=str(exc),
+        )
         return None
     ctx.state.agent_connections[role] = agent_connection_snapshot(config, status="executed", detail="agent run completed")
     note = str(result.output)
     ctx.state.agent_notes[role] = note
+    trace_event(
+        ctx.deps,
+        "agent.call.end",
+        role=role,
+        provider=config.provider,
+        model=config.model,
+        duration_ms=int((time.monotonic() - started) * 1000),
+        output_chars=len(note),
+    )
     return note
+
+
+def trace_event(deps: CampaignGraphDeps, event: str, **fields: Any) -> None:
+    payload = {
+        "at": datetime.now(UTC).isoformat(),
+        "run_id": deps.run_id,
+        "event": event,
+        **fields,
+    }
+    write_trace_event(deps.paths, payload)
 
 
 def agent_connection_snapshot(config, *, status: str, detail: str) -> dict[str, Any]:

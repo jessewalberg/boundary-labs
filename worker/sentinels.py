@@ -15,6 +15,7 @@ class SentinelPaths:
     failed: Path
     artifact: Path
     graph_history: Path
+    trace: Path
 
 
 def sentinel_paths(artifact_dir: Path, run_id: str) -> SentinelPaths:
@@ -25,6 +26,7 @@ def sentinel_paths(artifact_dir: Path, run_id: str) -> SentinelPaths:
         failed=run_dir / f"{run_id}.failed",
         artifact=run_dir / f"{run_id}.json",
         graph_history=run_dir / f"{run_id}.graph.json",
+        trace=run_dir / f"{run_id}.trace.jsonl",
     )
 
 
@@ -44,3 +46,9 @@ def write_failed(paths: SentinelPaths, reason: str, metadata: dict[str, Any] | N
 def write_run_heartbeat(paths: SentinelPaths, metadata: dict[str, Any]) -> None:
     paths.heartbeat.parent.mkdir(parents=True, exist_ok=True)
     paths.heartbeat.write_text(json.dumps(metadata, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def write_trace_event(paths: SentinelPaths, event: dict[str, Any]) -> None:
+    paths.trace.parent.mkdir(parents=True, exist_ok=True)
+    with paths.trace.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(event, sort_keys=True) + "\n")

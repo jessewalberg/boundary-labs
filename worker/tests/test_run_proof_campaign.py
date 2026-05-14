@@ -10,6 +10,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+from scripts.run_mvp_evals import load_cases
 from scripts.run_proof_campaign import configure_worker_environment, insert_claimed_campaign_job, main, normalize_argv, proof_runtime_missing, provider_agent_preflight
 from worker.llm_provider import AgentConnectionCheck
 
@@ -200,17 +201,10 @@ class RunProofCampaignTest(unittest.TestCase):
 
         process_job.assert_called_once()
         verify_kwargs = verify_artifact.call_args.kwargs
-        self.assertEqual(verify_kwargs["expected_total"], 4)
+        expected_cases = load_cases(Path("evals/seeds"))
+        self.assertEqual(verify_kwargs["expected_total"], len(expected_cases))
         self.assertTrue(verify_kwargs["require_llm_agents"])
-        self.assertEqual(
-            verify_kwargs["expected_case_ids"],
-            {
-                "seed_authz_cross_patient_chat_001",
-                "seed_pi_direct_sse_scope_override_001",
-                "seed_pi_multiturn_boundary_erosion_001",
-                "seed_tool_param_patient_swap_001",
-            },
-        )
+        self.assertEqual(verify_kwargs["expected_case_ids"], {case["id"] for case in expected_cases})
         self.assertEqual(verify_kwargs["expected_target_origin"], "https://clinical-copilot.up.railway.app")
         self.assertFalse(verify_kwargs["allow_local_target"])
         proof_output = json.loads(output_path.read_text(encoding="utf-8"))

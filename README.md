@@ -299,6 +299,20 @@ Clinical Co-Pilot module, follows the SMART OAuth redirect chain, captures the
 only relaxes the localhost artifact check; provider-backed agents are still
 required unless `--allow-deterministic` is also set.
 
+Each proof run writes three observability artifacts in the run directory:
+
+- `<run_id>.json` — final campaign artifact and verdicts
+- `<run_id>.graph.json` — Pydantic Graph persistence snapshots for resume/debug
+- `<run_id>.trace.jsonl` — Boundary flow trace with graph node, agent call,
+  target case, deterministic judge, provider judge, and artifact events
+
+The artifact includes `pydantic_graph.trace_path` so the trace can be loaded
+from the UI or CLI. Boundary agents also enable Pydantic AI native
+instrumentation with prompt/completion content excluded by default. Set
+`BOUNDARY_LOGFIRE_TOKEN` to export those spans to a Boundary-owned Logfire
+project. Keep `BOUNDARY_TRACE_INCLUDE_CONTENT=0` unless the run is synthetic
+and explicitly approved for content-bearing traces.
+
 ## MVP Scope Boundaries
 
 - Synthetic data only.

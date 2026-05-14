@@ -147,6 +147,13 @@ The proof artifact must show:
   judge, and documentation
 - `target_url` matches the expected deployed target origin and is not localhost or loopback
 
+The run directory also contains `<run_id>.trace.jsonl`, referenced by
+`pydantic_graph.trace_path` in the artifact. Use it to debug slow or ambiguous
+runs before reading full target responses. Pydantic AI spans are emitted with
+content excluded by default; set `BOUNDARY_LOGFIRE_TOKEN` only for a
+Boundary-owned observability project and keep `BOUNDARY_TRACE_INCLUDE_CONTENT=0`
+unless the run is synthetic and content-bearing traces are explicitly approved.
+
 `--mock-target` is only valid with `--allow-deterministic`; it cannot satisfy the provider-backed proof gate.
 `verify:readiness` refuses skip flags, missing proof inputs, and missing provider
 runtime env; use
