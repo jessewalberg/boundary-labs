@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from scripts.acquire_smart_session import acquire_smart_session
 from worker.config import WorkerConfig, load_config
 from worker.artifact_ingest import ingest_completed_artifact
 from worker.heartbeat import write_heartbeat
@@ -91,7 +92,9 @@ def process_job(sqlite_path: Path, artifact_dir: Path, job_id: str, run_id: str,
         mark_job_failed(sqlite_path, job_id, reason="target_not_allowlisted", claim_token=claim_token)
         return
 
+    timeout_seconds = float(payload.get("timeoutSeconds") or os.environ.get("BOUNDARY_RUN_TIMEOUT_SECONDS") or 75.0)
     try:
+        smart_session_cookie = resolve_job_smart_session_cookie(payload, target_url, timeout_seconds)
         run_campaign_graph_sync(
             CampaignGraphDeps(
                 run_id=run_id,
@@ -100,8 +103,8 @@ def process_job(sqlite_path: Path, artifact_dir: Path, job_id: str, run_id: str,
                 target_url=target_url,
                 deployed_url=str(payload.get("deployedUrl") or os.environ.get("BOUNDARY_DEPLOYED_TARGET_URL") or os.environ.get("TARGET_DEPLOYED_COPILOT_URL") or "https://clinical-copilot.up.railway.app"),
                 categories=categories,
-                timeout_seconds=float(payload.get("timeoutSeconds") or os.environ.get("BOUNDARY_RUN_TIMEOUT_SECONDS") or 75.0),
-                smart_session_cookie=os.environ.get("BOUNDARY_SMART_SESSION_COOKIE") or os.environ.get("TARGET_SMART_SESSION_COOKIE"),
+                timeout_seconds=timeout_seconds,
+                smart_session_cookie=smart_session_cookie,
                 mint_synthetic_session=truthy(payload.get("mintSyntheticSession")) or os.environ.get("BOUNDARY_MINT_SYNTHETIC_SESSION") == "1",
                 session_secret=os.environ.get("BOUNDARY_SMART_SESSION_SECRET") or os.environ.get("SECURITY_SMART_SESSION_SECRET") or "",
                 session_secret_file=os.environ.get("BOUNDARY_SMART_SESSION_SECRET_FILE") or "",
@@ -143,6 +146,34 @@ def worker_subprocess_env() -> dict[str, str]:
     allowed = dict(os.environ)
     # Explicitly keep model-provider keys in the worker subprocess while the web child strips them.
     return allowed
+
+
+def resolve_job_smart_session_cookie(payload: dict[str, object], target_url: str, timeout_seconds: float) -> str | None:
+    static_cookie = os.environ.get("BOUNDARY_SMART_SESSION_COOKIE") or os.environ.get("TARGET_SMART_SESSION_COOKIE")
+    if static_cookie:
+        return static_cookie
+    if not (truthy(payload.get("acquireSmartSession")) or os.environ.get("BOUNDARY_ACQUIRE_SMART_SESSION") == "1"):
+        return None
+
+    result = acquire_smart_session(
+        openemr_url=normalize_openemr_base_url(
+            str(payload.get("openemrUrl") or os.environ.get("BOUNDARY_OPENEMR_URL") or "http://localhost:8300")
+        ),
+        copilot_url=origin(target_url),
+        site=str(payload.get("openemrSite") or os.environ.get("BOUNDARY_OPENEMR_SITE") or "default"),
+        username=str(payload.get("openemrUsername") or os.environ.get("BOUNDARY_OPENEMR_USERNAME") or os.environ.get("OPENEMR_USERNAME") or "admin"),
+        password=str(payload.get("openemrPassword") or os.environ.get("BOUNDARY_OPENEMR_PASSWORD") or os.environ.get("OPENEMR_PASSWORD") or "pass"),
+        patient_pid=int(payload.get("openemrPatientPid") or os.environ.get("BOUNDARY_OPENEMR_PATIENT_PID") or payload.get("syntheticPatientPid") or os.environ.get("BOUNDARY_SYNTHETIC_PATIENT_PID") or 13),
+        timeout_seconds=min(max(timeout_seconds, 15.0), 120.0),
+    )
+    return str(result["smart_session_cookie"])
+
+
+def normalize_openemr_base_url(value: str) -> str:
+    parsed = urlparse(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError(f"Invalid OpenEMR URL: {value}")
+    return f"{parsed.scheme}://{parsed.netloc}".lower()
 
 
 def load_job_payload(sqlite_path: Path, job_id: str) -> dict[str, object]:

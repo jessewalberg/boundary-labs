@@ -103,6 +103,11 @@ BOUNDARY_ARTIFACT_DIR=./var/artifacts
 BOUNDARY_TARGET_URL=https://clinical-copilot.up.railway.app
 BOUNDARY_TARGET_ALLOWLIST=https://clinical-copilot.up.railway.app,http://localhost:8400
 BOUNDARY_EVAL_RUNNER=scripts/run_mvp_evals.py
+BOUNDARY_OPENEMR_URL=http://localhost:8300
+BOUNDARY_OPENEMR_USERNAME=admin
+BOUNDARY_OPENEMR_PASSWORD=pass
+BOUNDARY_OPENEMR_PATIENT_PID=13
+BOUNDARY_ACQUIRE_SMART_SESSION=0
 BOUNDARY_MINT_SYNTHETIC_SESSION=0
 # BOUNDARY_SMART_SESSION_SECRET=<target SESSION_SECRET for local synthetic SMART testing>
 # Must equal 1 for provider-backed proof. Any other value is treated as disabled.
@@ -120,6 +125,8 @@ BOUNDARY_OPERATOR_EMAIL_ALLOWLIST=owner@example.com
 The worker runs campaigns through `pydantic_graph`. LLM agent hooks use `pydantic_ai.Agent` only when `BOUNDARY_ENABLE_LLM_AGENTS=1` and `OPENROUTER_API_KEY` is present. All agent traffic is routed through OpenRouter via Pydantic AI's OpenAI-compatible adapter, using `OPENROUTER_BASE_URL` and OpenRouter model IDs. The default model is `google/gemini-2.5-flash`; set `BOUNDARY_RED_TEAM_MODEL`, `BOUNDARY_ORCHESTRATOR_MODEL`, `BOUNDARY_JUDGE_MODEL`, and `BOUNDARY_DOCUMENTATION_MODEL` to explicit OpenRouter model IDs when you want a different production allowlist. Without the enable flag and key, the graph records `deterministic-fallback` in the artifact. Each run artifact also includes `pydantic_graph.agent_connections` so operators can see whether each agent was `disabled`, `missing_secret`, `executed`, or `failed`.
 
 Provider-backed campaigns run an adaptive red-team loop: the first Red Team pass generates executable attacks, the target runs them, target observations are sent back to Red Team, and a second Red Team pass generates follow-up attacks from what it found. `BOUNDARY_ADAPTIVE_ATTACK_LIMIT` caps those feedback-driven follow-ups per campaign. Provider-required proof verification fails if generated attacks are missing, adaptive attacks are missing, or generated prompts are placeholders.
+
+Set `BOUNDARY_ACQUIRE_SMART_SESSION=1` when UI-queued worker campaigns should log into OpenEMR and acquire a real Clinical Co-Pilot SMART session before attacking `/conversation`. The worker uses `BOUNDARY_OPENEMR_URL`, `BOUNDARY_OPENEMR_USERNAME`, `BOUNDARY_OPENEMR_PASSWORD`, and `BOUNDARY_OPENEMR_PATIENT_PID`; the OpenEMR URL may be either the site root or the login page URL. `BOUNDARY_MINT_SYNTHETIC_SESSION=1` remains available for synthetic SMART sessions when the target session secret is shared.
 
 The seed library is also checked through Pydantic Evals:
 
