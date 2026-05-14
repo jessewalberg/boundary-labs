@@ -11,6 +11,8 @@ export type IngestSweepResult = {
 };
 
 export function sweepArtifactIngest(artifactDir = getBoundaryConfig().artifactDir): IngestSweepResult {
+  copyBundledEvalArtifacts(artifactDir);
+
   const db = openDatabase();
   const result: IngestSweepResult = {
     scanned: 0,
@@ -20,6 +22,9 @@ export function sweepArtifactIngest(artifactDir = getBoundaryConfig().artifactDi
 
   try {
     for (const filePath of jsonFiles(artifactDir)) {
+      if (isCampaignMetadataArtifact(filePath, artifactDir)) continue;
+      if (isGraphHistoryArtifact(filePath)) continue;
+
       result.scanned += 1;
       try {
         ingestArtifactFile(filePath, db);
@@ -33,6 +38,46 @@ export function sweepArtifactIngest(artifactDir = getBoundaryConfig().artifactDi
   }
 
   return result;
+}
+
+function isCampaignMetadataArtifact(filePath: string, artifactDir: string) {
+  const relative = path.relative(path.resolve(artifactDir), path.resolve(filePath));
+  return relative.split(path.sep)[0] === "campaigns";
+}
+
+function isGraphHistoryArtifact(filePath: string) {
+  return path.basename(filePath).endsWith(".graph.json");
+}
+
+function copyBundledEvalArtifacts(artifactDir: string) {
+  if (process.env.NODE_ENV === "test" || process.env.BOUNDARY_INGEST_BUNDLED_EVALS !== "1") {
+    return;
+  }
+
+  const sourceDir = bundledEvalResultsDir();
+  if (!sourceDir) return;
+
+  const destinationDir = path.join(artifactDir, "bundled-evals");
+  fs.mkdirSync(destinationDir, { recursive: true });
+
+  for (const file of fs.readdirSync(sourceDir).sort()) {
+    if (!file.endsWith(".json") || file === "latest.json") continue;
+
+    const sourcePath = path.join(sourceDir, file);
+    const destinationPath = path.join(destinationDir, file);
+    if (!fs.statSync(sourcePath).isFile() || fs.existsSync(destinationPath)) continue;
+
+    fs.copyFileSync(sourcePath, destinationPath);
+  }
+}
+
+function bundledEvalResultsDir() {
+  const candidates = [
+    path.resolve(process.cwd(), "evals/results"),
+    path.resolve(process.cwd(), "../../evals/results")
+  ];
+
+  return candidates.find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isDirectory());
 }
 
 function jsonFiles(root: string): string[] {

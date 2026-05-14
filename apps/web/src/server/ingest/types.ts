@@ -7,7 +7,7 @@ const httpTurnSchema = z.object({
   http: z.object({
     status: z.number().int(),
     elapsed_ms: z.number().int().optional(),
-    body: z.string().optional(),
+    body: z.unknown().optional(),
     error: z.string().nullable().optional()
   }).passthrough(),
   events: z.array(z.unknown()).optional()
@@ -28,7 +28,11 @@ const resultSchema = z.object({
     status: z.enum(["pass", "fail", "partial", "invalid"]),
     severity: z.enum(["critical", "high", "medium", "med", "low", "informational", "info"]),
     rationale: z.string().optional(),
-    confidence: z.number().optional()
+    confidence: z.number().optional(),
+    execution_mode: z.string().optional(),
+    provider_status: z.string().optional(),
+    provider_decision: z.string().optional(),
+    provider_review: z.string().optional()
   }).passthrough()
 }).passthrough();
 

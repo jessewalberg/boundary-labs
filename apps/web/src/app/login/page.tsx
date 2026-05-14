@@ -3,7 +3,7 @@ import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
 import { getSession } from "@/server/auth/session";
 import { getBoundaryConfig } from "@/server/config";
-import { LoginButtons } from "./login-buttons";
+import { LoginForm } from "./login-form";
 
 export default async function LoginPage() {
   const session = await getSession();
@@ -25,7 +25,7 @@ export default async function LoginPage() {
           <p className="mb-5 mt-3 text-sm leading-6 text-bl-bone-2">
             Access is limited to allowlisted operators. Revoked accounts remain tombstoned.
           </p>
-          <LoginButtons />
+          <LoginForm />
           <div className="mt-5 border-t border-bl-line pt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-bl-bone-4">
             owner · {config.ownerEmail ?? "not configured"}
           </div>

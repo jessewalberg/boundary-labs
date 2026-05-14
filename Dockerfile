@@ -14,7 +14,9 @@ COPY pnpm-lock.yaml* ./
 RUN if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else pnpm install; fi
 
 COPY apps/web apps/web
-RUN pnpm --dir apps/web build
+RUN BETTER_AUTH_URL=http://localhost:3000 \
+  BETTER_AUTH_SECRET=boundary-labs-build-only-placeholder-9f4f7124f8ad4ef0 \
+  pnpm --dir apps/web build
 
 FROM python:3.12-slim AS worker-deps
 

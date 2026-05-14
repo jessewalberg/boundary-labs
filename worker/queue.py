@@ -41,6 +41,15 @@ def claim_next_job(sqlite_path: Path, *, worker_id: str) -> ClaimedJob | None:
             """,
             (claim_token, now, now),
         ).fetchone()
+        if row and table_exists(db, "campaigns"):
+            db.execute(
+                """
+                UPDATE campaigns
+                SET status = 'running', updated_at = ?
+                WHERE id = ? AND status = 'queued'
+                """,
+                (now, row["campaign_id"]),
+            )
         db.commit()
 
     if not row:
@@ -61,43 +70,77 @@ def operator_is_active(sqlite_path: Path, operator_id: str) -> bool:
     return bool(row and row["status"] == "active")
 
 
-def release_claim(sqlite_path: Path, job_id: str, *, reason: str) -> None:
+def release_claim(sqlite_path: Path, job_id: str, *, reason: str, claim_token: str | None = None) -> bool:
     now = datetime.now(UTC).isoformat()
     with closing(connect(sqlite_path)) as db:
-        db.execute(
+        cursor = db.execute(
             """
             UPDATE campaign_jobs
             SET status = 'queued', claim_token = NULL, claimed_at = NULL, updated_at = ?
-            WHERE id = ?
+            WHERE id = ? AND (? IS NULL OR claim_token = ?)
             """,
-            (now, job_id),
+            (now, job_id, claim_token, claim_token),
         )
-        write_audit(db, action=reason, target_type="campaign_job", target_id=job_id, outcome="refused")
+        released = cursor.rowcount > 0
+        write_audit(
+            db,
+            action=reason if released else f"{reason}_claim_token_mismatch",
+            target_type="campaign_job",
+            target_id=job_id,
+            outcome="refused" if released else "ignored",
+        )
         db.commit()
+    return released
 
 
-def mark_job_completed(sqlite_path: Path, job_id: str) -> None:
-    update_job_status(sqlite_path, job_id, "completed")
+def mark_job_completed(sqlite_path: Path, job_id: str, *, claim_token: str | None = None) -> bool:
+    return update_job_status(sqlite_path, job_id, "completed", claim_token=claim_token)
 
 
-def mark_job_failed(sqlite_path: Path, job_id: str, *, reason: str) -> None:
-    update_job_status(sqlite_path, job_id, "failed", reason=reason)
+def mark_job_failed(sqlite_path: Path, job_id: str, *, reason: str, claim_token: str | None = None) -> bool:
+    return update_job_status(sqlite_path, job_id, "failed", reason=reason, claim_token=claim_token)
 
 
-def update_job_status(sqlite_path: Path, job_id: str, status: str, *, reason: str | None = None) -> None:
+def update_job_status(
+    sqlite_path: Path,
+    job_id: str,
+    status: str,
+    *,
+    reason: str | None = None,
+    claim_token: str | None = None,
+) -> bool:
     now = datetime.now(UTC).isoformat()
     with closing(connect(sqlite_path)) as db:
-        db.execute(
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT campaign_id FROM campaign_jobs WHERE id = ?", (job_id,)).fetchone()
+        cursor = db.execute(
             """
             UPDATE campaign_jobs
             SET status = ?, claim_token = NULL, claimed_at = NULL, updated_at = ?
-            WHERE id = ?
+            WHERE id = ? AND (? IS NULL OR claim_token = ?)
             """,
-            (status, now, job_id),
+            (status, now, job_id, claim_token, claim_token),
         )
-        if reason:
-            write_audit(db, action=reason, target_type="campaign_job", target_id=job_id, outcome=status)
+        updated = cursor.rowcount > 0
+        if row and updated and table_exists(db, "campaigns") and status in {"completed", "failed"}:
+            db.execute(
+                """
+                UPDATE campaigns
+                SET status = ?, updated_at = ?
+                WHERE id = ? AND status != 'cancelled'
+                """,
+                (status, now, row["campaign_id"]),
+            )
+        if reason or (claim_token and not updated):
+            write_audit(
+                db,
+                action=reason if updated else f"{reason or 'job_status_update'}_claim_token_mismatch",
+                target_type="campaign_job",
+                target_id=job_id,
+                outcome=status if updated else "ignored",
+            )
         db.commit()
+    return updated
 
 
 def write_audit(
@@ -128,3 +171,7 @@ def connect(sqlite_path: Path) -> sqlite3.Connection:
     db.execute("PRAGMA busy_timeout = 5000")
     db.execute("PRAGMA foreign_keys = ON")
     return db
+
+
+def table_exists(db: sqlite3.Connection, name: str) -> bool:
+    return bool(db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)).fetchone())

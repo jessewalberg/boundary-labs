@@ -1,4 +1,4 @@
-import { seedAttempts, type SeedAttempt } from "@/server/campaigns/fixtures";
+import type { SeedAttempt } from "@/server/campaigns/types";
 import { openDatabase } from "@/server/db/client";
 
 export type SeedAttemptRecord = SeedAttempt & {
@@ -6,8 +6,7 @@ export type SeedAttemptRecord = SeedAttempt & {
 };
 
 export function listAttemptsForRun(runId: string): SeedAttempt[] {
-  const dbAttempts = listPersistedAttemptsForRun(runId);
-  return dbAttempts.length > 0 ? dbAttempts : (seedAttempts[runId] ?? []);
+  return listPersistedAttemptsForRun(runId);
 }
 
 export function getAttemptForRun(runId: string, seedId: string) {
@@ -52,9 +51,7 @@ export function listSeedAttemptRecords(): SeedAttemptRecord[] {
     db.close();
   }
 
-  return Object.entries(seedAttempts).flatMap(([runId, attempts]) =>
-    attempts.map((attempt) => ({ runId, ...attempt }))
-  );
+  return [];
 }
 
 function listPersistedAttemptsForRun(runId: string): SeedAttempt[] {

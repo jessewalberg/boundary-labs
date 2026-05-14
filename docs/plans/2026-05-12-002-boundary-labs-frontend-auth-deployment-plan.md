@@ -22,11 +22,11 @@ Build a single-service app first:
 
 Use Tailwind CSS 4 and shadcn/ui as the React component foundation. The static designs in `designs/` are the visual source of truth and should be rebuilt as composable React components, not embedded as HTML exports or inline-style ports.
 
-Use Better Auth as the application auth layer in `apps/web`, backed by SQLite for the demo. Better Auth gives us a TypeScript-native auth surface with database-backed sessions, plugins for admin controls, two-factor auth, passkeys, organizations/RBAC, API keys, and SSO/OIDC. Do not build password auth as the default long-term path. The app should be provider-portable by treating identity as `{sub, email, org_id, role claims}` and keeping authorization decisions inside Boundary Labs.
+Use Better Auth as the application auth layer in `apps/web`, backed by SQLite for the demo. Better Auth gives us a TypeScript-native auth surface with database-backed sessions, plugins for admin controls, two-factor auth, passkeys, organizations/RBAC, API keys, and SSO/OIDC. The demo uses email/password so it can run without external identity-provider setup; keep authorization decisions inside Boundary Labs.
 
 Default auth path:
 
-- MVP/demo mode: Better Auth with GitHub or Google social sign-in, explicit email allowlist, database sessions, and app-side role assignment.
+- MVP/demo mode: Better Auth email/password sign-in, explicit email allowlist, database sessions, and app-side role assignment.
 - Stronger demo mode: Better Auth passkeys or two-factor plugin required for owners/admins.
 - Production/security-demo mode: Better Auth SSO/OIDC plugin pointed at WorkOS, Auth0, Okta, Google Workspace, or another enterprise IdP with MFA, org membership, sign-in logs, and a BAA path before any real PHI use.
 
@@ -382,7 +382,7 @@ Runs on push to `main` and `workflow_dispatch`:
 
 Use Railway project tokens, not personal tokens. Pin third-party GitHub Actions by version or commit SHA. A protected production-grade environment is deferred until this is more than a synthetic-data demo.
 
-Legacy `.gitlab-ci.yml` remains in the repo until `.github/workflows/deploy-railway.yml` has completed at least one green deploy cycle. After that proof, delete the GitLab file so GitHub Actions is the only deploy path.
+Legacy `.gitlab-ci.yml` retirement was superseded during provider-proof hardening. GitHub Actions remains the primary deploy path, but `.gitlab-ci.yml` is retained as a mirror path for repository verification, manual provider-proof campaigns, readiness audit, and Railway runtime-env preflight.
 
 ## Secrets and Environment Variables
 
@@ -394,8 +394,7 @@ GitHub Environment secrets:
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`
 - `BAA_DOCUMENT_HASH`
-- `ANTHROPIC_API_KEY`
-- `OPENAI_API_KEY`
+- `OPENROUTER_API_KEY`
 - `SQLITE_PATH=/data/boundary.db` should be a Railway variable, not a GitHub secret.
 - `BOUNDARY_ARTIFACT_DIR=/data/artifacts` should be a Railway variable.
 
@@ -481,7 +480,7 @@ Files:
 Work:
 
 - Add Better Auth server/client integration.
-- Add social login for MVP, with email allowlist.
+- Add email/password-only auth for the demo, with email allowlist. Social login is intentionally removed from the demo path so `/api/auth/sign-in/social` is not required or exposed.
 - Add documented enterprise SSO/OIDC upgrade path.
 - Add database-backed sessions.
 - Add owner/admin two-factor or passkey requirement.
@@ -693,10 +692,10 @@ Tests:
 
 ## Open Decisions
 
-1. Which social sign-in provider should Better Auth use for the demo: GitHub or Google?
+1. What is the operator seed policy for the first public demo?
 2. Should the demo branch deploy from `main`, or should `feat/architecture-deck` remain the deploy branch until renamed/merged?
 3. Do we need PR preview environments for defense/demo, or is one persistent demo deployment enough?
-4. What is the operator seed policy for the first public demo?
+4. Should password reset stay out-of-band for the demo, or should SMTP-backed reset be added before launch?
 5. What threshold triggers graduating from SQLite to Postgres and/or splitting a FastAPI API service?
 6. Should the marketing page from `designs/Marketing.html` ship in the first app cut, or should the first cut be console-only with `/login` as the only public route?
 

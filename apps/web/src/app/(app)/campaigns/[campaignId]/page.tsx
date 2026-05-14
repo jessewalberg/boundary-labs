@@ -11,7 +11,7 @@ import { VerdictPill } from "@/components/boundary/verdict-pill";
 import { Button } from "@/components/ui/button";
 import { listAttemptsForRun } from "@/server/attempts/repository";
 import { getStoredCampaign, storedCampaignToRun } from "@/server/campaigns/repository";
-import type { SeedAttempt } from "@/server/campaigns/fixtures";
+import type { SeedAttempt } from "@/server/campaigns/types";
 import { getRun } from "@/server/runs/repository";
 import { cancelCampaignAction } from "./cancel/actions";
 
@@ -106,7 +106,9 @@ export default async function CampaignDetailPage({
 
       <div className="mb-2 flex items-center justify-between">
         <span className="bl-watermark">// seeds · {seeds.length}</span>
-        <span className="bl-watermark text-bl-bone-4">read-only fixture-backed detail</span>
+        <span className="bl-watermark text-bl-bone-4">
+          {run.branch === "artifact-ingest" ? "read-only artifact detail" : "read-only run detail"}
+        </span>
       </div>
 
       <Panel padded={false} className="mb-4 overflow-x-auto">
@@ -118,6 +120,45 @@ export default async function CampaignDetailPage({
           </div>
         )}
       </Panel>
+
+      {run.pydanticGraph ? (
+        <section className="mb-4 grid gap-4 xl:grid-cols-2">
+          <Panel
+            watermark="// pydantic_graph · nodes"
+            right={<Chip tone="cyan">{run.pydanticGraph.nodes.length} nodes</Chip>}
+          >
+            <div className="flex flex-wrap gap-2">
+              {run.pydanticGraph.nodes.map((node) => (
+                <code key={node} className="border border-bl-line bg-bl-trough px-2 py-1 font-mono text-[10px] text-bl-bone-2">
+                  {node}
+                </code>
+              ))}
+            </div>
+          </Panel>
+          <Panel
+            watermark="// agents · connections"
+            right={<Chip tone={run.pydanticGraph.agentConnections.some((agent) => agent.status === "executed") ? "signal" : "cyan"}>{run.pydanticGraph.schemaVersion ?? "graph"}</Chip>}
+          >
+            <div className="grid gap-2">
+              {run.pydanticGraph.agentConnections.map((agent) => (
+                <div
+                  key={agent.role}
+                  className="grid gap-1 border border-bl-line bg-bl-trough px-3 py-2 font-mono text-[11px] text-bl-bone-2 md:grid-cols-[120px_1fr_110px]"
+                >
+                  <span className="text-bl-bone">{agent.role}</span>
+                  <span className="truncate">
+                    {agent.provider} · {agent.model}
+                  </span>
+                  <span className={agent.status === "executed" ? "text-bl-signal" : agent.status === "failed" ? "text-bl-alarm" : "text-bl-amber"}>
+                    {agent.status}
+                  </span>
+                  {agent.detail ? <span className="md:col-span-3 text-bl-bone-3">{agent.detail}</span> : null}
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </section>
+      ) : null}
 
       {selectedSeed ? (
         <section className="grid gap-4 xl:grid-cols-2">

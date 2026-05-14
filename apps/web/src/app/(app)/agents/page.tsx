@@ -19,8 +19,8 @@ export default function AgentsPage() {
           <div className="bl-eyebrow">// workspace · agents</div>
           <h1 className="bl-h1 mt-2 uppercase">Agents</h1>
           <p className="mt-2 max-w-[820px] text-sm leading-6 text-bl-bone-2">
-            Agent role map aligned to the architecture plan. This surface is read-only for now; the
-            future API should expose agent runs, inputs, outputs, and approval-gate decisions.
+            Agent role map aligned to the latest ingested graph artifact. Provider, model, and
+            execution state are read from worker-reported Pydantic Graph connections.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -31,17 +31,23 @@ export default function AgentsPage() {
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Panel watermark="// active agents" padded={false}>
-          {agents.map((agent) => (
-            <div key={agent.name} className="grid gap-3 border-b border-bl-line px-4 py-3 last:border-b-0 md:grid-cols-[3px_1fr_90px_90px] md:items-center">
-              <span className={`h-10 w-[3px] ${agent.tone === "alarm" ? "bg-bl-alarm shadow-[0_0_6px_var(--bl-alarm)]" : agent.tone === "cyan" ? "bg-bl-cyan shadow-[0_0_6px_var(--bl-cyan)]" : "bg-bl-signal shadow-[0_0_6px_var(--bl-signal)]"}`} />
-              <div>
-                <div className="font-mono text-xs text-bl-bone">{agent.name}</div>
-                <div className="mt-1 text-xs text-bl-bone-3">{agent.task}</div>
+          {agents.length > 0 ? (
+            agents.map((agent) => (
+              <div key={agent.name} className="grid gap-3 border-b border-bl-line px-4 py-3 last:border-b-0 md:grid-cols-[3px_1fr_90px_90px] md:items-center">
+                <span className={`h-10 w-[3px] ${agent.tone === "alarm" ? "bg-bl-alarm shadow-[0_0_6px_var(--bl-alarm)]" : agent.tone === "cyan" ? "bg-bl-cyan shadow-[0_0_6px_var(--bl-cyan)]" : "bg-bl-signal shadow-[0_0_6px_var(--bl-signal)]"}`} />
+                <div>
+                  <div className="font-mono text-xs text-bl-bone">{agent.name}</div>
+                  <div className="mt-1 text-xs text-bl-bone-3">{agent.task}</div>
+                </div>
+                <Chip tone={agent.status === "live" ? "signal" : "muted"}>{agent.status}</Chip>
+                <span className="font-mono text-[11px] text-bl-bone-3">seeds {agent.seeds ?? "--"}</span>
               </div>
-              <Chip tone={agent.status === "live" ? "signal" : "muted"}>{agent.status}</Chip>
-              <span className="font-mono text-[11px] text-bl-bone-3">seeds {agent.seeds ?? "--"}</span>
+            ))
+          ) : (
+            <div className="px-4 py-8 text-center text-sm text-bl-bone-3">
+              No active worker agents have reported status yet.
             </div>
-          ))}
+          )}
         </Panel>
 
         <Panel watermark="// architecture roles" padded={false}>

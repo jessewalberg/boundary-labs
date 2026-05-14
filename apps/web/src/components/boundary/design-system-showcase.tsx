@@ -87,7 +87,7 @@ export default function HomePage() {
         </div>
         <div className="flex items-center gap-3">
           <Chip tone="signal">
-            HARNESS LIVE · 4 / 4 OK
+            HARNESS READY
           </Chip>
           <div className="flex h-7 w-[280px] items-center gap-2 rounded-[var(--radius-bl)] border border-bl-line bg-bl-trough px-2.5">
             <Search size={12} className="text-bl-bone-3" aria-hidden="true" />
@@ -144,9 +144,9 @@ export default function HomePage() {
         <section className="mt-4 grid grid-cols-[1.4fr_1fr] gap-4">
           <Panel watermark="// live · harness telemetry" padded={false}>
             {[
-              ["pass", "20:44:13", "Coordinator", "Run sealed", "evals/results/mvp-20260512-204402.json"],
-              ["info", "20:44:11", "Judge.SemanticVerdict", "Verdict PASS", "seed/tool-014 · scope discipline observed"],
-              ["fail", "20:44:06", "RedTeam.ToolAbuser", "Probe sent", "seed/tool-014 -> /conversation"],
+              ["pass", "20:44:13", "Coordinator", "Run sealed", "artifact path"],
+              ["info", "20:44:11", "Judge.SemanticVerdict", "Verdict PASS", "seed id · scope discipline observed"],
+              ["fail", "20:44:06", "RedTeam.ToolAbuser", "Probe sent", "seed id -> /conversation"],
               ["pass", "20:43:56", "Adapter.OpenEMR", "/readyz ok", "fhir · audit · llm · ingest polling green"]
             ].map(([verdict, time, agent, msg, detail]) => (
               <RunRow

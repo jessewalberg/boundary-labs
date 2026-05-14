@@ -24,9 +24,9 @@
     { "key": "campaign_cancel", "domain": "Campaigns", "value": { "approval": "auto" }, "value_type": "json", "approval_path": "auto", "system_reserved": false, "description": "Operators may cancel running campaigns; the action is audited." },
     { "key": "heartbeat_staleness_seconds", "domain": "Worker", "value": 300, "value_type": "number", "approval_path": "admin", "system_reserved": false, "description": "Worker heartbeat age after which a run is considered stale." },
     { "key": "claim_timeout_seconds", "domain": "Worker", "value": 600, "value_type": "number", "approval_path": "admin", "system_reserved": false, "description": "Claim age after which a heartbeat-stale campaign can be recovered." },
-    { "key": "agent_provider_red_team", "domain": "Providers", "value": "openai", "value_type": "string", "approval_path": "admin", "system_reserved": false, "description": "Default LLM provider for Red Team agent." },
-    { "key": "agent_provider_judge", "domain": "Providers", "value": "anthropic", "value_type": "string", "approval_path": "admin", "system_reserved": false, "description": "Default LLM provider for Judge agent." },
-    { "key": "agent_provider_orchestrator", "domain": "Providers", "value": "openai", "value_type": "string", "approval_path": "admin", "system_reserved": false, "description": "Default LLM provider for Orchestrator agent." },
-    { "key": "agent_provider_documentation", "domain": "Providers", "value": "anthropic", "value_type": "string", "approval_path": "admin", "system_reserved": false, "description": "Default LLM provider for Documentation agent." }
+    { "key": "agent_provider_red_team", "domain": "Providers", "value": "openrouter", "value_type": "string", "approval_path": "admin", "system_reserved": false, "description": "Default LLM provider for Red Team agent. Boundary routes agent traffic through OpenRouter." },
+    { "key": "agent_provider_judge", "domain": "Providers", "value": "openrouter", "value_type": "string", "approval_path": "admin", "system_reserved": false, "description": "Default LLM provider for Judge agent. Boundary routes agent traffic through OpenRouter." },
+    { "key": "agent_provider_orchestrator", "domain": "Providers", "value": "openrouter", "value_type": "string", "approval_path": "admin", "system_reserved": false, "description": "Default LLM provider for Orchestrator agent. Boundary routes agent traffic through OpenRouter." },
+    { "key": "agent_provider_documentation", "domain": "Providers", "value": "openrouter", "value_type": "string", "approval_path": "admin", "system_reserved": false, "description": "Default LLM provider for Documentation agent. Boundary routes agent traffic through OpenRouter." }
   ]
 }

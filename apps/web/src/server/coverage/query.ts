@@ -1,4 +1,4 @@
-import { threatCoverage, type ThreatCoverage } from "@/server/campaigns/fixtures";
+import type { ThreatCoverage } from "@/server/campaigns/types";
 import { openDatabase } from "@/server/db/client";
 
 export function listThreatCoverage(): ThreatCoverage[] {
@@ -35,5 +35,5 @@ export function listThreatCoverage(): ThreatCoverage[] {
     db.close();
   }
 
-  return threatCoverage;
+  return [];
 }

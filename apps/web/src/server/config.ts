@@ -13,9 +13,9 @@ export type BoundaryConfig = {
   ownerEmail?: string;
   operatorEmailAllowlist: string[];
   baaDocumentHash?: string;
+  llmAgentsEnabled: boolean;
   workerSecrets: {
-    anthropicApiKeyConfigured: boolean;
-    openaiApiKeyConfigured: boolean;
+    openrouterApiKeyConfigured: boolean;
   };
   dataMode: "synthetic";
 };
@@ -44,9 +44,9 @@ export function getBoundaryConfig(): BoundaryConfig {
       process.env.BOUNDARY_OPERATOR_EMAIL_ALLOWLIST ?? process.env.BOUNDARY_OWNER_EMAIL ?? ""
     ).map((email) => email.toLowerCase()),
     baaDocumentHash: process.env.BAA_DOCUMENT_HASH,
+    llmAgentsEnabled: process.env.BOUNDARY_ENABLE_LLM_AGENTS === "1",
     workerSecrets: {
-      anthropicApiKeyConfigured: Boolean(process.env.ANTHROPIC_API_KEY),
-      openaiApiKeyConfigured: Boolean(process.env.OPENAI_API_KEY)
+      openrouterApiKeyConfigured: Boolean(process.env.OPENROUTER_API_KEY)
     },
     dataMode: "synthetic"
   };

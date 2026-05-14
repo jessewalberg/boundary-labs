@@ -30,9 +30,8 @@ export default function SeedsPage() {
           <div className="bl-eyebrow">// workspace · seed corpus</div>
           <h1 className="bl-h1 mt-2 uppercase">Seeds</h1>
           <p className="mt-2 max-w-[760px] text-sm leading-6 text-bl-bone-2">
-            Seed corpus view for prompts that red-team agents mutate and judges score. Current
-            data comes from run fixtures; the future API should expose versioned seed records,
-            parentage, and regression eligibility.
+            Seed corpus view for prompts that red-team agents mutate and judges score. Usage rows
+            appear after real campaign attempts are written.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -44,7 +43,7 @@ export default function SeedsPage() {
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)]">
         <Panel watermark="// corpus · grouped by category" padded={false}>
-          {categories.map((category) => (
+          {categories.length > 0 ? categories.map((category) => (
             <div key={category} className="border-b border-bl-line last:border-b-0">
               <div className="flex items-center justify-between border-b border-bl-line bg-bl-trough px-3 py-2">
                 <span className="bl-watermark">{category}</span>
@@ -70,7 +69,11 @@ export default function SeedsPage() {
                 </Link>
               ))}
             </div>
-          ))}
+          )) : (
+            <div className="px-4 py-8 text-center text-sm text-bl-bone-3">
+              No seed usage yet. Queue a campaign to generate attempt records.
+            </div>
+          )}
         </Panel>
 
         <Panel watermark="// lifecycle" right={<Chip tone="cyan">API seam</Chip>}>

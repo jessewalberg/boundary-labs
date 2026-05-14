@@ -61,6 +61,17 @@ jobs:
           test -n "$RAILWAY_PROJECT_ID"
           test -n "$RAILWAY_SERVICE_ID"
 
+      - name: Validate Railway provider proof environment
+        run: >
+          railway run
+          --project "$RAILWAY_PROJECT_ID"
+          --service "$RAILWAY_SERVICE_ID"
+          --environment "$RAILWAY_ENVIRONMENT"
+          --
+          python scripts/check_runtime_env.py
+          --require-provider-proof
+          --require-smart-secret
+
       - name: Deploy to Railway
         run: >
           railway up

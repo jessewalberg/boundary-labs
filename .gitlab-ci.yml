@@ -1,54 +1,94 @@
 workflow:
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
     - when: never
 
 stages:
   - verify
+  - proof
   - deploy
 
 variables:
-  BUN_VERSION: "1.3.12"
-  RAILWAY_PROJECT_ID: "b1c0af70-e699-455f-a9dd-def24cd8e5be"
-  RAILWAY_SERVICE_ID: "ff28ca07-f5e7-4328-a73f-f7a7c412fc53"
   RAILWAY_ENVIRONMENT: "production"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PNPM_HOME: "$CI_PROJECT_DIR/.pnpm"
 
 default:
-  image: oven/bun:${BUN_VERSION}
+  image: node:22-bookworm
   cache:
     key: ${CI_COMMIT_REF_SLUG}
     paths:
-      - node_modules/
-      - apps/web/node_modules/
-      - .bun/install/cache/
+      - .cache/pip/
+      - .pnpm-store/
+      - apps/web/.next/cache/
   before_script:
-    - bun --version
+    - node --version
+    - apt-get update
+    - apt-get install -y --no-install-recommends python3 python3-venv
+    - python3 -m venv .venv
+    - . .venv/bin/activate
+    - python --version
+    - corepack enable
+    - pnpm --version
 
 verify:
   stage: verify
   script:
-    - bun install --frozen-lockfile
-    - bun run typecheck
-    - bun run build
+    - pnpm install --frozen-lockfile
+    - python -m pip install -r worker/requirements.txt
+    - pnpm verify:system -- --skip-llm --skip-artifact
+
+proof:provider:
+  stage: proof
+  when: manual
+  allow_failure: false
+  needs:
+    - verify
+  variables:
+    BOUNDARY_ENABLE_LLM_AGENTS: "1"
+    BOUNDARY_REQUIRED_LLM_PROVIDERS: "openrouter"
+    BETTER_AUTH_URL: "http://127.0.0.1:3000"
+    BETTER_AUTH_SECRET: "boundary-labs-proof-gitlab-secret-change-before-production"
+    BOUNDARY_OWNER_EMAIL: "owner@example.com"
+    BOUNDARY_OPERATOR_EMAIL_ALLOWLIST: "owner@example.com"
+    BAA_DOCUMENT_HASH: "sha256:proof-placeholder"
+  script:
+    - pnpm install --frozen-lockfile
+    - python -m pip install -r worker/requirements.txt
+    - python scripts/check_runtime_env.py --require-provider-proof --require-smart-secret
+    - python scripts/run_proof_campaign.py --bootstrap --target-url "${BOUNDARY_TARGET_URL:-https://clinical-copilot.up.railway.app}" --timeout-seconds "${BOUNDARY_RUN_TIMEOUT_SECONDS:-75}" --mint-synthetic-session --output-file proof-output.json
+    - python -c 'import json; output=json.load(open("proof-output.json")); print(output["artifact"])' > proof-artifact-path.txt
+    - python -c 'import json; output=json.load(open("proof-output.json")); print(output["sqlite_path"])' > proof-sqlite-path.txt
+    - python -c 'import json; output=json.load(open("proof-output.json")); print(output["target_origin"])' > proof-target-origin.txt
+    - pnpm verify:readiness -- --sqlite-path "$(cat proof-sqlite-path.txt)" --artifact-path "$(cat proof-artifact-path.txt)" --expected-target-origin "$(cat proof-target-origin.txt)"
+    - pnpm audit:readiness -- --sqlite-path "$(cat proof-sqlite-path.txt)" --artifact-path "$(cat proof-artifact-path.txt)" --expected-target-origin "$(cat proof-target-origin.txt)" > readiness-audit.json
+  artifacts:
+    when: always
+    paths:
+      - proof-output.json
+      - readiness-audit.json
+      - proof-artifact-path.txt
+      - proof-sqlite-path.txt
+      - proof-target-origin.txt
 
 deploy:railway:
   stage: deploy
-  image:
-    name: node:22-bookworm
-    docker:
-      platform: linux/amd64
-  before_script:
-    - node --version
-    - npm --version
   needs:
     - verify
   resource_group: railway-production
   environment:
     name: production
     url: https://boundary-web-production.up.railway.app
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+    - when: never
   script:
     - test -n "$RAILWAY_TOKEN"
     - test -n "$RAILWAY_PROJECT_ID"
     - test -n "$RAILWAY_SERVICE_ID"
     - npm install -g @railway/cli
+    - python -m pip install -r worker/requirements.txt
+    - python scripts/check_provider_proof_config.py --skip-github --railway-project "$RAILWAY_PROJECT_ID" --railway-service "$RAILWAY_SERVICE_ID" --railway-environment "$RAILWAY_ENVIRONMENT"
     - railway up --project "$RAILWAY_PROJECT_ID" --service "$RAILWAY_SERVICE_ID" --environment "$RAILWAY_ENVIRONMENT" --detach

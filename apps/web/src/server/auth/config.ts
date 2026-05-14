@@ -20,9 +20,9 @@ export const auth = betterAuth({
   database: new Database(config.sqlitePath),
   trustedOrigins: config.betterAuthUrl ? [config.betterAuthUrl] : undefined,
   emailAndPassword: {
-    enabled: process.env.BOUNDARY_ENABLE_PASSWORD_AUTH === "1"
+    enabled: true,
+    minPasswordLength: 8
   },
-  socialProviders: buildSocialProviders(),
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       const email = typeof ctx.body?.email === "string" ? ctx.body.email : undefined;
@@ -77,23 +77,3 @@ export const auth = betterAuth({
   },
   plugins: [nextCookies()]
 });
-
-function buildSocialProviders() {
-  const providers: Record<string, { clientId: string; clientSecret: string }> = {};
-
-  if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
-    providers.github = {
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET
-    };
-  }
-
-  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    providers.google = {
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET
-    };
-  }
-
-  return providers;
-}

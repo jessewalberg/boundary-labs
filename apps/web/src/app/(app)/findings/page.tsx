@@ -24,9 +24,8 @@ export default function FindingsPage() {
           <div className="bl-eyebrow">// review · findings</div>
           <h1 className="bl-h1 mt-2 uppercase">Findings</h1>
           <p className="mt-2 max-w-[760px] text-sm leading-6 text-bl-bone-2">
-            Read-only triage queue for adversarial failures and deferred coverage gaps. Today this
-            is fixture-backed; the API seam is a future findings repository fed by judge verdicts
-            and regression promotion.
+            Read-only triage queue for adversarial failures and deferred coverage gaps. Findings are
+            materialized from judge verdicts after campaigns produce artifacts.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -45,7 +44,7 @@ export default function FindingsPage() {
               <div className="border-b border-bl-line bg-bl-trough px-3 py-2">
                 <span className="bl-watermark">{status}</span>
               </div>
-              {findings.filter((finding) => finding.status === status).map((finding) => {
+              {findings.filter((finding) => finding.status === status).length > 0 ? findings.filter((finding) => finding.status === status).map((finding) => {
                 const reference = findSeedReference(seedAttempts, finding.seed);
                 return (
                   <article key={finding.id} className="grid gap-3 border-b border-bl-line px-4 py-3 last:border-b-0 md:grid-cols-[1fr_auto]">
@@ -80,7 +79,9 @@ export default function FindingsPage() {
                     </div>
                   </article>
                 );
-              })}
+              }) : (
+                <div className="px-4 py-5 text-sm text-bl-bone-3">No {status} findings.</div>
+              )}
             </div>
           ))}
         </Panel>

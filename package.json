@@ -9,6 +9,12 @@
     "dev": "pnpm --dir apps/web dev",
     "build": "pnpm --dir apps/web build",
     "start": "pnpm --dir apps/web start",
-    "typecheck": "pnpm --dir apps/web typecheck"
+    "typecheck": "pnpm --dir apps/web typecheck",
+    "verify:system": "python scripts/verify_system.py",
+    "verify:readiness": "python scripts/verify_system.py --readiness",
+    "audit:readiness": "python scripts/audit_readiness.py",
+    "check:llm-agents": "python scripts/check_llm_agents.py",
+    "check:provider-proof": "python scripts/check_provider_proof_config.py",
+    "check:pydantic-evals": "python scripts/check_pydantic_evals.py"
   }
 }

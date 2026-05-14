@@ -43,7 +43,7 @@ export default function NewCampaignPage() {
           <h1 className="bl-h1 mt-2 uppercase">New campaign</h1>
           <p className="mt-2 max-w-[760px] text-sm leading-6 text-bl-bone-2">
             Queue a synthetic evaluation artifact for an allowlisted target. This records the exact
-            runner command and campaign intent before autonomous execution is enabled.
+            runner command and campaign intent for autonomous execution.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -116,6 +116,9 @@ export default function NewCampaignPage() {
               </label>
             ))}
           </div>
+          <div className="border-t border-bl-line px-4 py-3 font-mono text-[10px] uppercase tracking-[0.14em] text-bl-bone-3">
+            Leave every category unchecked to run the complete seed library.
+          </div>
         </Panel>
 
         <Panel watermark="// deterministic command" right={<Chip>preview</Chip>} className="xl:col-span-2">
@@ -130,7 +133,7 @@ export default function NewCampaignPage() {
           <div className="mt-4 grid gap-2 border-t border-bl-line pt-3 md:grid-cols-3">
             <Guardrail icon={<ShieldCheck size={13} aria-hidden="true" />} label="Policy" value="campaign:create" />
             <Guardrail icon={<Crosshair size={13} aria-hidden="true" />} label="Target" value="allowlist enforced" />
-            <Guardrail icon={<Play size={13} aria-hidden="true" />} label="Execution" value="queued artifact only" />
+            <Guardrail icon={<Play size={13} aria-hidden="true" />} label="Execution" value="worker graph" />
           </div>
         </Panel>
       </form>

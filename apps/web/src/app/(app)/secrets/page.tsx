@@ -7,10 +7,9 @@ export default function SecretsPage() {
   const config = getBoundaryConfig();
   const secrets = [
     { name: "BETTER_AUTH_SECRET", scope: "auth", configured: config.betterAuthSecret.length > 0, unlocks: "session signing" },
-    { name: "BETTER_AUTH_URL", scope: "auth", configured: Boolean(config.betterAuthUrl), unlocks: "OAuth callback pinning" },
+    { name: "BETTER_AUTH_URL", scope: "auth", configured: Boolean(config.betterAuthUrl), unlocks: "canonical auth origin" },
     { name: "BAA_DOCUMENT_HASH", scope: "policy", configured: Boolean(config.baaDocumentHash), unlocks: "BAA acknowledgement gate" },
-    { name: "ANTHROPIC_API_KEY", scope: "worker", configured: config.workerSecrets.anthropicApiKeyConfigured, unlocks: "Anthropic agent provider" },
-    { name: "OPENAI_API_KEY", scope: "worker", configured: config.workerSecrets.openaiApiKeyConfigured, unlocks: "OpenAI agent provider" },
+    { name: "OPENROUTER_API_KEY", scope: "worker", configured: config.workerSecrets.openrouterApiKeyConfigured, unlocks: "OpenRouter agent provider" },
     { name: "SQLITE_PATH", scope: "runtime", configured: Boolean(config.sqlitePath), unlocks: "persistent local database path" },
     { name: "BOUNDARY_ARTIFACT_DIR", scope: "runtime", configured: Boolean(config.artifactDir), unlocks: "campaign artifacts and eval output" },
     { name: "BOUNDARY_TARGET_URL", scope: "runtime", configured: Boolean(config.targetUrl), unlocks: "default target adapter URL" },

@@ -14,6 +14,7 @@ class SentinelPaths:
     complete: Path
     failed: Path
     artifact: Path
+    graph_history: Path
 
 
 def sentinel_paths(artifact_dir: Path, run_id: str) -> SentinelPaths:
@@ -23,6 +24,7 @@ def sentinel_paths(artifact_dir: Path, run_id: str) -> SentinelPaths:
         complete=run_dir / f"{run_id}.complete",
         failed=run_dir / f"{run_id}.failed",
         artifact=run_dir / f"{run_id}.json",
+        graph_history=run_dir / f"{run_id}.graph.json",
     )
 
 

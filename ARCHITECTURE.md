@@ -20,7 +20,7 @@ The first MVP should stand up the target, create `THREAT_MODEL.md`, define a ver
 
 The trust model is conservative. The system may autonomously generate low-risk variants, run authorized eval campaigns, record results, draft reports, and schedule regressions. It must stop for human approval before testing any non-allowlisted target, using real PHI, filing high or critical reports externally, recommending production remediation, changing target defenses, or expanding privileges. Autonomy increases coverage and repeatability; high-impact actions remain governed, auditable, and reversible.
 
-Current implementation shape: a single Docker container runs the Next.js console/control plane and the Python Pydantic Graph worker under `supervisord`. Better Auth protects the console with three Boundary roles (`admin`, `operator`, `reviewer`). The system of record is SQLite on `/data/boundary.db` with WAL mode, append-only `audit_events`, `campaign_jobs` queue rows, and artifact storage under `/data/artifacts`. Safety Gate policy is stored in `policy_values`, mirrored into the worker by build-time codegen, and enforced both before web mutations and when the worker claims jobs. The CISO-readable trust surface is `/settings/policy`, `/settings/baa`, `/audit`, and `/approvals`.
+Current implementation shape: a single Docker container runs the Next.js console/control plane and the Python Pydantic Graph worker under `supervisord`. Better Auth protects the console with three Boundary roles (`admin`, `operator`, `reviewer`). The system of record is SQLite on `/data/boundary.db` with WAL mode, append-only `audit_events`, `campaign_jobs` queue rows, and artifact storage under `/data/artifacts`. Safety Gate policy is stored in `policy_values`, mirrored into the worker by build-time codegen, and enforced both before web mutations and when the worker claims jobs. The full seed corpus under `evals/seeds` is loaded by the worker graph and bridged into a Pydantic Evals `Dataset` by `scripts/check_pydantic_evals.py` for CI validation. The CISO-readable trust surface is `/settings/policy`, `/settings/baa`, `/audit`, and `/approvals`.
 
 ## Goals And Non-Goals
 
@@ -177,25 +177,32 @@ A separate **Insights** view (linked from Campaigns) carries the dashboard analy
 
 ## Inter-Agent Coordination
 
-The MVP should run campaigns through explicit Pydantic Graph nodes plus deterministic services in the separate security app. Each node is an agent or deterministic service, and each edge is an explicit handoff with a schema-validated message. Campaign state is stored in security-app file artifacts and a security-app database; the target app's MySQL database is not used for orchestration. The current implementation hosts this graph path in `python -m worker`, supervised beside `next start` in one container. Use the stable `pydantic_graph.Graph` API for MVP because it supports persisted graph runs and node-by-node resume. Console approvals are the canonical HITL surface today; Slack approval mirroring can be layered on later by linking back to `/approvals`. Persisted state carries a `schema_version` field; resume refuses on mismatch with a clear operator message. The control plane exposes a `/readyz` check that reports worker heartbeat freshness, SQLite integrity, and policy bootstrap state.
+The MVP runs campaigns through explicit Pydantic Graph nodes plus deterministic services in the separate security app. Each node is an agent or deterministic service, and each edge is an explicit handoff with a schema-validated message. Campaign state is stored in security-app file artifacts and the security-app SQLite database; the target app's MySQL database is not used for orchestration. The current implementation hosts this graph path in `python -m worker`, supervised beside `next start` in one container. It uses the stable `pydantic_graph.Graph` API with file-backed full-state persistence so interrupted runs can resume node by node. Console approvals are the canonical HITL surface today; Slack approval mirroring can be layered on later by linking back to `/approvals`. Persisted state carries a `schema_version` field, and the control plane exposes a `/readyz` check that reports worker heartbeat freshness, SQLite integrity, policy bootstrap state, and provider readiness without printing secret values.
 
-`SlackApprovalWaitNode` is a deterministic graph pause primitive (not an LLM agent): it posts the approval card to the configured Slack channel via webhook, persists graph state via the SQLite store above, and blocks on the inbound callback handler validating signature, approval ID, and expiration. The webhook handler resumes the graph only after the Safety Gate Service revalidates approval scope.
+The implemented worker graph in `worker/graphs/campaign.py` is:
+
+1. `SafetyGateNode` validates run identity and target URL shape before execution.
+2. `CoverageScoreNode` loads the full `evals/seeds` corpus or the selected categories.
+3. `OrchestratorNode` computes the coverage-gap schedule and optionally executes the Pydantic AI Orchestrator role.
+4. `RedTeamNode` optionally executes the Pydantic AI Red Team role and requires provider plans to cover every selected case exactly once before applying them.
+5. `TargetExecutionNode` executes each seed through the Target Adapter against the authorized Clinical Co-Pilot target.
+6. `JudgeNode` runs deterministic judging, optionally executes the Pydantic AI Judge role, and applies provider verdicts only when they cover every selected case exactly once.
+7. `DocumentationNode` optionally executes the Pydantic AI Documentation role and drafts documentation rows for failed or partial findings.
+8. `WriteArtifactNode` writes the final artifact, including `pydantic_graph.nodes`, `pydantic_graph.agent_connections`, provider metadata, result-level decisions, and summary counts.
+
+Provider-backed demo readiness requires all four configured Pydantic AI roles (`orchestrator`, `red_team`, `judge`, and `documentation`) to report `status: executed` in `pydantic_graph.agent_connections`. If `BOUNDARY_ENABLE_LLM_AGENTS` is not exactly `1`, or the selected provider key is absent, the graph records `deterministic-fallback`; that path is valid for offline smoke tests but does not satisfy provider-backed readiness.
 
 Campaign lifecycle:
 
 1. Operator requests a campaign from the Security Console.
-2. `SafetyGateCheckNode` (calling the Safety Gate Service) validates target, operator, test data, budget, and allowed categories.
-3. If approval is required, `SlackApprovalWaitNode` posts the request and persists the graph before pausing.
-4. Slack approve, reject, or comment callbacks update the approval ledger; expired requests auto-reject.
-5. The Safety Gate Service revalidates approval scope and resumes or blocks the graph.
-6. `CoverageScoreNode` (calling the Coverage Scoring Service) returns category gaps, seed cases, and risk notes.
-7. `OrchestratorNode` reads the coverage matrix, open findings, regression history, and budget telemetry, and emits Red Team and Judge task packets (attack category priorities, seed selection, model strategy).
-8. `RedTeamNode` generates or mutates an `AttackCase` per the Orchestrator's packet.
-9. `TargetExecutionNode` executes the case through the Target Adapter against the live allowlisted Clinical Co-Pilot.
-10. `JudgeNode` evaluates the transcript independently.
-11. `RegressionPromotionNode` (calling the Regression Promotion Service) promotes confirmed findings into `evals/cases/regression/` when criteria are met.
-12. `DocumentationNode` drafts or updates vulnerability reports.
-13. Observability Layer records traces, metrics, costs, artifacts, and audit events.
+2. A Next.js server action authenticates the operator, checks Safety Gate policy, inserts `campaigns`, inserts a `campaign_jobs` row, and writes a `campaign.queued` audit event in one SQLite transaction.
+3. The supervised Python worker runs recovery, claims a queued job with a `claim_token`, re-checks operator status, and revalidates policy values before graph execution.
+4. The worker runs the Pydantic Graph chain listed above, writing file sentinels, graph history, run heartbeats, audit events, and the campaign artifact under `/data/artifacts`.
+5. Completion is fenced by the current `claim_token`; stale workers cannot complete or fail a job after another worker or recovery path has reclaimed it.
+6. On web startup, recovery runs before artifact ingest. Valid completed artifacts materialize into `runs`, `attempts`, `verdicts`, `findings`, agent status, metrics, and event read models.
+7. The provider proof path runs `scripts/run_proof_campaign.py`, then `pnpm verify:readiness` and `pnpm audit:readiness` against the emitted SQLite DB, artifact, and target origin.
+
+Slack approval mirroring and automatic regression-promotion jobs remain post-MVP extensions. The current demo's trust boundary is enforced by the console approval ledger, Safety Gate policy, queue claim fencing, graph persistence, strict provider-proof verification, and append-only audit events.
 
 Communication rules:
 

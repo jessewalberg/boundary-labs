@@ -29,8 +29,8 @@ const navGroups = [
     items: [
       { label: "Dashboard", href: "/dashboard", enabled: true, icon: Gauge },
       { label: "Runs", href: "/campaigns", enabled: true, icon: History },
-      { label: "Seeds", href: "/seeds", enabled: true, icon: Crosshair, count: 5 },
-      { label: "Agents", href: "/agents", enabled: true, icon: Bot, count: 5 },
+      { label: "Seeds", href: "/seeds", enabled: true, icon: Crosshair },
+      { label: "Agents", href: "/agents", enabled: true, icon: Bot },
       { label: "Judges", href: "/judges", enabled: true, icon: ShieldCheck }
     ]
   },
@@ -40,7 +40,7 @@ const navGroups = [
       { label: "Threat Model", href: "/threat-model", enabled: true, icon: FileWarning },
       { label: "Coverage", href: "/coverage", enabled: true, icon: Radar },
       { label: "Approvals", href: "/approvals", enabled: true, icon: ShieldCheck },
-      { label: "Findings", href: "/findings", enabled: true, icon: Terminal, count: 4 }
+      { label: "Findings", href: "/findings", enabled: true, icon: Terminal }
     ]
   },
   {
@@ -96,21 +96,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Link href={item.href} key={item.label} className={className}>
                     <Icon size={14} aria-hidden="true" />
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    {"count" in item && item.count != null ? (
-                      <span className="rounded-[var(--radius-bl)] border border-bl-line bg-bl-trough px-1.5 py-px text-[9px] text-bl-bone-3">
-                        {item.count}
-                      </span>
-                    ) : null}
                   </Link>
                 ) : (
                   <span key={item.label} className={`${className} cursor-not-allowed opacity-55`}>
                     <Icon size={14} aria-hidden="true" />
                     <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    {"count" in item && item.count != null ? (
-                      <span className="rounded-[var(--radius-bl)] border border-bl-line bg-bl-trough px-1.5 py-px text-[9px] text-bl-bone-3">
-                        {item.count}
-                      </span>
-                    ) : null}
                   </span>
                 );
               })}
@@ -120,23 +110,23 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <section className="mt-auto flex flex-col gap-1.5">
           <div className="px-1 font-mono text-[9px] uppercase tracking-[0.2em] text-bl-bone-4">
-            // targets · live
+            // targets
           </div>
           <div className="flex items-center gap-2 rounded-[var(--radius-bl)] border border-bl-line bg-bl-graphite px-2.5 py-2">
             <span className="bl-live-dot" />
             <div>
-              <div className="font-mono text-[11px] text-bl-bone">clinical-copilot</div>
+              <div className="font-mono text-[11px] text-bl-bone">configured</div>
               <div className="font-mono text-[9px] tracking-[0.06em] text-bl-bone-3">
-                railway · /readyz ok
+                health pending
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-[var(--radius-bl)] border border-bl-line bg-bl-graphite px-2.5 py-2 opacity-70">
             <span className="h-2 w-2 rounded-full bg-bl-bone-4" />
             <div>
-              <div className="font-mono text-[11px] text-bl-bone">localhost:8400</div>
+              <div className="font-mono text-[11px] text-bl-bone">worker</div>
               <div className="font-mono text-[9px] tracking-[0.06em] text-bl-bone-3">
-                dev · offline
+                heartbeat pending
               </div>
             </div>
           </div>
@@ -144,7 +134,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             BL_HARNESS // v0.3.1
           </div>
           <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-bl-bone-4">
-            session 2.h41m
+            session active
           </div>
         </section>
       </aside>
@@ -159,7 +149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <div className="flex items-center gap-3">
           <Chip tone="signal" className="hidden sm:inline-flex">
-            <Gauge size={12} aria-hidden="true" /> HARNESS LIVE · 4 / 4 OK
+            <Gauge size={12} aria-hidden="true" /> HARNESS READY
           </Chip>
           <div className="hidden h-7 w-[280px] items-center gap-2 rounded-[var(--radius-bl)] border border-bl-line bg-bl-trough px-2.5 md:flex">
             <Search size={12} className="text-bl-bone-3" aria-hidden="true" />

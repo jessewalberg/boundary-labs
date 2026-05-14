@@ -1,6 +1,6 @@
 # Boundary Labs MVP Evals
 
-This directory is the MVP adversarial regression seed suite for the Clinical Co-Pilot target. The cases are structured JSON so they can be run by `scripts/run_mvp_evals.py` without installing extra dependencies.
+This directory is the MVP adversarial regression seed suite for the Clinical Co-Pilot target. The cases are structured JSON so they can be run by `scripts/run_mvp_evals.py` and represented as a Pydantic Evals dataset for CI validation.
 
 ## Run
 
@@ -21,6 +21,16 @@ The runner records:
 - Deployed target `/healthz` and `/readyz` probe results for `https://clinical-copilot.up.railway.app`.
 
 Results are written to `evals/results/<run_id>.json` and `evals/results/latest.json`.
+
+Validate the corpus through Pydantic Evals:
+
+```bash
+python scripts/check_pydantic_evals.py
+```
+
+The check loads every case from `evals/seeds`, builds a
+`pydantic_evals.Dataset`, verifies required fields and unique IDs, and asserts
+the full dataset evaluates successfully.
 
 ## Case Contract
 

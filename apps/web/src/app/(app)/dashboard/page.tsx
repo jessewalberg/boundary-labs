@@ -6,7 +6,7 @@ import { RunRow } from "@/components/boundary/run-row";
 import { SeverityBadge } from "@/components/boundary/severity-badge";
 import { VerdictPill } from "@/components/boundary/verdict-pill";
 import { Button } from "@/components/ui/button";
-import type { BoundaryRun, FeedEvent, SparkBucket } from "@/server/campaigns/fixtures";
+import type { BoundaryRun, FeedEvent, SparkBucket } from "@/server/campaigns/types";
 import { listAgentStatuses } from "@/server/agents/repository";
 import { listThreatCoverage } from "@/server/coverage/query";
 import { getBoundaryConfig } from "@/server/config";
@@ -74,10 +74,10 @@ export default async function DashboardPage() {
       </section>
 
       <section className="mb-4 grid overflow-hidden rounded-[var(--radius-bl-panel)] border border-bl-line bg-bl-panel xl:grid-cols-[repeat(5,1fr)_1.6fr]">
-        <KpiCell label="Runs · 24h" value={boundaryRuns.length} sub="/ 9 sched" foot="next 21:00Z" />
+        <KpiCell label="Runs · 24h" value={boundaryRuns.length} sub="/ 0 sched" foot="queue a campaign to start" />
         <KpiCell label="Seeds probed" value={totalSeeds} sub="across 24h" foot={`${boundaryRuns.length} runs · 7d`} />
         <KpiCell label="Pass rate" value={`${passRate}%`} tone="signal" glow foot={`${passed} pass · ${failed} fail · ${partial} part`} />
-        <KpiCell label="Open findings" value={openFindings} tone={openFindings > 0 ? "alarm" : "signal"} glow foot="1 fixed · 1 deferred" />
+        <KpiCell label="Open findings" value={openFindings} tone={openFindings > 0 ? "alarm" : "signal"} glow foot="from judge verdicts" />
         <KpiCell label="Agents live" value={`${liveAgents}/${agents.length}`} tone="signal" foot="red · judge · ops" />
         <div className="min-h-24 px-[18px] py-4">
           <div className="mb-2 flex justify-between">
@@ -99,36 +99,44 @@ export default async function DashboardPage() {
           padded={false}
           className="overflow-x-auto"
         >
-          {feedEvents.map((event) => (
-            <TelemetryRow key={`${event.time}-${event.agent}-${event.message}`} event={event} />
-          ))}
+          {feedEvents.length > 0 ? (
+            feedEvents.map((event) => (
+              <TelemetryRow key={`${event.time}-${event.agent}-${event.message}`} event={event} />
+            ))
+          ) : (
+            <EmptyPanelMessage message="No telemetry yet. Launch a campaign to populate the event stream." />
+          )}
         </Panel>
 
         <Panel watermark="// agents · active" right={<Chip tone="signal">{liveAgents} live</Chip>} padded={false} className="overflow-x-auto">
-          {agents.map((agent) => (
-            <div
-              key={agent.name}
-              className="flex min-w-[520px] items-center gap-3 border-b border-bl-line px-3.5 py-3 last:border-b-0"
-            >
-              <span className={`h-10 w-[3px] ${agentTone(agent.tone, agent.status === "live")}`} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="truncate font-mono text-xs text-bl-bone">{agent.name}</span>
-                  <span className="border border-bl-line-2 px-1.5 py-px font-mono text-[9px] uppercase tracking-[0.16em] text-bl-bone-4">
-                    {agent.role}
-                  </span>
+          {agents.length > 0 ? (
+            agents.map((agent) => (
+              <div
+                key={agent.name}
+                className="flex min-w-[520px] items-center gap-3 border-b border-bl-line px-3.5 py-3 last:border-b-0"
+              >
+                <span className={`h-10 w-[3px] ${agentTone(agent.tone, agent.status === "live")}`} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-mono text-xs text-bl-bone">{agent.name}</span>
+                    <span className="border border-bl-line-2 px-1.5 py-px font-mono text-[9px] uppercase tracking-[0.16em] text-bl-bone-4">
+                      {agent.role}
+                    </span>
+                  </div>
+                  <div className="mt-1 truncate font-mono text-[10.5px] text-bl-bone-3">{agent.task}</div>
                 </div>
-                <div className="mt-1 truncate font-mono text-[10.5px] text-bl-bone-3">{agent.task}</div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="text-right font-mono">
-                  <div className="text-[9px] uppercase tracking-[0.18em] text-bl-bone-4">Seeds</div>
-                  <div className="text-sm text-bl-bone">{agent.seeds ?? "—"}</div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right font-mono">
+                    <div className="text-[9px] uppercase tracking-[0.18em] text-bl-bone-4">Seeds</div>
+                    <div className="text-sm text-bl-bone">{agent.seeds ?? "—"}</div>
+                  </div>
+                  <Chip tone={agent.status === "live" ? "signal" : "muted"}>{agent.status}</Chip>
                 </div>
-                <Chip tone={agent.status === "live" ? "signal" : "muted"}>{agent.status}</Chip>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <EmptyPanelMessage message="No worker agents have reported status yet." />
+          )}
         </Panel>
       </section>
 
@@ -157,40 +165,50 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {latestRuns.map((run) => (
-                  <RecentRunRow key={run.id} run={run} />
-                ))}
+                {latestRuns.length > 0 ? (
+                  latestRuns.map((run) => <RecentRunRow key={run.id} run={run} />)
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-bl-bone-3">
+                      No runs have completed yet.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </Panel>
 
-        <Panel watermark="// findings · open" right={<Chip tone="alarm">1 critical</Chip>} padded={false}>
-          {findings.map((finding) => (
-            <div key={finding.id} className="border-b border-bl-line px-4 py-3 last:border-b-0">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="font-mono text-xs text-bl-bone">{finding.id}</span>
-                <SeverityBadge severity={finding.severity} />
-                <Chip tone={finding.status === "open" ? "alarm" : finding.status === "fixed" ? "signal" : "muted"} className="ml-auto">
-                  {finding.status}
-                </Chip>
+        <Panel watermark="// findings · open" right={<Chip tone={openFindings > 0 ? "alarm" : "muted"}>{openFindings} open</Chip>} padded={false}>
+          {findings.length > 0 ? (
+            findings.map((finding) => (
+              <div key={finding.id} className="border-b border-bl-line px-4 py-3 last:border-b-0">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="font-mono text-xs text-bl-bone">{finding.id}</span>
+                  <SeverityBadge severity={finding.severity} />
+                  <Chip tone={finding.status === "open" ? "alarm" : finding.status === "fixed" ? "signal" : "muted"} className="ml-auto">
+                    {finding.status}
+                  </Chip>
+                </div>
+                <div className="text-sm text-bl-bone">{finding.title}</div>
+                <div className="mt-1 font-mono text-[10px] text-bl-bone-3">seed/{finding.seed}</div>
+                <p className="mt-2 text-xs text-bl-bone-2">{finding.note}</p>
               </div>
-              <div className="text-sm text-bl-bone">{finding.title}</div>
-              <div className="mt-1 font-mono text-[10px] text-bl-bone-3">seed/{finding.seed}</div>
-              <p className="mt-2 text-xs text-bl-bone-2">{finding.note}</p>
-            </div>
-          ))}
+            ))
+          ) : (
+            <EmptyPanelMessage message="No findings yet. Failed or partial judge verdicts will appear here." />
+          )}
         </Panel>
       </section>
 
       <Panel
         watermark="// threat-model coverage · THREAT_MODEL.md"
-        right={<span className="bl-watermark text-bl-bone-4">5 sections · 15 seeds · 1 deferred</span>}
+        right={<span className="bl-watermark text-bl-bone-4">{threatCoverage.length} sections</span>}
         padded={false}
         className="mb-4"
       >
         <div className="grid md:grid-cols-5">
-          {threatCoverage.map((coverage) => {
+          {threatCoverage.length > 0 ? threatCoverage.map((coverage) => {
             const pct = coverage.passRate == null ? 0 : Math.round(coverage.passRate * 100);
             const color =
               coverage.status === "deferred"
@@ -221,7 +239,11 @@ export default async function DashboardPage() {
                 </div>
               </div>
             );
-          })}
+          }) : (
+            <div className="px-4 py-8 text-center text-sm text-bl-bone-3 md:col-span-5">
+              No coverage has been measured yet.
+            </div>
+          )}
         </div>
       </Panel>
 
@@ -328,6 +350,10 @@ function TelemetryRow({ event }: { event: FeedEvent }) {
       right={<VerdictPill verdict={event.role === "alarm" ? "fail" : event.role === "signal" ? "pass" : "info"} />}
     />
   );
+}
+
+function EmptyPanelMessage({ message }: { message: string }) {
+  return <div className="px-4 py-8 text-center text-sm text-bl-bone-3">{message}</div>;
 }
 
 function RecentRunRow({ run }: { run: BoundaryRun }) {

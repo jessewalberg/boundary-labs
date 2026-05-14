@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { ulid } from "ulid";
-import type { BoundaryRun } from "@/server/campaigns/fixtures";
+import type { BoundaryRun } from "@/server/campaigns/types";
 import { getBoundaryConfig } from "@/server/config";
 import { openDatabase } from "@/server/db/client";
 import { buildEvalRunnerCommand } from "@/server/eval-runner";
@@ -49,6 +49,7 @@ export async function listStoredCampaigns() {
   const config = getBoundaryConfig();
   const dir = campaignDirectory(config.artifactDir);
   const persisted = listPersistedCampaigns();
+  if (persisted.length > 0) return persisted;
 
   try {
     const files = await readdir(dir);
@@ -134,6 +135,7 @@ export function cancelCampaign(campaignId: string, actorId: string, reason: stri
 }
 
 export function storedCampaignToRun(record: StoredCampaignRecord): BoundaryRun {
+  const allCategories = record.categories.length === 0;
   return {
     id: record.id,
     target: record.targetUrl,
@@ -142,8 +144,8 @@ export function storedCampaignToRun(record: StoredCampaignRecord): BoundaryRun {
     branch: "local-campaign",
     commit: record.id.slice(-8),
     summary: { pass: 0, fail: 0, partial: 0, invalid: 0 },
-    seedCount: record.categories.length,
-    coverage: record.categories,
+    seedCount: allCategories ? countSeedLibraryRows() : record.categories.length,
+    coverage: allCategories ? ["all"] : record.categories,
     trigger: "manual",
     status: record.status
   };
@@ -231,6 +233,9 @@ function insertQueuedCampaignRecord(record: StoredCampaignRecord) {
 
 function listPersistedCampaigns() {
   const config = getBoundaryConfig();
+  const bundledEvalFilter = process.env.BOUNDARY_INGEST_BUNDLED_EVALS === "1"
+    ? ""
+    : "WHERE artifact_path NOT LIKE '%/bundled-evals/%'";
   const db = openDatabase();
   try {
     const rows = db.prepare(`
@@ -246,6 +251,7 @@ function listPersistedCampaigns() {
         created_at AS createdAt,
         updated_at AS updatedAt
       FROM campaigns
+      ${bundledEvalFilter}
       ORDER BY created_at DESC
     `).all() as Array<{
       id: string;
@@ -295,16 +301,23 @@ function assertAllowedTarget(targetUrl: string, allowlist: string[]) {
 }
 
 function normalizeCategories(categories: string[]) {
-  const unique = Array.from(new Set(categories.map((category) => category.trim()).filter(Boolean)));
-
-  if (unique.length === 0) {
-    throw new Error("Select at least one attack category.");
-  }
-
-  return unique;
+  return Array.from(new Set(categories.map((category) => category.trim()).filter(Boolean)));
 }
 
 function clampBudget(value: number) {
   if (!Number.isFinite(value)) return 500;
   return Math.min(Math.max(Math.round(value), 100), 10000);
+}
+
+function countSeedLibraryRows() {
+  const db = openDatabase();
+  try {
+    const row = db.prepare("SELECT COUNT(*) AS count FROM seeds").get() as { count: number };
+    return row.count;
+  } catch (error) {
+    if (error instanceof Error && /no such table/.test(error.message)) return 0;
+    throw error;
+  } finally {
+    db.close();
+  }
 }

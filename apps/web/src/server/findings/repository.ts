@@ -1,4 +1,4 @@
-import { findings as fixtureFindings, type Finding } from "@/server/campaigns/fixtures";
+import type { Finding } from "@/server/campaigns/types";
 import { openDatabase } from "@/server/db/client";
 
 export function listFindings(): Finding[] {
@@ -34,7 +34,7 @@ export function listFindings(): Finding[] {
     db.close();
   }
 
-  return fixtureFindings;
+  return [];
 }
 
 export function countOpenFindings() {

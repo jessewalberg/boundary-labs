@@ -4,7 +4,7 @@ import { Activity, Plus } from "lucide-react";
 import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
 import { Button } from "@/components/ui/button";
-import type { BoundaryRun } from "@/server/campaigns/fixtures";
+import type { BoundaryRun } from "@/server/campaigns/types";
 import { listRuns } from "@/server/runs/repository";
 
 type CampaignsPageProps = {
@@ -52,15 +52,20 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
           </p>
         </div>
         <div className="flex flex-col items-start gap-2 xl:items-end">
-          <MetaLine label="Latest">
-            <Chip tone="signal">{latest.id.replace(/^mvp-/, "mvp-...")}</Chip>
-          </MetaLine>
-          <MetaLine label="Target">
-            <Chip>{latest.target.replace(/^https?:\/\//, "").replace(/\/$/, "")}</Chip>
-          </MetaLine>
-          <MetaLine label="Health">
-            <Chip tone="signal">healthz · readyz ok</Chip>
-          </MetaLine>
+          {latest ? (
+            <>
+              <MetaLine label="Latest">
+                <Chip tone="signal">{latest.id}</Chip>
+              </MetaLine>
+              <MetaLine label="Target">
+                <Chip>{latest.target.replace(/^https?:\/\//, "").replace(/\/$/, "")}</Chip>
+              </MetaLine>
+            </>
+          ) : (
+            <MetaLine label="Latest">
+              <Chip tone="amber">none</Chip>
+            </MetaLine>
+          )}
           <Button asChild variant="secondary" className="mt-1">
             <Link href="/campaigns/new">
               <Plus size={12} aria-hidden="true" /> New campaign
@@ -121,9 +126,15 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
             </tr>
           </thead>
           <tbody>
-            {visibleRuns.map((run) => (
-              <RunsTableRow key={run.id} run={run} />
-            ))}
+            {visibleRuns.length > 0 ? (
+              visibleRuns.map((run) => <RunsTableRow key={run.id} run={run} />)
+            ) : (
+              <tr>
+                <td colSpan={9} className="px-4 py-8 text-center text-sm text-bl-bone-3">
+                  No runs yet. Queue a campaign to test the worker and artifact flow.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </Panel>

@@ -59,7 +59,17 @@ export function ingestArtifact(artifact: RunArtifact, artifactPath: string, db: 
         @id, @target_url, @categories_json, 'completed', 'synthetic', 0, 'artifact_ingest',
         @artifact_path, @created_at, @updated_at
       )
-      ON CONFLICT(id) DO NOTHING
+      ON CONFLICT(id) DO UPDATE SET
+        target_url = excluded.target_url,
+        categories_json = excluded.categories_json,
+        status = 'completed',
+        artifact_path = excluded.artifact_path,
+        updated_at = excluded.updated_at
+      WHERE campaigns.target_url <> excluded.target_url
+        OR campaigns.categories_json <> excluded.categories_json
+        OR campaigns.status <> 'completed'
+        OR campaigns.artifact_path <> excluded.artifact_path
+        OR campaigns.updated_at <> excluded.updated_at
     `).run({
       id: artifact.run_id,
       target_url: artifact.target_url,
@@ -137,7 +147,6 @@ function ingestResult(
   const category = normalizeCategory(result.category);
   const severity = normalizeSeverity(result.judge_agent.severity);
   const firstTurn = result.attempt.turns[0];
-  const responseBody = typeof firstTurn?.http?.body === "string" ? firstTurn.http.body : "";
   const promptHash = crypto.createHash("sha256").update(firstTurn?.input ?? result.case_id).digest("hex");
 
   inserted.attempts += db.prepare(`
@@ -165,7 +174,7 @@ function ingestResult(
     INSERT INTO verdicts (
       id, run_id, case_id, status, severity, rationale, judge_model, created_at
     ) VALUES (
-      @id, @run_id, @case_id, @status, @severity, @rationale, 'deterministic', @created_at
+      @id, @run_id, @case_id, @status, @severity, @rationale, @judge_model, @created_at
     )
     ON CONFLICT(run_id, case_id) DO NOTHING
   `).run({
@@ -175,6 +184,7 @@ function ingestResult(
     status: result.judge_agent.status,
     severity,
     rationale: result.judge_agent.rationale ?? null,
+    judge_model: result.judge_agent.execution_mode ?? "deterministic",
     created_at: now
   }).changes;
 
@@ -212,10 +222,6 @@ function ingestResult(
         ON CONFLICT(finding_id, attempt_id) DO NOTHING
       `).run(finding.id, result.attempt.attempt_id, now);
     }
-  }
-
-  if (responseBody.length > 0) {
-    // The full response remains in the artifact. The DB stores only path pointers.
   }
 }
 

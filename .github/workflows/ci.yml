@@ -70,4 +70,15 @@ jobs:
       - name: Test worker and Safety Gate parity
         run: |
           python -m unittest discover worker/tests
-          python -m py_compile worker/*.py worker/graphs/*.py worker/fallback/*.py scripts/run_mvp_evals.py
+          python -m py_compile worker/*.py worker/graphs/*.py worker/fallback/*.py scripts/*.py
+
+      - name: Proof campaign runner smoke
+        run: |
+          python scripts/run_proof_campaign.py \
+            --bootstrap \
+            --mock-target \
+            --allow-deterministic \
+            --timeout-seconds 2 \
+            --output-file proof-smoke-output.json
+          python -c 'import json, pathlib; output = json.load(open("proof-smoke-output.json")); assert pathlib.Path(output["sqlite_path"]).exists(); assert pathlib.Path(output["artifact"]).exists(); print(output["artifact"])' > proof-smoke-artifact-path.txt
+          python scripts/verify_campaign_artifact.py --allow-deterministic "$(cat proof-smoke-artifact-path.txt)"

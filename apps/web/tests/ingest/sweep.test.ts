@@ -28,4 +28,41 @@ describe("artifact ingest sweep", () => {
       failed: 0
     });
   });
+
+  it("skips campaign metadata artifacts", () => {
+    const context = createSafetyGateContext("boundary-sweep-campaigns-");
+    process.env.SQLITE_PATH = context.sqlitePath;
+    process.env.BOUNDARY_ARTIFACT_DIR = path.join(context.root, "artifacts");
+    const campaignsDir = path.join(process.env.BOUNDARY_ARTIFACT_DIR, "campaigns");
+    fs.mkdirSync(campaignsDir, { recursive: true });
+    runDatabaseBootstrap(context);
+    fs.writeFileSync(path.join(campaignsDir, "campaign-1.json"), JSON.stringify({
+      id: "campaign-1",
+      status: "queued"
+    }), "utf8");
+
+    expect(sweepArtifactIngest(process.env.BOUNDARY_ARTIFACT_DIR)).toMatchObject({
+      scanned: 0,
+      ingested: 0,
+      failed: 0
+    });
+  });
+
+  it("skips pydantic graph history artifacts", () => {
+    const context = createSafetyGateContext("boundary-sweep-graph-history-");
+    process.env.SQLITE_PATH = context.sqlitePath;
+    process.env.BOUNDARY_ARTIFACT_DIR = path.join(context.root, "artifacts");
+    const runDir = path.join(process.env.BOUNDARY_ARTIFACT_DIR, "runs", "run-graph");
+    fs.mkdirSync(runDir, { recursive: true });
+    runDatabaseBootstrap(context);
+    fs.writeFileSync(path.join(runDir, "run-graph.graph.json"), JSON.stringify([
+      { kind: "node", status: "success" }
+    ]), "utf8");
+
+    expect(sweepArtifactIngest(process.env.BOUNDARY_ARTIFACT_DIR)).toMatchObject({
+      scanned: 0,
+      ingested: 0,
+      failed: 0
+    });
+  });
 });

@@ -2,17 +2,22 @@
 
 Boundary Labs is the Week 3 adversarial evaluation workspace for the OpenEMR Clinical Co-Pilot. It is a separate security app/harness that targets the Clinical Co-Pilot over authorized HTTP/SSE interfaces instead of importing target code.
 
-## MVP Status
+## Current Status
 
-MVP hard gates covered in this repo:
+Boundary now has the Pydantic Graph worker, persisted console state, email/password auth, provider preflight checks, strict proof artifact verification, and readiness audit gates in-repo. Final provider-backed demo readiness is intentionally **not** satisfied until live provider secrets are configured and a real proof campaign artifact passes `verify:readiness` and `audit:readiness`.
+
+Implemented gates covered in this repo:
 
 - `THREAT_MODEL.md` maps the Clinical Co-Pilot attack surface and begins with the required executive summary.
 - `ARCHITECTURE.md` defines the multi-agent platform architecture and agent responsibilities.
 - `evals/` contains structured adversarial seeds across prompt injection, authorization/data exposure, and tool misuse.
-- `scripts/run_mvp_evals.py` prototypes Red Team and Judge roles against a live target and writes reproducible results.
-- `evals/results/latest.json` contains the latest live run artifact.
+- `scripts/check_pydantic_evals.py` bridges the full seed corpus into a Pydantic Evals `Dataset` for CI-friendly corpus validation.
+- `worker/graphs/campaign.py` runs campaigns through the complete Pydantic Graph chain: safety gate, coverage scoring, orchestrator, red team, target execution, judge, documentation, and artifact write.
+- `worker/llm_provider.py` wires Pydantic AI agents for orchestrator, red team, judge, and documentation when `BOUNDARY_ENABLE_LLM_AGENTS=1` and provider API keys are present.
+- `scripts/run_proof_campaign.py` runs the worker path and verifies the generated artifact against the full seed corpus.
+- `scripts/verify_system.py --readiness` and `scripts/audit_readiness.py` are the final gates for provider-backed readiness.
 
-Latest recorded run:
+Latest deterministic MVP run, kept only as historical evidence:
 
 - Run ID: `mvp-20260512-204402`
 - Target exercised: `https://clinical-copilot.up.railway.app`
@@ -20,6 +25,8 @@ Latest recorded run:
 - Deployed Co-Pilot URL: `https://clinical-copilot.up.railway.app`
 - Deployed Co-Pilot `/healthz`: ok
 - Deployed Co-Pilot `/readyz`: ok with FHIR, audit, LLM, and ingest polling checks passing
+
+That MVP artifact is not provider-backed proof for the current graph system.
 
 ## Target URLs
 
@@ -43,9 +50,9 @@ Deployment changes made to bring the target into a testable MVP state:
   `OPENEMR_FHIR_TIMEOUT_SECONDS` instead of the old hard-coded 1.5 second FHIR metadata timeout.
 - Left browser/OAuth-facing URLs public so SMART launch still uses `https://everybody-loves-healthcare.up.railway.app`.
 
-## Run The MVP Evals
+## Run Legacy MVP Evals
 
-Preferred authenticated path: launch Clinical Co-Pilot from OpenEMR, copy the `copilot_smart_session` cookie from the browser, then run:
+The legacy runner is still useful for direct target smoke checks, but it is not the final Boundary readiness path. Preferred authenticated path: launch Clinical Co-Pilot from OpenEMR, copy the `copilot_smart_session` cookie from the browser, then run:
 
 ```bash
 python3 scripts/run_mvp_evals.py \
@@ -65,7 +72,7 @@ BOUNDARY_SMART_SESSION_SECRET="<local-dev-session-secret>" \
   --timeout-seconds 45
 ```
 
-The runner writes `evals/results/<run_id>.json` and updates `evals/results/latest.json`.
+The legacy runner writes `evals/results/<run_id>.json` and updates `evals/results/latest.json`. Use `scripts/run_proof_campaign.py` plus `verify:readiness` for current provider-backed proof.
 
 ## Run The Boundary Web Console
 
@@ -83,7 +90,9 @@ Useful routes:
 
 - `GET /healthz` returns app liveness.
 - `GET /readyz` checks local state paths and console configuration.
-- `/dashboard` renders the protected-shell placeholder that U2 will wire to Better Auth.
+- `/dashboard` renders the authenticated persisted console dashboard.
+- `/campaigns/new` queues a campaign job for the worker graph.
+- `/agents` and `/readyz` expose provider/worker readiness state without printing secrets.
 - `/design-system` keeps the U0 visual reference surface available.
 
 Optional local config lives in `apps/web/.env.example`:
@@ -94,6 +103,130 @@ BOUNDARY_ARTIFACT_DIR=./var/artifacts
 BOUNDARY_TARGET_URL=https://clinical-copilot.up.railway.app
 BOUNDARY_TARGET_ALLOWLIST=https://clinical-copilot.up.railway.app,http://localhost:8400
 BOUNDARY_EVAL_RUNNER=scripts/run_mvp_evals.py
+BOUNDARY_MINT_SYNTHETIC_SESSION=0
+# BOUNDARY_SMART_SESSION_SECRET=<target SESSION_SECRET for local synthetic SMART testing>
+# Must equal 1 for provider-backed proof. Any other value is treated as disabled.
+BOUNDARY_ENABLE_LLM_AGENTS=0
+# OPENROUTER_API_KEY=<openrouter-provider-key>
+BOUNDARY_REQUIRED_LLM_PROVIDERS=openrouter
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+BETTER_AUTH_URL=http://localhost:3000
+BETTER_AUTH_SECRET=boundary-labs-local-development-secret-change-before-production
+BOUNDARY_OWNER_EMAIL=owner@example.com
+BOUNDARY_OPERATOR_EMAIL_ALLOWLIST=owner@example.com
+```
+
+The worker runs campaigns through `pydantic_graph`. LLM agent hooks use `pydantic_ai.Agent` only when `BOUNDARY_ENABLE_LLM_AGENTS=1` and `OPENROUTER_API_KEY` is present. All agent traffic is routed through OpenRouter via Pydantic AI's OpenAI-compatible adapter, using `OPENROUTER_BASE_URL` and OpenRouter model IDs. The default model is `google/gemini-2.5-flash`; set `BOUNDARY_RED_TEAM_MODEL`, `BOUNDARY_ORCHESTRATOR_MODEL`, `BOUNDARY_JUDGE_MODEL`, and `BOUNDARY_DOCUMENTATION_MODEL` to explicit OpenRouter model IDs when you want a different production allowlist. Without the enable flag and key, the graph records `deterministic-fallback` in the artifact. Each run artifact also includes `pydantic_graph.agent_connections` so operators can see whether each agent was `disabled`, `missing_secret`, `executed`, or `failed`.
+
+The seed library is also checked through Pydantic Evals:
+
+```bash
+pnpm check:pydantic-evals
+```
+
+This builds a `pydantic_evals.Dataset` from every case in `evals/seeds`,
+checks required fields and duplicate IDs, and evaluates the full corpus.
+
+To prove provider-backed agents are connected, run:
+
+```bash
+BOUNDARY_ENABLE_LLM_AGENTS=1 \
+BOUNDARY_REQUIRED_LLM_PROVIDERS=openrouter \
+OPENROUTER_API_KEY="..." \
+pnpm check:llm-agents -- --sqlite-path apps/web/var/boundary.db
+```
+
+The command exits non-zero until every configured role returns `executed`.
+To preflight local env, GitHub `demo` secrets, and Railway runtime config
+without printing secret values, run:
+
+```bash
+pnpm check:provider-proof -- --github-env demo
+```
+
+The Railway project, service, and environment default from
+`RAILWAY_PROJECT_ID`, `RAILWAY_SERVICE_ID`, and `RAILWAY_ENVIRONMENT`; pass
+explicit `--railway-*` flags to override them. Add
+`--no-mint-synthetic-session` only for proof runs that will not mint SMART
+sessions.
+
+To verify the full system gate, including worker tests, web tests, typecheck,
+build, provider runtime env, provider-backed agent connectivity, and a proof
+campaign artifact, run:
+
+```bash
+pnpm verify:readiness -- \
+  --sqlite-path /path/to/proof-boundary.db \
+  --artifact-path /path/to/completed-campaign.json \
+  --expected-target-origin https://clinical-copilot.up.railway.app
+```
+
+The proof artifact must cover the complete seed library and include
+`pydantic_graph.agent_connections` with `executed` status for orchestrator,
+red team, judge, and documentation roles. Each result must also include
+provider-backed red team and judge metadata: `provider_status: executed`,
+`execution_mode` beginning with `pydantic-ai:`, non-empty provider output, and
+`red_team_agent.provider_decision: applied` plus
+`judge_agent.provider_decision: applied` for every case.
+The artifact must also include non-empty `agent_notes` for orchestrator,
+red team, judge, and documentation.
+Use `--skip-llm` or `--skip-artifact` only for local development checks; those
+skips do not satisfy the provider-backed demo readiness gate.
+`verify:readiness` refuses skip flags, missing provider runtime env, localhost
+proof targets, and missing proof DB/artifact/target-origin inputs.
+For a machine-readable checklist of the same objective, run:
+
+```bash
+pnpm audit:readiness -- \
+  --sqlite-path /path/to/proof-boundary.db \
+  --artifact-path /path/to/completed-campaign.json \
+  --expected-target-origin https://clinical-copilot.up.railway.app
+```
+
+The audit includes the same live provider connectivity requirement: every
+configured Pydantic AI role must execute, not merely have an API key present.
+
+To generate the proof artifact through the worker path, run a full proof campaign:
+
+```bash
+BOUNDARY_ENABLE_LLM_AGENTS=1 \
+BOUNDARY_REQUIRED_LLM_PROVIDERS=openrouter \
+OPENROUTER_API_KEY="..." \
+BOUNDARY_SMART_SESSION_SECRET="<target-session-secret-if-minting>" \
+python scripts/run_proof_campaign.py \
+  --bootstrap \
+  --target-url https://clinical-copilot.up.railway.app \
+  --mint-synthetic-session
+```
+
+The command prints the artifact path when verification passes.
+For local or Railway runtime checks, `SECURITY_SMART_SESSION_SECRET` or
+`BOUNDARY_SMART_SESSION_SECRET_FILE` can satisfy the same SMART session secret
+requirement. The GitHub proof workflow maps the environment secret into
+`BOUNDARY_SMART_SESSION_SECRET`.
+Without `--allow-deterministic`, it first runs a provider-backed agent preflight
+against the bootstrapped `agent_provider_*` policy rows and exits before touching
+the target unless all configured agent roles execute. When `--output-file` is
+provided, the JSON includes both `sqlite_path` and `artifact`; pass both to
+`pnpm verify:readiness` with the emitted `target_origin` so the final gate checks
+the same policy rows and target origin that produced the proof artifact.
+`--mock-target` is only accepted with `--allow-deterministic`; provider-backed
+proof must exercise a real authorized target origin.
+
+The same provider-backed proof can be run from GitHub Actions with the
+`Provider Proof Campaign` workflow. It is `workflow_dispatch` only and requires
+`OPENROUTER_API_KEY` and, when synthetic SMART minting is enabled,
+`BOUNDARY_SMART_SESSION_SECRET` environment secrets.
+
+For an offline proof-runner smoke test that does not satisfy the LLM readiness
+gate, use the built-in mock target:
+
+```bash
+python scripts/run_proof_campaign.py \
+  --bootstrap \
+  --mock-target \
+  --allow-deterministic \
+  --timeout-seconds 2
 ```
 
 ## Run The Single-Container Stack
@@ -117,6 +250,7 @@ curl -sS http://localhost:3000/readyz
 ```
 
 Worker troubleshooting lives in `docs/runbooks/worker-troubleshooting.md`.
+Provider-backed proof campaign setup lives in `docs/runbooks/provider-proof-campaign.md`.
 
 ## Target Setup
 

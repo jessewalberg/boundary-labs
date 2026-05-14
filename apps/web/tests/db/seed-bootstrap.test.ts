@@ -26,6 +26,16 @@ describe("seed bootstrap", () => {
       severity: "critical"
     });
     expect(db.prepare("SELECT COUNT(*) AS count FROM seed_versions").get()).toMatchObject({ count: 4 });
+    expect(
+      db.prepare("SELECT value_json FROM policy_values WHERE key = 'agent_provider_red_team'").get()
+    ).toMatchObject({
+      value_json: "\"openrouter\""
+    });
+    expect(
+      db.prepare("SELECT value_json FROM policy_values WHERE key = 'agent_provider_judge'").get()
+    ).toMatchObject({
+      value_json: "\"openrouter\""
+    });
     expect(db.prepare("SELECT COUNT(*) AS count FROM audit_events WHERE action = 'seed_library_file_skipped'").get()).toMatchObject({
       count: 1
     });
