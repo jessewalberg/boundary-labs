@@ -6,7 +6,6 @@ export type BoundaryConfig = {
   artifactDir: string;
   workerHeartbeatPath: string;
   targetUrl: string;
-  targetAllowlist: string[];
   evalRunnerPath: string;
   betterAuthUrl?: string;
   betterAuthSecret: string;
@@ -31,9 +30,6 @@ export function getBoundaryConfig(): BoundaryConfig {
       process.env.BOUNDARY_WORKER_HEARTBEAT_PATH ?? path.join(dataRoot, "worker.heartbeat"),
     targetUrl:
       process.env.BOUNDARY_TARGET_URL ?? "https://clinical-copilot.up.railway.app",
-    targetAllowlist: parseList(
-      process.env.BOUNDARY_TARGET_ALLOWLIST ?? "https://clinical-copilot.up.railway.app"
-    ),
     evalRunnerPath: process.env.BOUNDARY_EVAL_RUNNER ?? path.join("scripts", "run_mvp_evals.py"),
     betterAuthUrl: process.env.BETTER_AUTH_URL ?? getDefaultAuthUrl(),
     betterAuthSecret:

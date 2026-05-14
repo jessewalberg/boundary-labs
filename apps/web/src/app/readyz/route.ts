@@ -36,7 +36,6 @@ export async function GET() {
       policyBootstrap,
       agentProviders,
       targetUrl: config.targetUrl,
-      targetAllowlistCount: config.targetAllowlist.length,
       evalRunnerPath: config.evalRunnerPath,
       dataMode: config.dataMode
     }

@@ -1,4 +1,4 @@
-import { CircleDollarSign, Crosshair, Play, ShieldCheck } from "lucide-react";
+import { CircleDollarSign, Crosshair, KeyRound, Play, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
@@ -42,7 +42,7 @@ export default function NewCampaignPage() {
           <div className="bl-eyebrow">// campaign · launch</div>
           <h1 className="bl-h1 mt-2 uppercase">New campaign</h1>
           <p className="mt-2 max-w-[760px] text-sm leading-6 text-bl-bone-2">
-            Queue a synthetic evaluation artifact for an allowlisted target. This records the exact
+            Queue a synthetic evaluation artifact for an operator-entered target. This records the exact
             runner command and campaign intent for autonomous execution.
           </p>
         </div>
@@ -53,7 +53,7 @@ export default function NewCampaignPage() {
       </section>
 
       <form action={queueCampaign} className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
-        <Panel watermark="// target · allowlisted" right={<Chip tone="signal">ready</Chip>}>
+        <Panel watermark="// target · operator supplied" right={<Chip tone="signal">ready</Chip>}>
           <label className="block">
             <span className="bl-watermark text-bl-bone-3">Target URL</span>
             <Input
@@ -64,7 +64,7 @@ export default function NewCampaignPage() {
             />
           </label>
           <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-bl-bone-4">
-            allowlist · {config.targetAllowlist.join(", ")}
+            accepts any operator-entered http(s) target
           </div>
         </Panel>
 
@@ -85,6 +85,66 @@ export default function NewCampaignPage() {
           <div className="mt-3 flex items-center gap-2 font-mono text-[10px] text-bl-bone-3">
             <CircleDollarSign size={12} aria-hidden="true" />
             Stored on artifact now; enforced by runner later.
+          </div>
+        </Panel>
+
+        <Panel watermark="// auth · openemr" right={<Chip tone="cyan">optional</Chip>} className="xl:col-span-2">
+          <label className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.1em] text-bl-bone">
+            <input
+              type="checkbox"
+              name="acquireSmartSession"
+              defaultChecked
+              className="h-3.5 w-3.5 accent-[var(--bl-signal)]"
+            />
+            <KeyRound size={13} aria-hidden="true" /> Acquire SMART session before attack
+          </label>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <label className="block">
+              <span className="bl-watermark text-bl-bone-3">OpenEMR URL</span>
+              <Input
+                name="openemrUrl"
+                defaultValue={process.env.BOUNDARY_OPENEMR_URL ?? ""}
+                placeholder="saved Railway value"
+                className="mt-2 h-9 bg-bl-trough font-mono text-xs"
+              />
+            </label>
+            <label className="block">
+              <span className="bl-watermark text-bl-bone-3">Site</span>
+              <Input
+                name="openemrSite"
+                defaultValue={process.env.BOUNDARY_OPENEMR_SITE ?? "default"}
+                className="mt-2 h-9 bg-bl-trough font-mono text-xs"
+              />
+            </label>
+            <label className="block">
+              <span className="bl-watermark text-bl-bone-3">Username</span>
+              <Input
+                name="openemrUsername"
+                defaultValue={process.env.BOUNDARY_OPENEMR_USERNAME ?? ""}
+                placeholder="saved Railway value"
+                className="mt-2 h-9 bg-bl-trough font-mono text-xs"
+              />
+            </label>
+            <label className="block">
+              <span className="bl-watermark text-bl-bone-3">Patient PID</span>
+              <Input
+                name="openemrPatientPid"
+                type="number"
+                min={1}
+                step={1}
+                defaultValue={process.env.BOUNDARY_OPENEMR_PATIENT_PID ?? "13"}
+                className="mt-2 h-9 bg-bl-trough font-mono text-xs"
+              />
+            </label>
+            <label className="block md:col-span-2 xl:col-span-4">
+              <span className="bl-watermark text-bl-bone-3">Password override</span>
+              <Input
+                name="openemrPassword"
+                type="password"
+                placeholder="leave blank to use saved Railway secret"
+                className="mt-2 h-9 bg-bl-trough font-mono text-xs"
+              />
+            </label>
           </div>
         </Panel>
 
@@ -132,7 +192,7 @@ export default function NewCampaignPage() {
           </div>
           <div className="mt-4 grid gap-2 border-t border-bl-line pt-3 md:grid-cols-3">
             <Guardrail icon={<ShieldCheck size={13} aria-hidden="true" />} label="Policy" value="campaign:create" />
-            <Guardrail icon={<Crosshair size={13} aria-hidden="true" />} label="Target" value="allowlist enforced" />
+            <Guardrail icon={<Crosshair size={13} aria-hidden="true" />} label="Target" value="operator supplied" />
             <Guardrail icon={<Play size={13} aria-hidden="true" />} label="Execution" value="worker graph" />
           </div>
         </Panel>

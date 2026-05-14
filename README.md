@@ -101,7 +101,6 @@ Optional local config lives in `apps/web/.env.example`:
 SQLITE_PATH=./var/boundary.db
 BOUNDARY_ARTIFACT_DIR=./var/artifacts
 BOUNDARY_TARGET_URL=https://clinical-copilot.up.railway.app
-BOUNDARY_TARGET_ALLOWLIST=https://clinical-copilot.up.railway.app,http://localhost:8400
 BOUNDARY_EVAL_RUNNER=scripts/run_mvp_evals.py
 BOUNDARY_OPENEMR_URL=http://localhost:8300
 BOUNDARY_OPENEMR_USERNAME=admin

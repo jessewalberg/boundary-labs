@@ -11,14 +11,19 @@ describe("authenticated campaign launch persistence", () => {
     const context = createBootstrapContext();
     process.env.SQLITE_PATH = context.sqlitePath;
     process.env.BOUNDARY_ARTIFACT_DIR = path.join(context.root, "artifacts");
-    process.env.BOUNDARY_TARGET_ALLOWLIST = "https://clinical-copilot.up.railway.app";
     runDatabaseBootstrap(context);
 
     const campaign = await createQueuedCampaign({
-      targetUrl: "https://clinical-copilot.up.railway.app",
+      targetUrl: "https://operator-target.example/app",
       categories: ["authorization", "prompt-injection"],
       budgetCents: 500,
-      requestedBy: "operator-1"
+      requestedBy: "operator-1",
+      acquireSmartSession: true,
+      openemrUrl: "https://openemr.example",
+      openemrSite: "default",
+      openemrUsername: "pentest",
+      openemrPassword: "secret",
+      openemrPatientPid: 13
     });
 
     const db = new Database(context.sqlitePath);
@@ -28,6 +33,19 @@ describe("authenticated campaign launch persistence", () => {
     });
     expect(db.prepare("SELECT COUNT(*) AS count FROM campaign_jobs WHERE campaign_id = ?").get(campaign.id)).toMatchObject({
       count: 1
+    });
+    expect(db.prepare("SELECT payload_json FROM campaign_jobs WHERE campaign_id = ?").get(campaign.id)).toMatchObject({
+      payload_json: JSON.stringify({
+        targetUrl: "https://operator-target.example/app",
+        categories: ["authorization", "prompt-injection"],
+        budgetCents: 500,
+        acquireSmartSession: true,
+        openemrUrl: "https://openemr.example",
+        openemrSite: "default",
+        openemrUsername: "pentest",
+        openemrPassword: "secret",
+        openemrPatientPid: 13
+      })
     });
     expect(db.prepare("SELECT action FROM audit_events WHERE target_id = ?").get(campaign.id)).toMatchObject({
       action: "campaign:create"
@@ -39,7 +57,6 @@ describe("authenticated campaign launch persistence", () => {
     const context = createBootstrapContext();
     process.env.SQLITE_PATH = context.sqlitePath;
     process.env.BOUNDARY_ARTIFACT_DIR = path.join(context.root, "artifacts");
-    process.env.BOUNDARY_TARGET_ALLOWLIST = "https://clinical-copilot.up.railway.app";
     runDatabaseBootstrap(context);
 
     const campaign = await createQueuedCampaign({
@@ -57,7 +74,8 @@ describe("authenticated campaign launch persistence", () => {
       payload_json: JSON.stringify({
         targetUrl: "https://clinical-copilot.up.railway.app",
         categories: [],
-        budgetCents: 500
+        budgetCents: 500,
+        acquireSmartSession: false
       })
     });
     db.close();

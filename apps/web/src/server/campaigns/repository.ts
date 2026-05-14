@@ -12,11 +12,22 @@ type CreateCampaignInput = {
   categories: string[];
   budgetCents: number;
   requestedBy: string;
+  acquireSmartSession?: boolean;
+  openemrUrl?: string;
+  openemrSite?: string;
+  openemrUsername?: string;
+  openemrPassword?: string;
+  openemrPatientPid?: number;
 };
 
 export async function createQueuedCampaign(input: CreateCampaignInput) {
   const config = getBoundaryConfig();
-  const targetUrl = assertAllowedTarget(input.targetUrl, config.targetAllowlist);
+  const targetUrl = normalizeTargetUrl(input.targetUrl);
+  const openemrUrl = normalizeOptionalUrl(input.openemrUrl);
+  const openemrSite = normalizeOptionalText(input.openemrSite);
+  const openemrUsername = normalizeOptionalText(input.openemrUsername);
+  const openemrPassword = normalizeOptionalText(input.openemrPassword);
+  const openemrPatientPid = normalizeOptionalPositiveInt(input.openemrPatientPid);
   const categories = normalizeCategories(input.categories);
   const now = new Date().toISOString();
   const id = ulid();
@@ -33,11 +44,22 @@ export async function createQueuedCampaign(input: CreateCampaignInput) {
     createdAt: now,
     updatedAt: now,
     requestedBy: input.requestedBy,
+    openemrUrl,
+    openemrSite,
+    openemrUsername,
+    openemrPatientPid,
     artifactPath,
     runnerCommand
   };
 
-  insertQueuedCampaignRecord(record);
+  insertQueuedCampaignRecord(record, {
+    acquireSmartSession: Boolean(input.acquireSmartSession),
+    openemrUrl,
+    openemrSite,
+    openemrUsername,
+    openemrPassword,
+    openemrPatientPid
+  });
 
   await mkdir(campaignDirectory(config.artifactDir), { recursive: true });
   await writeFile(artifactPath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
@@ -160,7 +182,17 @@ function campaignDirectory(artifactDir: string) {
   return path.join(artifactDir, "campaigns");
 }
 
-function insertQueuedCampaignRecord(record: StoredCampaignRecord) {
+function insertQueuedCampaignRecord(
+  record: StoredCampaignRecord,
+  jobOptions: {
+    acquireSmartSession: boolean;
+    openemrUrl?: string;
+    openemrSite?: string;
+    openemrUsername?: string;
+    openemrPassword?: string;
+    openemrPatientPid?: number;
+  } = { acquireSmartSession: false }
+) {
   const db = openDatabase();
   const insert = db.transaction(() => {
     db.prepare(`
@@ -197,7 +229,13 @@ function insertQueuedCampaignRecord(record: StoredCampaignRecord) {
       payload_json: JSON.stringify({
         targetUrl: record.targetUrl,
         categories: record.categories,
-        budgetCents: record.budgetCents
+        budgetCents: record.budgetCents,
+        acquireSmartSession: jobOptions.acquireSmartSession,
+        ...(jobOptions.openemrUrl ? { openemrUrl: jobOptions.openemrUrl } : {}),
+        ...(jobOptions.openemrSite ? { openemrSite: jobOptions.openemrSite } : {}),
+        ...(jobOptions.openemrUsername ? { openemrUsername: jobOptions.openemrUsername } : {}),
+        ...(jobOptions.openemrPassword ? { openemrPassword: jobOptions.openemrPassword } : {}),
+        ...(jobOptions.openemrPatientPid ? { openemrPatientPid: jobOptions.openemrPatientPid } : {})
       }),
       created_at: record.createdAt,
       updated_at: record.updatedAt
@@ -289,15 +327,30 @@ function listPersistedCampaigns() {
   }
 }
 
-function assertAllowedTarget(targetUrl: string, allowlist: string[]) {
+function normalizeTargetUrl(targetUrl: string) {
   const parsedTarget = new URL(targetUrl);
-  const allowed = allowlist.some((candidate) => new URL(candidate).origin === parsedTarget.origin);
-
-  if (!allowed) {
-    throw new Error("Target URL is not in BOUNDARY_TARGET_ALLOWLIST.");
+  if (!["http:", "https:"].includes(parsedTarget.protocol)) {
+    throw new Error("Target URL must use http or https.");
   }
 
   return parsedTarget.toString().replace(/\/$/, "");
+}
+
+function normalizeOptionalUrl(value: string | undefined) {
+  const trimmed = normalizeOptionalText(value);
+  if (!trimmed) return undefined;
+  return normalizeTargetUrl(trimmed);
+}
+
+function normalizeOptionalText(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function normalizeOptionalPositiveInt(value: number | undefined) {
+  if (!Number.isFinite(value)) return undefined;
+  const normalized = Math.trunc(Number(value));
+  return normalized > 0 ? normalized : undefined;
 }
 
 function normalizeCategories(categories: string[]) {

@@ -15,12 +15,19 @@ export async function queueCampaign(formData: FormData) {
   const targetUrl = String(formData.get("targetUrl") ?? "");
   const categories = formData.getAll("categories").map(String);
   const budgetCents = Number(formData.get("budgetCents") ?? 500);
+  const openemrPatientPid = Number(formData.get("openemrPatientPid") ?? 0);
 
   const campaign = await createQueuedCampaign({
     targetUrl,
     categories,
     budgetCents,
-    requestedBy: currentOperator.id
+    requestedBy: currentOperator.id,
+    acquireSmartSession: formData.get("acquireSmartSession") === "on",
+    openemrUrl: String(formData.get("openemrUrl") ?? ""),
+    openemrSite: String(formData.get("openemrSite") ?? ""),
+    openemrUsername: String(formData.get("openemrUsername") ?? ""),
+    openemrPassword: String(formData.get("openemrPassword") ?? ""),
+    openemrPatientPid: Number.isFinite(openemrPatientPid) && openemrPatientPid > 0 ? openemrPatientPid : undefined
   });
 
   redirect(`/campaigns/${campaign.id}`);

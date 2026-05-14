@@ -19,8 +19,8 @@ export default function TargetsPage() {
           <div className="bl-eyebrow">// system · target boundary</div>
           <h1 className="bl-h1 mt-2 uppercase">Targets</h1>
           <p className="mt-2 max-w-[780px] text-sm leading-6 text-bl-bone-2">
-            Read-only target inventory for the Clinical Co-Pilot and its adapter seams. The API
-            should eventually own health polling, allowlist changes, and adapter evidence capture.
+            Read-only target inventory for the default Clinical Co-Pilot adapter. Campaign launch
+            accepts operator-entered http(s) targets at run time.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -49,7 +49,6 @@ export default function TargetsPage() {
             <Crosshair size={22} className="mb-4 text-bl-bone-3" aria-hidden="true" />
             <div className="grid gap-3 font-mono text-[11px] text-bl-bone-2">
               <Row label="target_url" value={config.targetUrl} />
-              <Row label="allowlist" value={config.targetAllowlist.join(", ")} />
               <Row label="artifact_dir" value={config.artifactDir} />
               <Row label="sqlite_path" value={config.sqlitePath} />
               <Row label="eval_runner" value={config.evalRunnerPath} />

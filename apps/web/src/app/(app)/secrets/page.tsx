@@ -12,8 +12,7 @@ export default function SecretsPage() {
     { name: "OPENROUTER_API_KEY", scope: "worker", configured: config.workerSecrets.openrouterApiKeyConfigured, unlocks: "OpenRouter agent provider" },
     { name: "SQLITE_PATH", scope: "runtime", configured: Boolean(config.sqlitePath), unlocks: "persistent local database path" },
     { name: "BOUNDARY_ARTIFACT_DIR", scope: "runtime", configured: Boolean(config.artifactDir), unlocks: "campaign artifacts and eval output" },
-    { name: "BOUNDARY_TARGET_URL", scope: "runtime", configured: Boolean(config.targetUrl), unlocks: "default target adapter URL" },
-    { name: "BOUNDARY_TARGET_ALLOWLIST", scope: "runtime", configured: config.targetAllowlist.length > 0, unlocks: "target launch allowlist" }
+    { name: "BOUNDARY_TARGET_URL", scope: "runtime", configured: Boolean(config.targetUrl), unlocks: "default target adapter URL" }
   ];
 
   return (

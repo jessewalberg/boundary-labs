@@ -110,6 +110,10 @@ export type StoredCampaignRecord = CampaignRecord & {
   createdAt: string;
   updatedAt: string;
   requestedBy: string;
+  openemrUrl?: string;
+  openemrSite?: string;
+  openemrUsername?: string;
+  openemrPatientPid?: number;
   artifactPath: string;
   runnerCommand: {
     scriptPath: string;

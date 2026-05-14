@@ -87,9 +87,11 @@ def process_job(sqlite_path: Path, artifact_dir: Path, job_id: str, run_id: str,
         return
 
     target_url = resolve_target_url(payload)
-    if not target_is_allowed(target_url):
-        write_failed(paths, "target_not_allowlisted", {"targetUrl": target_url})
-        mark_job_failed(sqlite_path, job_id, reason="target_not_allowlisted", claim_token=claim_token)
+    try:
+        origin(target_url)
+    except ValueError as exc:
+        write_failed(paths, "invalid_target_url", {"targetUrl": target_url, "error": str(exc)})
+        mark_job_failed(sqlite_path, job_id, reason="invalid_target_url", claim_token=claim_token)
         return
 
     timeout_seconds = float(payload.get("timeoutSeconds") or os.environ.get("BOUNDARY_RUN_TIMEOUT_SECONDS") or 75.0)
@@ -235,25 +237,6 @@ def resolve_target_url(payload: dict[str, object]) -> str:
         or os.environ.get("TARGET_COPILOT_BASE_URL")
         or "http://localhost:8400"
     )
-
-
-def target_is_allowed(target_url: str) -> bool:
-    try:
-        target_origin = origin(target_url)
-    except ValueError:
-        return False
-
-    allowlist = os.environ.get("BOUNDARY_TARGET_ALLOWLIST") or "https://clinical-copilot.up.railway.app"
-    for raw in allowlist.split(","):
-        item = raw.strip()
-        if not item:
-            continue
-        try:
-            if origin(item) == target_origin:
-                return True
-        except ValueError:
-            continue
-    return False
 
 
 def origin(value: str) -> str:

@@ -3,10 +3,10 @@ import { getBoundaryConfig } from "@/server/config";
 
 export function listTargetHealth(): TargetHealth[] {
   const config = getBoundaryConfig();
-  return config.targetAllowlist.map((target) => ({
-    name: target.replace(/^https?:\/\//, "").replace(/\/$/, ""),
+  return [{
+    name: config.targetUrl.replace(/^https?:\/\//, "").replace(/\/$/, ""),
     state: "deferred",
     ms: null,
     note: "not checked yet"
-  }));
+  }];
 }

@@ -123,15 +123,15 @@ class ProcessJobTest(unittest.TestCase):
 
         self.assertEqual(job_status(sqlite_path), ("failed", "failed"))
 
-    def test_refuses_target_outside_allowlist_before_graph_execution(self) -> None:
-        sqlite_path, artifact_dir = make_db(payload='{"targetUrl":"https://evil.example.test","categories":["prompt-injection"]}')
+    def test_refuses_invalid_target_before_graph_execution(self) -> None:
+        sqlite_path, artifact_dir = make_db(payload='{"targetUrl":"javascript:alert(1)","categories":["prompt-injection"]}')
 
         with patch("worker.main.run_campaign_graph_sync") as graph:
             process_job(sqlite_path, artifact_dir, "job-1", "run-1")
 
         graph.assert_not_called()
         self.assertEqual(job_status(sqlite_path), ("failed", "failed"))
-        self.assertIn("target_not_allowlisted", sentinel_paths(artifact_dir, "run-1").failed.read_text(encoding="utf-8"))
+        self.assertIn("invalid_target_url", sentinel_paths(artifact_dir, "run-1").failed.read_text(encoding="utf-8"))
 
     def test_process_job_passes_payload_and_policy_values_to_campaign_graph(self) -> None:
         sqlite_path, artifact_dir = make_db(
