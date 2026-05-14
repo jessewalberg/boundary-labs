@@ -24,7 +24,7 @@ export async function createQueuedCampaign(input: CreateCampaignInput) {
   const config = getBoundaryConfig();
   const targetUrl = normalizeTargetUrl(input.targetUrl);
   const openemrUrl = normalizeOptionalUrl(input.openemrUrl);
-  const openemrSite = normalizeOptionalText(input.openemrSite);
+  const openemrSite = normalizeOptionalText(input.openemrSite) ?? inferOpenEmrSite(openemrUrl);
   const openemrUsername = normalizeOptionalText(input.openemrUsername);
   const openemrPassword = normalizeOptionalText(input.openemrPassword);
   const openemrPatientPid = normalizeOptionalPositiveInt(input.openemrPatientPid);
@@ -345,6 +345,12 @@ function normalizeOptionalUrl(value: string | undefined) {
 function normalizeOptionalText(value: string | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function inferOpenEmrSite(openemrUrl: string | undefined) {
+  if (!openemrUrl) return undefined;
+  const site = new URL(openemrUrl).searchParams.get("site")?.trim();
+  return site || undefined;
 }
 
 function normalizeOptionalPositiveInt(value: number | undefined) {

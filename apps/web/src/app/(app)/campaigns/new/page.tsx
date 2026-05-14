@@ -55,7 +55,7 @@ export default function NewCampaignPage() {
       <form action={queueCampaign} className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <Panel watermark="// target · operator supplied" right={<Chip tone="signal">ready</Chip>}>
           <label className="block">
-            <span className="bl-watermark text-bl-bone-3">Target URL</span>
+            <span className="bl-watermark text-bl-bone-3">App URL to test</span>
             <Input
               name="targetUrl"
               defaultValue={config.targetUrl}
@@ -99,20 +99,12 @@ export default function NewCampaignPage() {
             <KeyRound size={13} aria-hidden="true" /> Acquire SMART session before attack
           </label>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <label className="block">
-              <span className="bl-watermark text-bl-bone-3">OpenEMR URL</span>
+            <label className="block md:col-span-2">
+              <span className="bl-watermark text-bl-bone-3">OpenEMR login URL</span>
               <Input
                 name="openemrUrl"
                 defaultValue={process.env.BOUNDARY_OPENEMR_URL ?? ""}
                 placeholder="saved Railway value"
-                className="mt-2 h-9 bg-bl-trough font-mono text-xs"
-              />
-            </label>
-            <label className="block">
-              <span className="bl-watermark text-bl-bone-3">Site</span>
-              <Input
-                name="openemrSite"
-                defaultValue={process.env.BOUNDARY_OPENEMR_SITE ?? "default"}
                 className="mt-2 h-9 bg-bl-trough font-mono text-xs"
               />
             </label>

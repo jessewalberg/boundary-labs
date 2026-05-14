@@ -19,8 +19,7 @@ describe("authenticated campaign launch persistence", () => {
       budgetCents: 500,
       requestedBy: "operator-1",
       acquireSmartSession: true,
-      openemrUrl: "https://openemr.example",
-      openemrSite: "default",
+      openemrUrl: "https://openemr.example/interface/login/login.php?site=default",
       openemrUsername: "pentest",
       openemrPassword: "secret",
       openemrPatientPid: 13
@@ -40,7 +39,7 @@ describe("authenticated campaign launch persistence", () => {
         categories: ["authorization", "prompt-injection"],
         budgetCents: 500,
         acquireSmartSession: true,
-        openemrUrl: "https://openemr.example",
+        openemrUrl: "https://openemr.example/interface/login/login.php?site=default",
         openemrSite: "default",
         openemrUsername: "pentest",
         openemrPassword: "secret",

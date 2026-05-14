@@ -24,7 +24,6 @@ export async function queueCampaign(formData: FormData) {
     requestedBy: currentOperator.id,
     acquireSmartSession: formData.get("acquireSmartSession") === "on",
     openemrUrl: String(formData.get("openemrUrl") ?? ""),
-    openemrSite: String(formData.get("openemrSite") ?? ""),
     openemrUsername: String(formData.get("openemrUsername") ?? ""),
     openemrPassword: String(formData.get("openemrPassword") ?? ""),
     openemrPatientPid: Number.isFinite(openemrPatientPid) && openemrPatientPid > 0 ? openemrPatientPid : undefined
