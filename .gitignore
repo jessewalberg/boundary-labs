@@ -3,6 +3,8 @@ node_modules/
 dist/
 build/
 coverage/
+!apps/web/src/server/coverage/
+!apps/web/src/server/coverage/**
 *.tsbuildinfo
 apps/web/var/
 var/

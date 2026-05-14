@@ -70,7 +70,6 @@ COPY docker/supervisord.conf /etc/supervisor/conf.d/boundary.conf
 RUN chmod +x /usr/local/bin/boundary-entrypoint /usr/local/bin/boundary-exit-on-fatal \
   && mkdir -p /data
 
-VOLUME ["/data"]
 EXPOSE 3000
 
 ENTRYPOINT ["boundary-entrypoint"]

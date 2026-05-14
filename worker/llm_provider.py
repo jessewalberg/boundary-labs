@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any
 
 SUPPORTED_PROVIDERS = {"openrouter"}
@@ -49,9 +49,10 @@ class AgentConnectionCheck:
     status: str
     detail: str
     output_preview: str = ""
+    usage: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "role": self.role,
             "provider": self.provider,
             "model": self.model,
@@ -61,6 +62,9 @@ class AgentConnectionCheck:
             "detail": self.detail,
             "output_preview": self.output_preview,
         }
+        if self.usage is not None:
+            payload["usage"] = self.usage
+        return payload
 
 
 def provider_config_for_role(role: str, policy_values: dict[str, object] | None = None) -> AgentProviderConfig:
@@ -172,6 +176,35 @@ def llm_agent_timeout_seconds() -> float:
     return parsed if parsed > 0 else DEFAULT_LLM_AGENT_TIMEOUT_SECONDS
 
 
+def result_usage(result: object) -> dict[str, Any]:
+    usage_fn = getattr(result, "usage", None)
+    if not callable(usage_fn):
+        return {}
+    try:
+        usage = usage_fn()
+    except Exception:
+        return {}
+    return serializable_usage(usage)
+
+
+def serializable_usage(value: object) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if hasattr(value, "model_dump"):
+        dumped = value.model_dump()
+        return {str(key): item for key, item in dumped.items() if is_json_scalar(item)}
+    if is_dataclass(value):
+        return {str(key): item for key, item in asdict(value).items() if is_json_scalar(item)}
+    raw = getattr(value, "__dict__", None)
+    if isinstance(raw, dict):
+        return {str(key): item for key, item in raw.items() if is_json_scalar(item)}
+    return {}
+
+
+def is_json_scalar(value: object) -> bool:
+    return value is None or isinstance(value, (str, int, float, bool, list, dict))
+
+
 async def check_agent_connection(
     role: str,
     *,
@@ -216,6 +249,7 @@ async def check_agent_connection(
         status="executed",
         detail="agent run completed",
         output_preview=str(result.output)[:240],
+        usage=result_usage(result),
     )
 
 

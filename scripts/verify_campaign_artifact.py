@@ -18,6 +18,7 @@ REQUIRED_NODES = [
     "OrchestratorNode",
     "RedTeamNode",
     "TargetExecutionNode",
+    "AdaptiveRedTeamNode",
     "JudgeNode",
     "DocumentationNode",
     "WriteArtifactNode",
@@ -89,7 +90,10 @@ def verify_artifact(
         errors.append("summary must be present")
     else:
         total = summary.get("total")
-        if total != expected_total:
+        if require_llm_agents:
+            if not isinstance(total, int) or total < expected_total:
+                errors.append(f"summary.total must be at least {expected_total}, got {total!r}")
+        elif total != expected_total:
             errors.append(f"summary.total must be {expected_total}, got {total!r}")
         status_total = sum_int_summary(summary, "pass", "fail", "partial", "invalid")
         if isinstance(total, int) and status_total != total:
@@ -100,9 +104,11 @@ def verify_artifact(
     results = artifact.get("results")
     if not isinstance(results, list):
         errors.append("results must be present")
-    elif len(results) != expected_total:
+    elif not require_llm_agents and len(results) != expected_total:
         errors.append(f"results must contain {expected_total} cases, got {len(results)}")
-    elif expected_case_ids is not None:
+    elif require_llm_agents and len(results) < expected_total:
+        errors.append(f"results must contain at least {expected_total} cases, got {len(results)}")
+    if isinstance(results, list) and expected_case_ids is not None:
         actual_case_ids = [str(result.get("case_id")) for result in results if isinstance(result, dict)]
         if len(actual_case_ids) != len(results):
             errors.append("every result must be an object with case_id")
@@ -115,11 +121,25 @@ def verify_artifact(
         unexpected = sorted(actual_ids - expected_case_ids)
         if missing:
             errors.append(f"results missing expected seed case IDs: {missing}")
-        if unexpected:
+        if require_llm_agents:
+            allowed_generated = {provider_generated_case_id(case_id) for case_id in expected_case_ids}
+            adaptive_ids = {
+                case_id
+                for case_id in actual_ids
+                if "::adaptive-" in case_id
+            }
+            unexpected_non_generated = sorted(set(unexpected) - allowed_generated - adaptive_ids)
+            if unexpected_non_generated:
+                errors.append(f"results contain unexpected case IDs: {unexpected_non_generated}")
+            errors.extend(verify_provider_generated_coverage(actual_ids, expected_case_ids))
+        elif unexpected:
             errors.append(f"results contain unexpected case IDs: {unexpected}")
     if require_llm_agents and isinstance(results, list):
         errors.extend(verify_provider_assisted_results(results))
         errors.extend(verify_documentation_entries(artifact.get("documentation_agent")))
+        errors.extend(verify_inter_agent_messages(artifact.get("inter_agent_messages")))
+        errors.extend(verify_provider_generated_cases(artifact.get("provider_generated_cases"), expected_case_ids))
+        errors.extend(verify_adaptive_generated_cases(artifact.get("adaptive_generated_cases"), results))
 
     graph = artifact.get("pydantic_graph")
     if not isinstance(graph, dict):
@@ -151,8 +171,117 @@ def verify_artifact(
             errors.append(f"{role} agent must be executed, got {connection.get('status')!r}")
         if require_llm_agents and connection.get("api_key_configured") is not True:
             errors.append(f"{role} agent must report api_key_configured=true")
+        if require_llm_agents:
+            errors.extend(verify_agent_usage(role, connection))
 
     return errors
+
+
+def verify_agent_usage(role: str, connection: dict[str, object]) -> list[str]:
+    usage = connection.get("usage")
+    if not isinstance(usage, dict):
+        return [f"{role} agent must include provider usage"]
+    requests = usage.get("requests")
+    input_tokens = usage.get("input_tokens")
+    output_tokens = usage.get("output_tokens")
+    if not isinstance(requests, int) or requests < 1:
+        return [f"{role} agent usage.requests must be >= 1, got {requests!r}"]
+    if not isinstance(input_tokens, int) or not isinstance(output_tokens, int) or input_tokens + output_tokens <= 0:
+        return [f"{role} agent usage must include nonzero input/output tokens"]
+    return []
+
+
+def verify_provider_generated_coverage(actual_ids: set[str], expected_case_ids: set[str]) -> list[str]:
+    errors: list[str] = []
+    for case_id in sorted(expected_case_ids):
+        generated_id = provider_generated_case_id(case_id)
+        if generated_id not in actual_ids:
+            errors.append(f"provider-generated result missing for seed case {case_id!r}")
+    return errors
+
+
+def verify_provider_generated_cases(generated_cases: object, expected_case_ids: set[str] | None) -> list[str]:
+    if expected_case_ids is None:
+        return []
+    if not isinstance(generated_cases, list):
+        return ["provider_generated_cases must be present"]
+    generated_ids = {str(item.get("case_id")) for item in generated_cases if isinstance(item, dict)}
+    errors: list[str] = []
+    for case_id in sorted(expected_case_ids):
+        generated_id = provider_generated_case_id(case_id)
+        if generated_id not in generated_ids:
+            errors.append(f"provider_generated_cases missing {generated_id!r}")
+    for index, item in enumerate(generated_cases):
+        if not isinstance(item, dict):
+            errors.append(f"provider_generated_cases[{index}] must be an object")
+            continue
+        if item.get("base_case_id") not in expected_case_ids:
+            errors.append(f"provider_generated_cases[{index}].base_case_id must reference a seed case")
+        if not isinstance(item.get("turn_count"), int) or item.get("turn_count") < 1:
+            errors.append(f"provider_generated_cases[{index}].turn_count must be >= 1")
+        if item.get("placeholder_prompt") is True:
+            errors.append(f"provider_generated_cases[{index}] must not use placeholder prompts")
+    return errors
+
+
+def verify_adaptive_generated_cases(generated_cases: object, results: list[object]) -> list[str]:
+    if not isinstance(generated_cases, list):
+        return ["adaptive_generated_cases must be present"]
+    if not generated_cases:
+        return ["adaptive_generated_cases must include at least one feedback-driven attack"]
+    result_ids = {
+        str(result.get("case_id"))
+        for result in results
+        if isinstance(result, dict)
+    }
+    errors: list[str] = []
+    for index, item in enumerate(generated_cases):
+        if not isinstance(item, dict):
+            errors.append(f"adaptive_generated_cases[{index}] must be an object")
+            continue
+        case_id = str(item.get("case_id"))
+        if case_id not in result_ids:
+            errors.append(f"adaptive_generated_cases[{index}].case_id must have a matching result")
+        if not item.get("base_case_id"):
+            errors.append(f"adaptive_generated_cases[{index}].base_case_id must be present")
+        if not item.get("finding"):
+            errors.append(f"adaptive_generated_cases[{index}].finding must describe observed target behavior")
+        if not isinstance(item.get("turn_count"), int) or item.get("turn_count") < 1:
+            errors.append(f"adaptive_generated_cases[{index}].turn_count must be >= 1")
+        if item.get("placeholder_prompt") is True:
+            errors.append(f"adaptive_generated_cases[{index}] must not use placeholder prompts")
+    adaptive_result_count = sum(
+        1
+        for result in results
+        if isinstance(result, dict) and result.get("source") == "adaptive_red_team"
+    )
+    if adaptive_result_count < len(generated_cases):
+        errors.append("every adaptive_generated_cases entry must be represented by an adaptive_red_team result")
+    return errors
+
+
+def provider_generated_case_id(case_id: str) -> str:
+    return f"{case_id}::provider-red-team"
+
+
+def verify_inter_agent_messages(messages: object) -> list[str]:
+    if not isinstance(messages, list):
+        return ["inter_agent_messages must be present"]
+    pairs = {
+        (str(item.get("sender")), str(item.get("recipient")))
+        for item in messages
+        if isinstance(item, dict)
+    }
+    required = {
+        ("orchestrator", "red_team"),
+        ("target", "red_team"),
+        ("red_team", "judge"),
+        ("judge", "documentation"),
+    }
+    missing = sorted(required - pairs)
+    if missing:
+        return [f"inter_agent_messages missing required sender/recipient pairs: {missing}"]
+    return []
 
 
 def verify_agent_notes(agent_notes: object) -> list[str]:
@@ -230,6 +359,8 @@ def require_provider_assisted_role(
         provider_plan = payload.get("provider_plan")
         if not isinstance(provider_plan, dict):
             errors.append(f"{case_id} red_team_agent.provider_plan must be present")
+        elif not provider_plan.get("attack_sequence"):
+            errors.append(f"{case_id} red_team_agent.provider_plan.attack_sequence must contain generated attacks")
 
 
 def sum_int_summary(summary: dict[str, object], *keys: str) -> int:

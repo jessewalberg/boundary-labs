@@ -110,6 +110,7 @@ BOUNDARY_ENABLE_LLM_AGENTS=0
 # OPENROUTER_API_KEY=<openrouter-provider-key>
 BOUNDARY_REQUIRED_LLM_PROVIDERS=openrouter
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+BOUNDARY_ADAPTIVE_ATTACK_LIMIT=4
 BETTER_AUTH_URL=http://localhost:3000
 BETTER_AUTH_SECRET=boundary-labs-local-development-secret-change-before-production
 BOUNDARY_OWNER_EMAIL=owner@example.com
@@ -117,6 +118,8 @@ BOUNDARY_OPERATOR_EMAIL_ALLOWLIST=owner@example.com
 ```
 
 The worker runs campaigns through `pydantic_graph`. LLM agent hooks use `pydantic_ai.Agent` only when `BOUNDARY_ENABLE_LLM_AGENTS=1` and `OPENROUTER_API_KEY` is present. All agent traffic is routed through OpenRouter via Pydantic AI's OpenAI-compatible adapter, using `OPENROUTER_BASE_URL` and OpenRouter model IDs. The default model is `google/gemini-2.5-flash`; set `BOUNDARY_RED_TEAM_MODEL`, `BOUNDARY_ORCHESTRATOR_MODEL`, `BOUNDARY_JUDGE_MODEL`, and `BOUNDARY_DOCUMENTATION_MODEL` to explicit OpenRouter model IDs when you want a different production allowlist. Without the enable flag and key, the graph records `deterministic-fallback` in the artifact. Each run artifact also includes `pydantic_graph.agent_connections` so operators can see whether each agent was `disabled`, `missing_secret`, `executed`, or `failed`.
+
+Provider-backed campaigns run an adaptive red-team loop: the first Red Team pass generates executable attacks, the target runs them, target observations are sent back to Red Team, and a second Red Team pass generates follow-up attacks from what it found. `BOUNDARY_ADAPTIVE_ATTACK_LIMIT` caps those feedback-driven follow-ups per campaign. Provider-required proof verification fails if generated attacks are missing, adaptive attacks are missing, or generated prompts are placeholders.
 
 The seed library is also checked through Pydantic Evals:
 

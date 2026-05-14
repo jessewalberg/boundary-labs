@@ -52,8 +52,8 @@ class WorkerHttpSmokeTest(unittest.TestCase):
 
         paths = sentinel_paths(artifact_dir, "run-1")
         artifact = json.loads(paths.artifact.read_text(encoding="utf-8"))
-        self.assertEqual(artifact["summary"], {"total": 4, "pass": 4, "fail": 0, "partial": 0, "invalid": 0})
-        self.assertEqual(len(artifact["results"]), 4)
+        self.assertEqual(artifact["summary"], {"total": 12, "pass": 12, "fail": 0, "partial": 0, "invalid": 0})
+        self.assertEqual(len(artifact["results"]), 12)
         self.assertEqual(artifact["results"][0]["attempt"]["turns"][0]["http"]["status"], 200)
         self.assertEqual(artifact["pydantic_graph"]["agent_connections"]["red_team"]["status"], "disabled")
 
@@ -61,8 +61,8 @@ class WorkerHttpSmokeTest(unittest.TestCase):
             self.assertEqual(db.execute("SELECT status FROM campaign_jobs WHERE id = 'job-1'").fetchone()[0], "completed")
             self.assertEqual(db.execute("SELECT status FROM campaigns WHERE id = 'run-1'").fetchone()[0], "completed")
             self.assertEqual(db.execute("SELECT COUNT(*) FROM runs WHERE run_id = 'run-1'").fetchone()[0], 1)
-            self.assertEqual(db.execute("SELECT COUNT(*) FROM attempts WHERE run_id = 'run-1'").fetchone()[0], 4)
-            self.assertEqual(db.execute("SELECT COUNT(*) FROM verdicts WHERE run_id = 'run-1' AND status = 'pass'").fetchone()[0], 4)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM attempts WHERE run_id = 'run-1'").fetchone()[0], 12)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM verdicts WHERE run_id = 'run-1' AND status = 'pass'").fetchone()[0], 12)
 
 
 class SmokeTargetHandler(BaseHTTPRequestHandler):

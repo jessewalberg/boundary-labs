@@ -168,7 +168,7 @@ describe("repository read models", () => {
 
     expect(storedCampaignToRun(campaign)).toMatchObject({
       coverage: ["all"],
-      seedCount: 4
+      seedCount: 12
     });
     expect(listCampaignJobs("queued")[0]).toMatchObject({
       campaignId: campaign.id,
