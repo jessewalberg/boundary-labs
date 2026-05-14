@@ -17,6 +17,7 @@ from uuid import uuid4
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.verify_campaign_artifact import verify_artifact
+from scripts.acquire_smart_session import acquire_smart_session
 from scripts.run_mvp_evals import load_cases
 from scripts.check_runtime_env import runtime_missing
 from worker.llm_provider import check_all_agent_connections
@@ -38,7 +39,13 @@ def main() -> int:
     parser.add_argument("--run-id", default=f"proof-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}")
     parser.add_argument("--bootstrap", action="store_true", help="Run web DB migrations/bootstrap before inserting the proof job.")
     parser.add_argument("--allow-deterministic", action="store_true", help="Allow deterministic agent fallback in artifact verification.")
+    parser.add_argument("--allow-local-target", action="store_true", help="Allow localhost/loopback target URLs while still requiring provider-backed agents.")
     parser.add_argument("--mint-synthetic-session", action="store_true", help="Ask the worker graph to mint a synthetic SMART session.")
+    parser.add_argument("--acquire-smart-session", action="store_true", help="Log into local OpenEMR and acquire a real SMART session cookie.")
+    parser.add_argument("--openemr-url", default=os.environ.get("BOUNDARY_OPENEMR_URL", "http://localhost:8300"))
+    parser.add_argument("--openemr-username", default=os.environ.get("BOUNDARY_OPENEMR_USERNAME", os.environ.get("OPENEMR_USERNAME", "admin")))
+    parser.add_argument("--openemr-password", default=os.environ.get("BOUNDARY_OPENEMR_PASSWORD", os.environ.get("OPENEMR_PASSWORD", "pass")))
+    parser.add_argument("--openemr-patient-pid", type=int, default=int(os.environ.get("BOUNDARY_OPENEMR_PATIENT_PID", "13")))
     parser.add_argument("--mock-target", action="store_true", help="Run against a local mock target for offline proof-runner verification.")
     parser.add_argument("--output-file", type=Path, help="Optional path to write proof result JSON.")
     parser.add_argument("--synthetic-patient-pid", type=int, default=13)
@@ -46,6 +53,9 @@ def main() -> int:
 
     if args.mock_target and not args.allow_deterministic:
         print("--mock-target is only allowed with --allow-deterministic; provider proof must exercise a real target.")
+        return 2
+    if args.acquire_smart_session and args.mint_synthetic_session:
+        print("--acquire-smart-session and --mint-synthetic-session are mutually exclusive.")
         return 2
     if not args.allow_deterministic:
         missing = proof_runtime_missing(require_smart_secret=args.mint_synthetic_session)
@@ -72,6 +82,17 @@ def main() -> int:
 
     try:
         configure_worker_environment(sqlite_path, artifact_dir, args.target_url)
+        if args.acquire_smart_session:
+            auth_result = acquire_smart_session(
+                openemr_url=args.openemr_url,
+                copilot_url=args.target_url,
+                site="default",
+                username=args.openemr_username,
+                password=args.openemr_password,
+                patient_pid=args.openemr_patient_pid,
+                timeout_seconds=min(max(args.timeout_seconds, 15.0), 120.0),
+            )
+            os.environ["BOUNDARY_SMART_SESSION_COOKIE"] = str(auth_result["smart_session_cookie"])
 
         if args.bootstrap or not sqlite_path.exists():
             bootstrap_database(sqlite_path, artifact_dir)
@@ -105,7 +126,7 @@ def main() -> int:
             require_llm_agents=not args.allow_deterministic,
             expected_case_ids={str(case["id"]) for case in expected_cases},
             expected_target_origin=origin(args.target_url),
-            allow_local_target=args.allow_deterministic,
+            allow_local_target=args.allow_deterministic or args.allow_local_target,
         )
         if errors:
             print(f"Proof campaign failed verification: {artifact_path}")

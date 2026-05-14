@@ -273,6 +273,32 @@ curl -sS http://localhost:8400/healthz
 curl -sS http://localhost:8400/readyz
 ```
 
+Run a local live proof against local OpenEMR and local Clinical Co-Pilot using
+the real login + SMART launch path:
+
+```bash
+set -a
+source apps/web/.env.local
+set +a
+
+python scripts/run_proof_campaign.py \
+  --bootstrap \
+  --target-url http://localhost:8400 \
+  --deployed-url http://localhost:8400 \
+  --acquire-smart-session \
+  --allow-local-target \
+  --openemr-url http://localhost:8300 \
+  --openemr-patient-pid 13 \
+  --output-file var/local-live-proof-output.json
+```
+
+`--acquire-smart-session` logs into OpenEMR with
+`BOUNDARY_OPENEMR_USERNAME` / `BOUNDARY_OPENEMR_PASSWORD`, launches the native
+Clinical Co-Pilot module, follows the SMART OAuth redirect chain, captures the
+`copilot_smart_session` cookie, and passes it to the worker. `--allow-local-target`
+only relaxes the localhost artifact check; provider-backed agents are still
+required unless `--allow-deterministic` is also set.
+
 ## MVP Scope Boundaries
 
 - Synthetic data only.
