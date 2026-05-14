@@ -873,6 +873,7 @@ def provider_generated_cases(base_cases: list[dict[str, Any]], plans: dict[str, 
             for index, prompt in enumerate(prompts[:3])
         ]
         generated_case["provider_plan"] = plan.model_dump()
+        generated_case["provider_plan"]["attack_sequence"] = prompts
         generated_case["provider_plan"]["normalized_attack_sequence"] = prompts
         generated.append(generated_case)
     return generated
@@ -900,6 +901,7 @@ def adaptive_generated_cases(base_cases: list[dict[str, Any]], attacks: list[Pro
             for turn_index, prompt in enumerate(prompts[:3])
         ]
         generated_case["provider_plan"] = attack.model_dump()
+        generated_case["provider_plan"]["attack_sequence"] = prompts
         generated_case["provider_plan"]["normalized_attack_sequence"] = prompts
         generated.append(generated_case)
     return generated
