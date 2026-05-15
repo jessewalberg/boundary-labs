@@ -197,54 +197,77 @@ function RunsTableRow({ run }: { run: BoundaryRun }) {
           ? "bg-bl-bone-3"
           : "bg-bl-signal shadow-[0_0_6px_var(--bl-signal)]";
 
+  const href = `/campaigns/${run.id}`;
+  const cellLink = "block w-full px-3 py-2";
+
   return (
-    <tr className="border-t border-bl-line text-bl-bone-2 transition-colors hover:bg-bl-panel-2">
+    <tr className="cursor-pointer border-t border-bl-line text-bl-bone-2 transition-colors hover:bg-bl-panel-2">
       <td className="p-0">
-        <div className={`h-8 w-[3px] ${bar}`} />
+        <Link href={href} className="block" aria-label={`Open run ${run.id}`}>
+          <div className={`h-8 w-[3px] ${bar}`} />
+        </Link>
       </td>
-      <td className="px-3 py-2 tabular-nums">
-        {pending ? (
-          <span className="text-bl-cyan">{run.status}</span>
-        ) : (
-          <>
-            <span className="text-bl-signal">{run.summary.pass}</span>
-            <span className="text-bl-bone-4">/</span>
-            <span className={run.summary.fail ? "text-bl-alarm" : "text-bl-bone-4"}>{run.summary.fail}</span>
-            <span className="text-bl-bone-4">/</span>
-            <span className={run.summary.partial ? "text-bl-amber" : "text-bl-bone-4"}>{run.summary.partial}</span>
-          </>
-        )}
+      <td className="p-0 tabular-nums">
+        <Link href={href} className={cellLink} aria-label={`Open run ${run.id}`}>
+          {pending ? (
+            <span className="text-bl-cyan">{run.status}</span>
+          ) : (
+            <>
+              <span className="text-bl-signal">{run.summary.pass}</span>
+              <span className="text-bl-bone-4">/</span>
+              <span className={run.summary.fail ? "text-bl-alarm" : "text-bl-bone-4"}>{run.summary.fail}</span>
+              <span className="text-bl-bone-4">/</span>
+              <span className={run.summary.partial ? "text-bl-amber" : "text-bl-bone-4"}>{run.summary.partial}</span>
+            </>
+          )}
+        </Link>
       </td>
-      <td className="truncate px-3 py-2 text-bl-bone">
-        <Link href={`/campaigns/${run.id}`} className="hover:text-bl-signal">
+      <td className="truncate p-0 text-bl-bone">
+        <Link href={href} className={`${cellLink} truncate hover:text-bl-signal`}>
           {run.id}
         </Link>
       </td>
-      <td className="px-3 py-2">
-        <div className="flex flex-wrap gap-1">
-          {run.coverage.map((coverage) => (
-            <span key={coverage} className="border border-bl-line bg-bl-trough px-1.5 py-px text-[10px] text-bl-bone-2">
-              {coverage}
-            </span>
-          ))}
-        </div>
+      <td className="p-0">
+        <Link href={href} className={cellLink} aria-label={`Open run ${run.id}`}>
+          <div className="flex flex-wrap gap-1">
+            {run.coverage.map((coverage) => (
+              <span key={coverage} className="border border-bl-line bg-bl-trough px-1.5 py-px text-[10px] text-bl-bone-2">
+                {coverage}
+              </span>
+            ))}
+          </div>
+        </Link>
       </td>
-      <td className="truncate px-3 py-2">{run.target.replace(/^https?:\/\//, "")}</td>
-      <td className="truncate px-3 py-2">
-        {run.branch}
-        <span className="px-1.5 text-bl-bone-4">·</span>
-        <span className="text-bl-bone-3">{run.commit}</span>
+      <td className="truncate p-0">
+        <Link href={href} className={`${cellLink} truncate`} aria-label={`Open run ${run.id}`}>
+          {run.target.replace(/^https?:\/\//, "")}
+        </Link>
       </td>
-      <td className="px-3 py-2">
-        <span className={`border border-bl-line-2 px-1.5 py-px uppercase tracking-[0.14em] ${run.trigger === "scheduler" ? "text-bl-signal" : pending ? "text-bl-cyan" : "text-bl-bone-3"}`}>
-          {pending ? run.status : run.trigger}
-        </span>
+      <td className="truncate p-0">
+        <Link href={href} className={`${cellLink} truncate`} aria-label={`Open run ${run.id}`}>
+          {run.branch}
+          <span className="px-1.5 text-bl-bone-4">·</span>
+          <span className="text-bl-bone-3">{run.commit}</span>
+        </Link>
       </td>
-      <td className="px-3 py-2 text-right text-bl-bone-3">{startedFormatter.format(new Date(run.startedAt))}</td>
-      <td className="px-3 py-2 text-right text-bl-bone-2">
-        <span className="inline-flex items-center gap-1">
-          <Activity size={10} aria-hidden="true" /> {run.duration}
-        </span>
+      <td className="p-0">
+        <Link href={href} className={cellLink} aria-label={`Open run ${run.id}`}>
+          <span className={`border border-bl-line-2 px-1.5 py-px uppercase tracking-[0.14em] ${run.trigger === "scheduler" ? "text-bl-signal" : pending ? "text-bl-cyan" : "text-bl-bone-3"}`}>
+            {pending ? run.status : run.trigger}
+          </span>
+        </Link>
+      </td>
+      <td className="p-0 text-right text-bl-bone-3">
+        <Link href={href} className={`${cellLink} text-right`} aria-label={`Open run ${run.id}`}>
+          {startedFormatter.format(new Date(run.startedAt))}
+        </Link>
+      </td>
+      <td className="p-0 text-right text-bl-bone-2">
+        <Link href={href} className={`${cellLink} text-right`} aria-label={`Open run ${run.id}`}>
+          <span className="inline-flex items-center gap-1">
+            <Activity size={10} aria-hidden="true" /> {run.duration}
+          </span>
+        </Link>
       </td>
     </tr>
   );
