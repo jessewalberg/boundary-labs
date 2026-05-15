@@ -2,6 +2,33 @@
 
 Boundary Labs is the Week 3 adversarial evaluation workspace for the OpenEMR Clinical Co-Pilot. It is a separate security app/harness that targets the Clinical Co-Pilot over authorized HTTP/SSE interfaces instead of importing target code.
 
+## Submission Map
+
+For reviewers — every required deliverable lives at the path listed here.
+
+| Deliverable | Path |
+|---|---|
+| Threat model | `./THREAT_MODEL.md` |
+| Users + workflows + automation justification | `./USERS.md` |
+| Multi-agent platform architecture + diagram | `./ARCHITECTURE.md` + `docs/architecture-system-map.svg` |
+| AI cost analysis (actuals + projections at 100/1K/10K/100K) | `./AI_COST_ANALYSIS.md` |
+| Eval dataset (3+ attack categories, reproducible) | `./evals/` (see `evals/README.md`) + `/evals` route in the deployed console |
+| Vulnerability reports (≥ 3 distinct) | `./reports/vulnerabilities/` (committed markdown) + `/reports` route in the deployed console |
+| Deployed adversarial platform (Boundary console) | `https://boundary-web-production.up.railway.app` |
+| Deployed target (Clinical Co-Pilot) | `https://clinical-copilot.up.railway.app` |
+| Provider-proof runbook | `docs/runbooks/provider-proof-campaign.md` |
+| Regression harness runbook | `docs/runbooks/regression-harness.md` |
+
+## Why a Separate Repo, Not an OpenEMR Fork
+
+The assignment opening describes the GitHub repository as "Forked from OpenEMR." Boundary is intentionally a **separate repository attacking the OpenEMR-derived target over its authorized HTTP/SSE interfaces**, not a fork that imports target code. This is a deliberate architectural choice, documented in `ARCHITECTURE.md` lines 115 and 233-246:
+
+1. **Trust-boundary separation.** Attack code and target code live in different processes, different repos, and different deployments. The Red Team Agent cannot reach into target internals — every attack must travel through the same authenticated channels a real adversary would use.
+2. **Independent observability.** Boundary's artifacts (judge verdicts, regression cases, vulnerability reports, audit log) are owned by the attacker side and remain comparable across target versions, including future targets that are not OpenEMR-derived.
+3. **No accidental coupling.** Forking OpenEMR would make it tempting to add hooks "just for testing" — instrumented tool traces, leaked internal state — that compromise the deterministic separation between attacker and target.
+
+The deployed target Clinical Co-Pilot at `https://clinical-copilot.up.railway.app` *is* derived from OpenEMR; its repo and Railway deployment carry the OpenEMR lineage. Boundary's repo (this one) is the adversarial harness that exercises it.
+
 ## Current Status
 
 Boundary now has the Pydantic Graph worker, persisted console state, email/password auth, provider preflight checks, strict proof artifact verification, and readiness audit gates in-repo. Final provider-backed demo readiness is intentionally **not** satisfied until live provider secrets are configured and a real proof campaign artifact passes `verify:readiness` and `audit:readiness`.
@@ -41,6 +68,27 @@ Deployed target:
 
 - Clinical Co-Pilot: `https://clinical-copilot.up.railway.app`
 - OpenEMR service reported by Railway: `https://everybody-loves-healthcare.up.railway.app`
+
+Deployed adversarial platform (Boundary console):
+
+- Boundary console: `https://boundary-web-production.up.railway.app`
+- Liveness: `https://boundary-web-production.up.railway.app/healthz`
+- Readiness: `https://boundary-web-production.up.railway.app/readyz`
+
+Auth: Better Auth email/password. Operator allowlist is governed by `BOUNDARY_OPERATOR_EMAIL_ALLOWLIST`; the deployed instance uses the seeded operator from `policy_seed.json`. Sign-in screen at `/login`.
+
+## Run The Adversarial Platform Against The Live Target (UI flow)
+
+This is the path a reviewer or new operator should follow to see Boundary attacking the deployed Clinical Co-Pilot end-to-end without touching the CLI.
+
+1. Open `https://boundary-web-production.up.railway.app/login` and sign in.
+2. Navigate to **Runs → New** (`/campaigns/new`).
+3. Paste the target URL `https://clinical-copilot.up.railway.app`, select attack categories (`prompt-injection`, `authorization`, `tool-misuse` are the seeded ones), and submit. The worker picks up the queued job, acquires a SMART session via OpenEMR (`BOUNDARY_ACQUIRE_SMART_SESSION=1` on the deployed instance), and executes the full Pydantic Graph against the live target.
+4. Watch the run on `/campaigns/<id>` — the seed grid streams pass/fail/partial verdicts, the pydantic graph panel shows agent connection state, and the agent timeline panel renders the ordered red-team → target → judge → documentation flow.
+5. When the run completes, browse **Findings** (`/findings`) for triage and **Reports** (`/reports`) for the rendered VULN-YYYY-NNN write-ups. Each report supports `Download .md` for sharing the artifact outside the platform.
+6. Promote a finding to the regression suite via **Approvals** (`/approvals`). Promoted cases live under **Regressions** (`/regressions`) and replay against future target versions.
+
+The deployed console always points at `https://clinical-copilot.up.railway.app` by default (`BOUNDARY_TARGET_URL`). Operators with the right role can override the target URL per-campaign at launch time.
 
 Deployment changes made to bring the target into a testable MVP state:
 
