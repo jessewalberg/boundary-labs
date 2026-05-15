@@ -10,7 +10,10 @@ apps/web/.next/cache/
 apps/web/.next/dev/
 apps/web/var/
 designs/screenshots/
-reports/
+# NOTE: bare "reports/" excludes apps/web/src/server/reports/ too. We want the
+# repo-root reports/vulnerabilities/ artifacts to ship into the image, so leave
+# reports/ unignored. If we ever need to drop a sibling reports/ tree, scope
+# the pattern to "/reports/" (leading slash anchors to context root only).
 
 # Runtime sources required by the Dockerfile build.
 !worker/**
