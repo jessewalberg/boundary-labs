@@ -1,19 +1,26 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronRight, Copy, Download, Play } from "lucide-react";
+import { ArrowRight, ChevronRight, Copy, Download, FileText, Play } from "lucide-react";
+import { AgentTimeline } from "@/components/boundary/agent-timeline";
 import { CampaignStatusPoller } from "@/components/boundary/campaign-status-poller";
 import { Chip } from "@/components/boundary/chip";
 import { ConfirmModal } from "@/components/boundary/confirm-modal";
+import { CostBreakdown } from "@/components/boundary/cost-breakdown";
 import { EvidencePane } from "@/components/boundary/evidence-pane";
 import { Panel } from "@/components/boundary/panel";
 import { SeverityBadge } from "@/components/boundary/severity-badge";
 import { VerdictPill } from "@/components/boundary/verdict-pill";
 import { Button } from "@/components/ui/button";
+import { campaignCaseHref, caseDisplay } from "@/lib/case-route";
+import { listAgentTimeline } from "@/server/agent-timeline/repository";
 import { listAttemptsForRun } from "@/server/attempts/repository";
 import { getStoredCampaign, storedCampaignToRun } from "@/server/campaigns/repository";
 import type { SeedAttempt } from "@/server/campaigns/types";
+import { listRunCosts } from "@/server/costs/repository";
+import { listReportsByRun } from "@/server/reports/repository";
 import { getRun } from "@/server/runs/repository";
 import { cancelCampaignAction } from "./cancel/actions";
+import { rerunCampaignAction } from "./rerun/actions";
 
 const startedFormatter = new Intl.DateTimeFormat("en", {
   year: "numeric",
@@ -40,9 +47,13 @@ export default async function CampaignDetailPage({
   }
 
   const seeds = listAttemptsForRun(run.id);
+  const reports = listReportsByRun(run.id);
+  const costs = listRunCosts(run.id);
+  const timeline = listAgentTimeline({ runId: run.id });
   const selectedSeed = seeds[0];
   const activeRun = run.status === "queued" || run.status === "running";
   const cancelAction = cancelCampaignAction.bind(null, run.id);
+  const rerunAction = rerunCampaignAction.bind(null, run.id);
 
   return (
     <div className="pb-8">
@@ -77,9 +88,11 @@ export default async function CampaignDetailPage({
           <Button variant="secondary">
             <Download size={12} aria-hidden="true" /> Artifact JSON
           </Button>
-          <Button>
-            <Play size={12} aria-hidden="true" /> Re-run
-          </Button>
+          <form action={rerunAction}>
+            <Button type="submit">
+              <Play size={12} aria-hidden="true" /> Re-run
+            </Button>
+          </form>
           {activeRun ? (
             <ConfirmModal label="Cancel" confirmLabel="Cancel run" action={cancelAction}>
               <label className="grid gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-bl-bone-3">
@@ -156,6 +169,61 @@ export default async function CampaignDetailPage({
                 </div>
               ))}
             </div>
+          </Panel>
+        </section>
+      ) : null}
+
+      <section className="mb-4 grid gap-4 xl:grid-cols-2">
+        <CostBreakdown costs={costs} />
+        <AgentTimeline events={timeline} />
+      </section>
+
+      {reports.length > 0 ? (
+        <section className="mb-4">
+          <Panel
+            watermark="// vulnerability reports · surfaced by this run"
+            right={<Chip tone="signal">{reports.length}</Chip>}
+            padded={false}
+          >
+            {reports.map((report) => (
+              <article
+                key={report.id}
+                className="grid gap-3 border-b border-bl-line px-4 py-3 last:border-b-0 md:grid-cols-[1fr_auto]"
+              >
+                <div className="min-w-0">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <FileText size={12} className="text-bl-bone-3" aria-hidden="true" />
+                    <span className="font-mono text-xs text-bl-bone">
+                      {report.vulnId ?? report.id}
+                    </span>
+                    {report.severity ? <SeverityBadge severity={report.severity} /> : null}
+                    <Chip
+                      tone={
+                        report.status === "published"
+                          ? "signal"
+                          : report.status === "draft"
+                            ? "amber"
+                            : "muted"
+                      }
+                    >
+                      {report.status}
+                    </Chip>
+                    {report.attackCategory ? <Chip tone="cyan">{report.attackCategory}</Chip> : null}
+                  </div>
+                  <h3 className="m-0 truncate text-sm font-medium text-bl-bone">{report.title}</h3>
+                  {report.clinicalImpact ? (
+                    <p className="mt-1 max-w-[760px] text-xs leading-5 text-bl-bone-2">
+                      {report.clinicalImpact}
+                    </p>
+                  ) : null}
+                </div>
+                <Button asChild variant="secondary" size="sm">
+                  <Link href={`/reports/${report.id}`}>
+                    Open <ArrowRight size={11} aria-hidden="true" />
+                  </Link>
+                </Button>
+              </article>
+            ))}
           </Panel>
         </section>
       ) : null}
@@ -257,6 +325,7 @@ function Metric({
 }
 
 function SeedRow({ seed, runId }: { seed: SeedAttempt; runId: string }) {
+  const display = caseDisplay(seed.id);
   const rail =
     seed.verdict === "fail"
       ? "bg-bl-alarm shadow-[0_0_6px_var(--bl-alarm)]"
@@ -266,18 +335,18 @@ function SeedRow({ seed, runId }: { seed: SeedAttempt; runId: string }) {
 
   return (
     <Link
-      href={`/campaigns/${runId}/seeds/${seed.id}`}
+      href={campaignCaseHref(runId, seed.id)}
       className="grid min-w-[760px] grid-cols-[3px_1fr_110px_90px_70px_14px] items-center gap-4 border-b border-bl-line px-3.5 py-3 transition-colors hover:bg-bl-panel-2 last:border-b-0"
     >
       <span className={`h-8 w-[3px] ${rail}`} />
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs text-bl-bone">seed/{seed.id}</span>
+          <span className="font-mono text-xs text-bl-bone">{display.prefix}/{display.primary}</span>
           <span className="text-bl-bone-4">·</span>
           <span className="truncate text-sm text-bl-bone-2">{seed.title}</span>
         </div>
         <div className="mt-1 font-mono text-[10.5px] text-bl-bone-3">
-          {seed.category} · judge {seed.judge} · {(seed.durationMs / 1000).toFixed(2)}s
+          {display.secondary ? `${display.secondary} · ` : ""}{seed.category} · judge {seed.judge} · {(seed.durationMs / 1000).toFixed(2)}s
         </div>
       </div>
       <SeverityBadge severity={seed.severity} />

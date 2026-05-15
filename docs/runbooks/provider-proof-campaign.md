@@ -154,6 +154,13 @@ content excluded by default; set `BOUNDARY_LOGFIRE_TOKEN` only for a
 Boundary-owned observability project and keep `BOUNDARY_TRACE_INCLUDE_CONTENT=0`
 unless the run is synthetic and content-bearing traces are explicitly approved.
 
+Provider usage and agent activity are materialized during artifact ingest into
+`run_costs` and `agent_timeline_events`. Cost rows record whether values are
+provider-reported, estimated, or unavailable; timeline rows point to artifact or
+trace references instead of copying prompt content. Regression-suite artifacts
+also carry target-version metadata; see `regression-harness.md` before using
+those rows for resilience comparisons.
+
 `--mock-target` is only valid with `--allow-deterministic`; it cannot satisfy the provider-backed proof gate.
 `verify:readiness` refuses skip flags, missing proof inputs, and missing provider
 runtime env; use

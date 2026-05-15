@@ -1,5 +1,7 @@
 import type { SeedAttempt } from "@/server/campaigns/types";
 import { openDatabase } from "@/server/db/client";
+import { decodeCaseRouteParam } from "@/lib/case-route";
+import fs from "node:fs";
 
 export type SeedAttemptRecord = SeedAttempt & {
   runId: string;
@@ -10,7 +12,8 @@ export function listAttemptsForRun(runId: string): SeedAttempt[] {
 }
 
 export function getAttemptForRun(runId: string, seedId: string) {
-  return listAttemptsForRun(runId).find((attempt) => attempt.id === seedId);
+  const decodedSeedId = decodeCaseRouteParam(seedId);
+  return listAttemptsForRun(runId).find((attempt) => attempt.id === decodedSeedId);
 }
 
 export function listSeedAttemptRecords(): SeedAttemptRecord[] {
@@ -77,10 +80,38 @@ function rowToSeedAttemptRecord(row: {
     category: row.category,
     severity: row.severity ?? "info",
     verdict: row.verdict ?? "invalid",
-    durationMs: 0,
+    durationMs: durationMsFromArtifact(row.requestArtifactPath, row.runId, row.id),
     judge: row.judge ?? "deterministic",
     prompt: row.requestArtifactPath ? `See artifact: ${row.requestArtifactPath}` : "Prompt stored in run artifact.",
     response: row.responseArtifactPath ? `See artifact: ${row.responseArtifactPath}` : "Response stored in run artifact.",
     rationale: row.rationale ?? "No rationale recorded."
   };
+}
+
+function durationMsFromArtifact(artifactPath: string | null, runId: string, caseId: string) {
+  if (!artifactPath) return 0;
+
+  try {
+    const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8")) as {
+      results?: Array<{
+        run_id?: unknown;
+        case_id?: unknown;
+        attempt?: {
+          turns?: Array<{
+            http?: {
+              elapsed_ms?: unknown;
+            };
+          }>;
+        };
+      }>;
+    };
+    const result = artifact.results?.find((item) => item.run_id === runId && item.case_id === caseId);
+    if (!result?.attempt?.turns) return 0;
+    return result.attempt.turns.reduce((sum, turn) => {
+      const elapsed = turn.http?.elapsed_ms;
+      return typeof elapsed === "number" && Number.isFinite(elapsed) ? sum + elapsed : sum;
+    }, 0);
+  } catch {
+    return 0;
+  }
 }

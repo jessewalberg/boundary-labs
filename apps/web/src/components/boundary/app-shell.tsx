@@ -7,11 +7,14 @@ import {
   Activity,
   Bot,
   Crosshair,
+  FileText,
   FileWarning,
+  FlaskConical,
   Gauge,
   History,
   KeyRound,
   Radar,
+  Repeat2,
   ScrollText,
   Search,
   SlidersHorizontal,
@@ -29,6 +32,8 @@ const navGroups = [
     items: [
       { label: "Dashboard", href: "/dashboard", enabled: true, icon: Gauge },
       { label: "Runs", href: "/campaigns", enabled: true, icon: History },
+      { label: "Evals", href: "/evals", enabled: true, icon: FlaskConical },
+      { label: "Regressions", href: "/regressions", enabled: true, icon: Repeat2 },
       { label: "Seeds", href: "/seeds", enabled: true, icon: Crosshair },
       { label: "Agents", href: "/agents", enabled: true, icon: Bot },
       { label: "Judges", href: "/judges", enabled: true, icon: ShieldCheck }
@@ -40,7 +45,8 @@ const navGroups = [
       { label: "Threat Model", href: "/threat-model", enabled: true, icon: FileWarning },
       { label: "Coverage", href: "/coverage", enabled: true, icon: Radar },
       { label: "Approvals", href: "/approvals", enabled: true, icon: ShieldCheck },
-      { label: "Findings", href: "/findings", enabled: true, icon: Terminal }
+      { label: "Findings", href: "/findings", enabled: true, icon: Terminal },
+      { label: "Reports", href: "/reports", enabled: true, icon: FileText }
     ]
   },
   {
@@ -178,16 +184,28 @@ function breadcrumbFor(pathname: string) {
     if (pathname.includes("/seeds/")) return "runs / seed";
     return "runs / detail";
   }
+  if (pathname.startsWith("/regressions")) {
+    return pathname === "/regressions" ? "regressions" : "regressions / case";
+  }
+  if (pathname.startsWith("/reports")) {
+    return pathname === "/reports" ? "reports" : "reports / detail";
+  }
+  if (pathname.startsWith("/evals")) {
+    return "evals";
+  }
 
   const labels: Record<string, string> = {
     "/dashboard": "dashboard",
+    "/regressions": "regressions",
     "/seeds": "seeds",
+    "/evals": "evals",
     "/agents": "agents",
     "/judges": "judges",
     "/threat-model": "threat model",
     "/coverage": "coverage",
     "/approvals": "approvals",
     "/findings": "findings",
+    "/reports": "reports",
     "/targets": "targets",
     "/audit": "audit",
     "/settings/policy": "settings / policy",

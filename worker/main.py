@@ -22,6 +22,7 @@ from worker.queue import (
     release_claim,
     write_audit,
 )
+from worker.regression_cases import load_regression_cases
 from worker.recovery import recover_stale_running_jobs
 from worker.sentinels import sentinel_paths, write_failed
 from worker.graphs.campaign import CampaignGraphDeps, run_campaign_graph_sync
@@ -79,8 +80,9 @@ def process_job(sqlite_path: Path, artifact_dir: Path, job_id: str, run_id: str,
         return
 
     try:
-        payload = load_job_payload(sqlite_path, job_id)
-        categories = payload_categories(payload)
+        job_type, payload = load_job_record(sqlite_path, job_id)
+        regression_cases = load_regression_cases_for_job(sqlite_path, job_type, payload)
+        categories = regression_categories(regression_cases) if job_type == "regression_suite" else payload_categories(payload)
     except ValueError as exc:
         write_failed(paths, "invalid_job_payload", {"error": str(exc)})
         mark_job_failed(sqlite_path, job_id, reason="invalid_job_payload", claim_token=claim_token)
@@ -105,6 +107,11 @@ def process_job(sqlite_path: Path, artifact_dir: Path, job_id: str, run_id: str,
                 target_url=target_url,
                 deployed_url=str(payload.get("deployedUrl") or os.environ.get("BOUNDARY_DEPLOYED_TARGET_URL") or os.environ.get("TARGET_DEPLOYED_COPILOT_URL") or "https://clinical-copilot.up.railway.app"),
                 categories=categories,
+                case_source="regression" if job_type == "regression_suite" else "seed",
+                regression_suite_id=str(payload.get("regressionSuiteId")) if job_type == "regression_suite" and payload.get("regressionSuiteId") else None,
+                target_version_id=str(payload.get("targetVersionId")) if job_type == "regression_suite" and payload.get("targetVersionId") else None,
+                target_version_key=str(payload.get("targetVersionKey") or "unknown") if job_type == "regression_suite" else None,
+                regression_cases=regression_cases,
                 timeout_seconds=timeout_seconds,
                 smart_session_cookie=smart_session_cookie,
                 mint_synthetic_session=truthy(payload.get("mintSyntheticSession")) or os.environ.get("BOUNDARY_MINT_SYNTHETIC_SESSION") == "1",
@@ -179,10 +186,14 @@ def normalize_openemr_base_url(value: str) -> str:
 
 
 def load_job_payload(sqlite_path: Path, job_id: str) -> dict[str, object]:
+    return load_job_record(sqlite_path, job_id)[1]
+
+
+def load_job_record(sqlite_path: Path, job_id: str) -> tuple[str, dict[str, object]]:
     from worker.queue import connect
 
     with closing(connect(sqlite_path)) as db:
-        row = db.execute("SELECT payload_json FROM campaign_jobs WHERE id = ?", (job_id,)).fetchone()
+        row = db.execute("SELECT job_type, payload_json FROM campaign_jobs WHERE id = ?", (job_id,)).fetchone()
     if not row:
         raise ValueError(f"Missing campaign job payload for {job_id}.")
     try:
@@ -191,7 +202,27 @@ def load_job_payload(sqlite_path: Path, job_id: str) -> dict[str, object]:
         raise ValueError("campaign_jobs.payload_json is not valid JSON.")
     if not isinstance(value, dict):
         raise ValueError("campaign_jobs.payload_json must be a JSON object.")
-    return value
+    return str(row["job_type"] or "campaign_run"), value
+
+
+def load_regression_cases_for_job(sqlite_path: Path, job_type: str, payload: dict[str, object]) -> list[dict[str, object]]:
+    if job_type != "regression_suite":
+        return []
+    case_ids = payload.get("caseIds")
+    if case_ids is None:
+        case_ids = []
+    if not isinstance(case_ids, list):
+        raise ValueError("regression_suite payload caseIds must be an array.")
+    return load_regression_cases(sqlite_path, [str(case_id) for case_id in case_ids])
+
+
+def regression_categories(regression_cases: list[dict[str, object]]) -> list[str]:
+    categories: list[str] = []
+    for case in regression_cases:
+        category = str(case.get("category") or "")
+        if category and category not in categories:
+            categories.append(category)
+    return categories
 
 
 def claim_token_still_current(sqlite_path: Path, job_id: str, claim_token: str) -> bool:

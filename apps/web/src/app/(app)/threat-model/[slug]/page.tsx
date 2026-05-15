@@ -3,6 +3,7 @@ import { BreadcrumbBack } from "@/components/boundary/breadcrumb-back";
 import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
 import { RelatedPanel } from "@/components/boundary/related-panel";
+import { caseDisplay } from "@/lib/case-route";
 import { listThreatCoverage } from "@/server/coverage/query";
 import { listSeedUsageRecords } from "@/server/seeds/repository";
 
@@ -32,11 +33,14 @@ export default async function ThreatModelCategoryPage({ params }: { params: Prom
           </p>
         </Panel>
         <RelatedPanel
-          links={seeds.map((seed) => ({
-            label: `seed/${seed.id}`,
-            href: `/seeds/${seed.id}`,
-            meta: `${seed.verdict} · ${seed.runId}`
-          }))}
+          links={seeds.map((seed) => {
+            const display = caseDisplay(seed.id);
+            return {
+              label: `${display.prefix}/${display.primary}`,
+              href: `/seeds/${encodeURIComponent(seed.id)}`,
+              meta: `${display.secondary ? `${display.secondary} · ` : ""}${seed.verdict} · ${seed.runId}`
+            };
+          })}
         />
       </section>
     </div>

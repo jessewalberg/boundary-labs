@@ -95,6 +95,11 @@ class CampaignGraphDeps:
     target_url: str = DEFAULT_LOCAL_TARGET
     deployed_url: str = DEFAULT_DEPLOYED_TARGET
     categories: list[str] = field(default_factory=list)
+    case_source: str = "seed"
+    regression_suite_id: str | None = None
+    target_version_id: str | None = None
+    target_version_key: str | None = None
+    regression_cases: list[dict[str, Any]] = field(default_factory=list)
     timeout_seconds: float = 75.0
     smart_session_cookie: str | None = None
     mint_synthetic_session: bool = False
@@ -153,8 +158,8 @@ class CoverageScoreNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str
         trace_event(ctx.deps, "graph.node.start", node="CoverageScoreNode")
         selected = [normalize_category(category) for category in ctx.deps.categories]
         ctx.state.selected_categories = selected
-        cases = load_cases(Path("evals/seeds"))
-        if selected:
+        cases = ctx.deps.regression_cases if ctx.deps.case_source == "regression" else load_cases(Path("evals/seeds"))
+        if selected and ctx.deps.case_source != "regression":
             cases = [case for case in cases if category_selected(normalize_category(str(case["category"])), selected)]
         ctx.state.cases = cases
         trace_event(
@@ -532,6 +537,12 @@ class WriteArtifactNode(BaseNode[CampaignGraphState, CampaignGraphDeps, dict[str
         artifact = {
             "schema_version": SCHEMA_VERSION,
             "run_id": ctx.deps.run_id,
+            "case_source": ctx.deps.case_source,
+            "regression_suite": {
+                "suite_id": ctx.deps.regression_suite_id,
+                "target_version_id": ctx.deps.target_version_id,
+                "target_version_key": ctx.deps.target_version_key,
+            } if ctx.deps.case_source == "regression" else None,
             "started_at": ctx.state.started_at,
             "completed_at": completed_at,
             "target_url": ctx.deps.target_url.rstrip("/"),

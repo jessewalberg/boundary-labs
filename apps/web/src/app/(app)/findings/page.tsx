@@ -4,6 +4,7 @@ import { Chip } from "@/components/boundary/chip";
 import { Panel } from "@/components/boundary/panel";
 import { SeverityBadge } from "@/components/boundary/severity-badge";
 import { Button } from "@/components/ui/button";
+import { campaignCaseHref, caseDisplay } from "@/lib/case-route";
 import { listSeedAttemptRecords } from "@/server/attempts/repository";
 import { listFindings } from "@/server/findings/repository";
 
@@ -46,6 +47,7 @@ export default function FindingsPage() {
               </div>
               {findings.filter((finding) => finding.status === status).length > 0 ? findings.filter((finding) => finding.status === status).map((finding) => {
                 const reference = findSeedReference(seedAttempts, finding.seed);
+                const display = caseDisplay(finding.seed);
                 return (
                   <article key={finding.id} className="grid gap-3 border-b border-bl-line px-4 py-3 last:border-b-0 md:grid-cols-[1fr_auto]">
                     <div>
@@ -63,13 +65,13 @@ export default function FindingsPage() {
                       </h2>
                       <p className="mt-2 max-w-[760px] text-xs leading-5 text-bl-bone-2">{finding.note}</p>
                       <div className="mt-2 font-mono text-[10px] text-bl-bone-4">
-                        seed/{finding.seed} · last fail {new Date(finding.lastFail).toISOString().slice(0, 16)}Z
+                        {display.prefix}/{display.primary} · last fail {new Date(finding.lastFail).toISOString().slice(0, 16)}Z
                       </div>
                     </div>
                     <div className="flex items-center gap-2 md:justify-end">
                       {reference ? (
                         <Button asChild variant="secondary" size="sm">
-                          <Link href={`/campaigns/${reference.runId}/seeds/${reference.seedId}`}>
+                          <Link href={campaignCaseHref(reference.runId, reference.seedId)}>
                             Evidence <ArrowRight size={11} aria-hidden="true" />
                           </Link>
                         </Button>

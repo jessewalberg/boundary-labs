@@ -12,6 +12,7 @@ type CreateCampaignInput = {
   categories: string[];
   budgetCents: number;
   requestedBy: string;
+  relaunchedFrom?: string;
   acquireSmartSession?: boolean;
   openemrUrl?: string;
   openemrSite?: string;
@@ -44,6 +45,7 @@ export async function createQueuedCampaign(input: CreateCampaignInput) {
     createdAt: now,
     updatedAt: now,
     requestedBy: input.requestedBy,
+    relaunchedFrom: input.relaunchedFrom,
     openemrUrl,
     openemrSite,
     openemrUsername,
@@ -97,6 +99,33 @@ export async function listStoredCampaigns() {
 export async function getStoredCampaign(id: string) {
   const campaigns = await listStoredCampaigns();
   return campaigns.find((campaign) => campaign.id === id);
+}
+
+export async function relaunchCampaign(campaignId: string, actorId: string) {
+  const source = getCampaignRelaunchSource(campaignId);
+  if (!source) {
+    throw new Error("Campaign not found.");
+  }
+  if (source.status === "queued" || source.status === "running") {
+    throw new Error("Queued or running campaigns cannot be re-run.");
+  }
+
+  const campaign = await createQueuedCampaign({
+    targetUrl: source.targetUrl,
+    categories: source.categories,
+    budgetCents: source.budgetCents,
+    requestedBy: actorId,
+    relaunchedFrom: source.id,
+    acquireSmartSession: source.acquireSmartSession,
+    openemrUrl: source.openemrUrl,
+    openemrSite: source.openemrSite,
+    openemrUsername: source.openemrUsername,
+    openemrPassword: source.openemrPassword,
+    openemrPatientPid: source.openemrPatientPid
+  });
+
+  writeRelaunchAudit(campaign.id, actorId, source.id);
+  return campaign;
 }
 
 export function cancelCampaign(campaignId: string, actorId: string, reason: string | null = null) {
@@ -198,10 +227,10 @@ function insertQueuedCampaignRecord(
     db.prepare(`
       INSERT INTO campaigns (
         id, target_url, categories_json, status, data_mode, budget_cents, submitted_by,
-        artifact_path, created_at, updated_at
+        relaunched_from, artifact_path, created_at, updated_at
       ) VALUES (
         @id, @target_url, @categories_json, @status, @data_mode, @budget_cents, @submitted_by,
-        @artifact_path, @created_at, @updated_at
+        @relaunched_from, @artifact_path, @created_at, @updated_at
       )
     `).run({
       id: record.id,
@@ -211,6 +240,7 @@ function insertQueuedCampaignRecord(
       data_mode: record.dataMode,
       budget_cents: record.budgetCents,
       submitted_by: record.requestedBy,
+      relaunched_from: record.relaunchedFrom ?? null,
       artifact_path: record.artifactPath,
       created_at: record.createdAt,
       updated_at: record.updatedAt
@@ -257,7 +287,8 @@ function insertQueuedCampaignRecord(
       metadata_json: JSON.stringify({
         targetUrl: record.targetUrl,
         categories: record.categories,
-        budgetCents: record.budgetCents
+        budgetCents: record.budgetCents,
+        relaunchedFrom: record.relaunchedFrom ?? null
       })
     });
   });
@@ -285,6 +316,7 @@ function listPersistedCampaigns() {
         data_mode AS dataMode,
         budget_cents AS budgetCents,
         submitted_by AS requestedBy,
+        relaunched_from AS relaunchedFrom,
         artifact_path AS artifactPath,
         created_at AS createdAt,
         updated_at AS updatedAt
@@ -299,6 +331,7 @@ function listPersistedCampaigns() {
       dataMode: "synthetic";
       budgetCents: number;
       requestedBy: string;
+      relaunchedFrom: string | null;
       artifactPath: string;
       createdAt: string;
       updatedAt: string;
@@ -314,6 +347,7 @@ function listPersistedCampaigns() {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       requestedBy: row.requestedBy,
+      relaunchedFrom: row.relaunchedFrom ?? undefined,
       artifactPath: row.artifactPath,
       runnerCommand: buildEvalRunnerCommand(row.targetUrl, config.evalRunnerPath)
     }));
@@ -366,6 +400,87 @@ function normalizeCategories(categories: string[]) {
 function clampBudget(value: number) {
   if (!Number.isFinite(value)) return 500;
   return Math.min(Math.max(Math.round(value), 100), 10000);
+}
+
+function getCampaignRelaunchSource(campaignId: string) {
+  const db = openDatabase();
+  try {
+    const row = db.prepare(`
+      SELECT
+        campaigns.id,
+        campaigns.target_url AS targetUrl,
+        campaigns.categories_json AS categoriesJson,
+        campaigns.status,
+        campaigns.budget_cents AS budgetCents,
+        campaign_jobs.payload_json AS payloadJson
+      FROM campaigns
+      LEFT JOIN campaign_jobs ON campaign_jobs.campaign_id = campaigns.id
+      WHERE campaigns.id = ?
+      ORDER BY campaign_jobs.created_at DESC
+      LIMIT 1
+    `).get(campaignId) as
+      | {
+          id: string;
+          targetUrl: string;
+          categoriesJson: string;
+          status: StoredCampaignRecord["status"];
+          budgetCents: number;
+          payloadJson: string | null;
+        }
+      | undefined;
+
+    if (!row) return undefined;
+    const payload = parseJobPayload(row.payloadJson);
+    const openemrPatientPid = payload.openemrPatientPid;
+    return {
+      id: row.id,
+      targetUrl: typeof payload.targetUrl === "string" ? payload.targetUrl : row.targetUrl,
+      categories: Array.isArray(payload.categories) ? payload.categories.map(String) : JSON.parse(row.categoriesJson) as string[],
+      status: row.status,
+      budgetCents: typeof payload.budgetCents === "number" ? payload.budgetCents : row.budgetCents,
+      acquireSmartSession: payload.acquireSmartSession === true,
+      openemrUrl: typeof payload.openemrUrl === "string" ? payload.openemrUrl : undefined,
+      openemrSite: typeof payload.openemrSite === "string" ? payload.openemrSite : undefined,
+      openemrUsername: typeof payload.openemrUsername === "string" ? payload.openemrUsername : undefined,
+      openemrPassword: typeof payload.openemrPassword === "string" ? payload.openemrPassword : undefined,
+      openemrPatientPid: typeof openemrPatientPid === "number" ? openemrPatientPid : undefined
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function parseJobPayload(value: string | null): Record<string, unknown> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeRelaunchAudit(campaignId: string, actorId: string, relaunchedFrom: string) {
+  const db = openDatabase();
+  try {
+    db.prepare(`
+      INSERT INTO audit_events (
+        id, occurred_at, actor_type, actor_id, action, target_type, target_id,
+        outcome, rule_ref, policy_snapshot_hash, metadata_json
+      ) VALUES (
+        @id, @occurred_at, 'operator', @actor_id, 'campaign:relaunch', 'campaign', @target_id,
+        'ok', 'R9', NULL, @metadata_json
+      )
+    `).run({
+      id: ulid(),
+      occurred_at: new Date().toISOString(),
+      actor_id: actorId,
+      target_id: campaignId,
+      metadata_json: JSON.stringify({ relaunchedFrom })
+    });
+  } finally {
+    db.close();
+  }
 }
 
 function countSeedLibraryRows() {

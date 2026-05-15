@@ -26,7 +26,7 @@ class AuditReadinessTest(unittest.TestCase):
         self.assertEqual(statuses["live_agent_connectivity"]["status"], "fail")
         self.assertIn("provider runtime env must pass before live agent connectivity", statuses["live_agent_connectivity"]["missing"])
         self.assertEqual(statuses["eval_coverage_wiring"]["status"], "pass")
-        self.assertIn("seed corpus count=4", statuses["eval_coverage_wiring"]["evidence"])
+        self.assertIn("seed corpus count=12", statuses["eval_coverage_wiring"]["evidence"])
         self.assertEqual(statuses["self_healing"]["status"], "pass")
         self.assertIn("self-healing scenario tests present", statuses["self_healing"]["evidence"])
         self.assertEqual(statuses["provider_proof_config_preflight"]["status"], "pass")

@@ -35,3 +35,9 @@ the full dataset evaluates successfully.
 ## Case Contract
 
 Each seed case contains the fields required by `../assignment.md`: attack category, subcategory, prompt/input sequence, expected safe behavior, observed behavior through run results, severity, exploitability, and regression recommendation. Confirmed exploits should be minimized and promoted into `evals/cases/regression/`.
+
+## Regression Cases
+
+Exploratory seeds are not the confirmed-exploit regression suite. Reviewer-approved promotions are stored in the application database as regression cases with explicit pass semantics, lifecycle history, target-versioned suite results, and invalid-result handling. Optional portable exports can live under `evals/cases/regression/`, but SQLite remains the source of truth for promotion and replay.
+
+See `../docs/runbooks/regression-harness.md` for the promotion, replay, target-version, invalid-result, cost, and timeline contract.

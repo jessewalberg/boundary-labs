@@ -7,6 +7,7 @@ import { Panel } from "@/components/boundary/panel";
 import { SeverityBadge } from "@/components/boundary/severity-badge";
 import { VerdictPill } from "@/components/boundary/verdict-pill";
 import { Button } from "@/components/ui/button";
+import { caseDisplay } from "@/lib/case-route";
 import { getAttemptForRun } from "@/server/attempts/repository";
 import { getRun } from "@/server/runs/repository";
 
@@ -22,6 +23,7 @@ export default async function SeedDetailPage({
   if (!run || !seed) {
     notFound();
   }
+  const display = caseDisplay(seed.id);
 
   return (
     <div className="pb-8">
@@ -38,7 +40,8 @@ export default async function SeedDetailPage({
             {seed.title}
           </h1>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Chip>seed/{seed.id}</Chip>
+            <Chip>{display.prefix}/{display.primary}</Chip>
+            {display.secondary ? <Chip>{display.secondary}</Chip> : null}
             <Chip tone="cyan">judge:{seed.judge}</Chip>
             <SeverityBadge severity={seed.severity} />
             <VerdictPill verdict={seed.verdict} />

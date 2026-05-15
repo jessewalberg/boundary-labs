@@ -7,7 +7,7 @@ import { ingestArtifactFile } from "../../src/server/ingest/from-artifact";
 import { createQueuedCampaign, storedCampaignToRun } from "../../src/server/campaigns/repository";
 import { listFindings } from "../../src/server/findings/repository";
 import { listRuns } from "../../src/server/runs/repository";
-import { listAttemptsForRun } from "../../src/server/attempts/repository";
+import { getAttemptForRun, listAttemptsForRun } from "../../src/server/attempts/repository";
 import { listAgentStatuses } from "../../src/server/agents/repository";
 import { listFeedEvents } from "../../src/server/events/repository";
 import { listCampaignJobs } from "../../src/server/jobs/repository";
@@ -61,7 +61,7 @@ describe("repository read models", () => {
         attempt: {
           attempt_id: "repo-attempt",
           observed_at: nowIso,
-          turns: [{ turn: 1, input: "all observations", http: { status: 200, body: "all data" } }]
+          turns: [{ turn: 1, input: "all observations", http: { status: 200, elapsed_ms: 1234, body: "all data" } }]
         },
         judge_agent: {
           verdict_id: "repo-verdict",
@@ -105,7 +105,11 @@ describe("repository read models", () => {
       id: "repo-case",
       verdict: "fail",
       severity: "critical",
-      judge: "pydantic-ai:openrouter:google/gemini-2.5-flash"
+      judge: "pydantic-ai:openrouter:google/gemini-2.5-flash",
+      durationMs: 1234
+    });
+    expect(getAttemptForRun("repo-run", encodeURIComponent("repo-case"))).toMatchObject({
+      id: "repo-case"
     });
     expect(listFindings()[0]).toMatchObject({
       seed: "repo-case",

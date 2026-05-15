@@ -5,6 +5,7 @@ import { Panel } from "@/components/boundary/panel";
 import { SeverityBadge } from "@/components/boundary/severity-badge";
 import { VerdictPill } from "@/components/boundary/verdict-pill";
 import { Button } from "@/components/ui/button";
+import { caseDisplay } from "@/lib/case-route";
 import { listSeedUsageRecords } from "@/server/seeds/repository";
 import type { Verdict } from "@/components/boundary/verdict-pill";
 
@@ -49,25 +50,27 @@ export default function SeedsPage() {
                 <span className="bl-watermark">{category}</span>
                 <Chip>{seeds.filter((seed) => seed.category === category).length} seeds</Chip>
               </div>
-              {seeds.filter((seed) => seed.category === category).map((seed) => (
+              {seeds.filter((seed) => seed.category === category).map((seed) => {
+                const display = caseDisplay(seed.id);
+                return (
                 <Link
                   key={`${seed.runId}-${seed.id}`}
-                  href={`/seeds/${seed.id}`}
+                  href={`/seeds/${encodeURIComponent(seed.id)}`}
                   className="grid gap-3 border-b border-bl-line px-4 py-3 transition-colors hover:bg-bl-panel-2 last:border-b-0 md:grid-cols-[1fr_120px_90px_80px_14px] md:items-center"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs text-bl-bone">seed/{seed.id}</span>
+                      <span className="font-mono text-xs text-bl-bone">{display.prefix}/{display.primary}</span>
                       <span className="truncate text-sm text-bl-bone-2">{seed.title}</span>
                     </div>
-                    <div className="mt-1 font-mono text-[10px] text-bl-bone-4">{seed.runId} · judge {seed.judge}</div>
+                    <div className="mt-1 font-mono text-[10px] text-bl-bone-4">{display.secondary ? `${display.secondary} · ` : ""}{seed.runId} · judge {seed.judge}</div>
                   </div>
                   <SeverityBadge severity={seed.severity} />
                   <VerdictPill verdict={seed.verdict} />
                   <span className="font-mono text-[11px] text-bl-bone-3">{(seed.durationMs / 1000).toFixed(2)}s</span>
                   <ArrowRight size={12} className="hidden text-bl-bone-3 md:block" aria-hidden="true" />
                 </Link>
-              ))}
+              )})}
             </div>
           )) : (
             <div className="px-4 py-8 text-center text-sm text-bl-bone-3">

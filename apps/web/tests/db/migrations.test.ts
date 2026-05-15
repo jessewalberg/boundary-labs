@@ -33,14 +33,55 @@ describe("database migrations", () => {
         "campaign_jobs",
         "reports",
         "policy_values",
+        "target_versions",
+        "regression_cases",
+        "regression_case_versions",
+        "regression_suites",
+        "regression_suite_cases",
+        "regression_suite_results",
+        "vulnerability_lifecycle_events",
+        "run_costs",
+        "agent_timeline_events",
         "schema_migrations"
       ])
     );
     expect(tableNames).toEqual(expect.arrayContaining(["user", "session", "account", "verification"]));
-    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({ count: 3 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({ count: 5 });
     expect(db.prepare("SELECT value_json FROM policy_values WHERE key = 'schema_ready'").get()).toMatchObject({
       value_json: "true"
     });
+
+    const reportColumns = db.prepare("PRAGMA table_info(reports)").all() as Array<{ name: string }>;
+    const reportColumnNames = reportColumns.map((column) => column.name);
+    expect(reportColumnNames).toEqual(
+      expect.arrayContaining([
+        "id",
+        "finding_id",
+        "run_id",
+        "regression_case_id",
+        "vuln_id",
+        "severity",
+        "attack_category",
+        "affected_target_version",
+        "clinical_impact",
+        "summary_md",
+        "repro_sequence_md",
+        "expected_behavior_md",
+        "observed_behavior_md",
+        "evidence_json",
+        "exploitability_md",
+        "remediation_md",
+        "approval_notes_md",
+        "report_version",
+        "status",
+        "title",
+        "artifact_path",
+        "created_by",
+        "created_at",
+        "updated_at"
+      ])
+    );
+
     db.close();
   });
 });

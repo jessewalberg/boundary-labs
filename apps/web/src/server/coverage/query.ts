@@ -10,7 +10,7 @@ export function listThreatCoverage(): ThreatCoverage[] {
         COUNT(DISTINCT seeds.id) AS seedCount,
         AVG(CASE WHEN verdicts.status = 'pass' THEN 1.0 WHEN verdicts.status IS NULL THEN NULL ELSE 0.0 END) AS passRate
       FROM seeds
-      LEFT JOIN attempts ON attempts.seed_id = seeds.id
+      LEFT JOIN attempts ON COALESCE(attempts.seed_id, attempts.case_id) = seeds.id
       LEFT JOIN verdicts ON verdicts.run_id = attempts.run_id AND verdicts.case_id = attempts.case_id
       GROUP BY seeds.category
       ORDER BY seeds.category ASC

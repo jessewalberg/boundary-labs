@@ -8,6 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "migrate": "tsx src/server/db/migrate.ts",
+    "derive:reports": "tsx scripts/derive-reports.ts",
+    "seed:observability": "tsx scripts/seed-observability.ts",
     "test": "vitest run"
   },
   "dependencies": {

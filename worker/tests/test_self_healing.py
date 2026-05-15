@@ -100,7 +100,7 @@ class SelfHealingTest(unittest.TestCase):
         self.assertEqual(nodes.count("TargetExecutionNode"), 1)
         self.assertTrue(paths.complete.exists())
         artifact = json.loads(paths.artifact.read_text(encoding="utf-8"))
-        self.assertEqual(artifact["summary"]["total"], 1)
+        self.assertEqual(artifact["summary"]["total"], 2)
 
 
 def make_db() -> tuple[Path, Path]:

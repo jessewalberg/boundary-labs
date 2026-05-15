@@ -110,6 +110,7 @@ export type StoredCampaignRecord = CampaignRecord & {
   createdAt: string;
   updatedAt: string;
   requestedBy: string;
+  relaunchedFrom?: string;
   openemrUrl?: string;
   openemrSite?: string;
   openemrUsername?: string;

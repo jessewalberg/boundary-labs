@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
-import { createQueuedCampaign } from "../../src/server/campaigns/repository";
+import { createQueuedCampaign, relaunchCampaign } from "../../src/server/campaigns/repository";
 import { runDatabaseBootstrap } from "../../src/server/db/migrate";
 
 describe("authenticated campaign launch persistence", () => {
@@ -78,6 +78,45 @@ describe("authenticated campaign launch persistence", () => {
       })
     });
     db.close();
+  });
+
+  it("relaunches a completed campaign as a new queued campaign", async () => {
+    const context = createBootstrapContext();
+    process.env.SQLITE_PATH = context.sqlitePath;
+    process.env.BOUNDARY_ARTIFACT_DIR = path.join(context.root, "artifacts");
+    runDatabaseBootstrap(context);
+
+    const original = await createQueuedCampaign({
+      targetUrl: "https://clinical-copilot.up.railway.app",
+      categories: ["tool-misuse"],
+      budgetCents: 700,
+      requestedBy: "operator-1"
+    });
+    const db = new Database(context.sqlitePath);
+    db.prepare("UPDATE campaigns SET status = 'completed' WHERE id = ?").run(original.id);
+    db.close();
+
+    const relaunched = await relaunchCampaign(original.id, "operator-2");
+
+    const verify = new Database(context.sqlitePath);
+    expect(relaunched.id).not.toBe(original.id);
+    expect(verify.prepare("SELECT status, relaunched_from, submitted_by FROM campaigns WHERE id = ?").get(relaunched.id)).toMatchObject({
+      status: "queued",
+      relaunched_from: original.id,
+      submitted_by: "operator-2"
+    });
+    expect(verify.prepare("SELECT payload_json FROM campaign_jobs WHERE campaign_id = ?").get(relaunched.id)).toMatchObject({
+      payload_json: JSON.stringify({
+        targetUrl: "https://clinical-copilot.up.railway.app",
+        categories: ["tool-misuse"],
+        budgetCents: 700,
+        acquireSmartSession: false
+      })
+    });
+    expect(verify.prepare("SELECT action FROM audit_events WHERE target_id = ? ORDER BY occurred_at DESC LIMIT 1").get(relaunched.id)).toMatchObject({
+      action: "campaign:relaunch"
+    });
+    verify.close();
   });
 });
 

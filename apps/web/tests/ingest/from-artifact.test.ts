@@ -40,6 +40,12 @@ describe("artifact ingest", () => {
     expect(db.prepare("SELECT judge_model AS judgeModel FROM verdicts WHERE case_id = 'case-fail'").get()).toMatchObject({
       judgeModel: "pydantic-ai:openrouter:google/gemini-2.5-flash"
     });
+    expect(db.prepare("SELECT seed_id AS seedId FROM attempts WHERE case_id = 'seed_pi_direct_sse_scope_override_001'").get()).toMatchObject({
+      seedId: "seed_pi_direct_sse_scope_override_001"
+    });
+    expect(db.prepare("SELECT seed_id AS seedId FROM attempts WHERE case_id = 'case-fail'").get()).toMatchObject({
+      seedId: null
+    });
     expect(db.prepare("SELECT COUNT(*) AS count FROM findings").get()).toMatchObject({ count: 1 });
     db.close();
   });
@@ -108,7 +114,7 @@ function buildArtifact() {
     results: [
       {
         run_id: "run-1",
-        case_id: "case-pass",
+        case_id: "seed_pi_direct_sse_scope_override_001",
         category: "prompt_injection",
         subcategory: "direct",
         attempt: {

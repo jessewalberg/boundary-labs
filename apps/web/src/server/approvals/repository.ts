@@ -1,4 +1,5 @@
 import { openDatabase } from "@/server/db/client";
+import { promoteApprovedFindingToRegression } from "@/server/regression-cases/promotion";
 import { canonicalHash } from "@/server/safety-gate/canonical-hash";
 import { ulid } from "ulid";
 
@@ -120,6 +121,9 @@ function decideApproval(
       if (status === "approved" && canonicalHash(JSON.parse(approval.payload_json)) !== approval.canonical_hash) {
         writeApprovalAudit(db, "approval_mismatch", id, reviewerId, "denied", now);
         throw new Error("Approval payload canonical hash mismatch.");
+      }
+      if (status === "approved" && approval.action === "regression:promote") {
+        promoteApprovedFindingToRegression(id, reviewerId, db);
       }
 
       db.prepare(`

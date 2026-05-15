@@ -59,6 +59,7 @@ COPY --from=web-build /app/apps/web/package.json apps/web/package.json
 COPY --from=web-build /app/apps/web/node_modules apps/web/node_modules
 COPY --from=web-build /app/apps/web/tsconfig.json apps/web/tsconfig.json
 COPY --from=web-build /app/apps/web/src apps/web/src
+COPY --from=web-build /app/apps/web/scripts apps/web/scripts
 COPY policy_seed.json policy_seed.json
 COPY scripts scripts
 COPY evals evals

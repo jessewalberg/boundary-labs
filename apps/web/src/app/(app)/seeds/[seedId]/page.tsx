@@ -7,15 +7,18 @@ import { Panel } from "@/components/boundary/panel";
 import { RelatedPanel } from "@/components/boundary/related-panel";
 import { SeverityBadge } from "@/components/boundary/severity-badge";
 import { VerdictPill } from "@/components/boundary/verdict-pill";
+import { caseDisplay, decodeCaseRouteParam } from "@/lib/case-route";
 import { listSeedUsageRecords } from "@/server/seeds/repository";
 import { listSeedVersions } from "@/server/seed_versions/repository";
 
 export default async function SeedDetailPage({ params }: { params: Promise<{ seedId: string }> }) {
   const { seedId } = await params;
-  const usages = listSeedUsageRecords().filter((item) => item.id === seedId);
+  const decodedSeedId = decodeCaseRouteParam(seedId);
+  const usages = listSeedUsageRecords().filter((item) => item.id === decodedSeedId);
   const seed = usages[0];
   if (!seed) notFound();
-  const versions = listSeedVersions(seedId);
+  const versions = listSeedVersions(decodedSeedId);
+  const display = caseDisplay(seed.id);
 
   return (
     <div className="pb-8">
@@ -24,7 +27,8 @@ export default async function SeedDetailPage({ params }: { params: Promise<{ see
         <div className="bl-eyebrow">// seed · {seed.category}</div>
         <h1 className="mt-2 max-w-[860px] text-2xl font-semibold text-bl-bone">{seed.title}</h1>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Chip>seed/{seed.id}</Chip>
+          <Chip>{display.prefix}/{display.primary}</Chip>
+          {display.secondary ? <Chip>{display.secondary}</Chip> : null}
           <SeverityBadge severity={seed.severity} />
           <VerdictPill verdict={seed.verdict} />
         </div>
