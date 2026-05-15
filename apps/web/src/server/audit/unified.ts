@@ -164,11 +164,11 @@ function readToolInvocationRows(artifactLimit: number): AuditTimelineRow[] {
       SELECT
         attempts.run_id AS runId,
         attempts.case_id AS caseId,
-        attempts.observed_at AS observedAt,
+        attempts.created_at AS observedAt,
         attempts.request_artifact_path AS artifactPath
       FROM attempts
       WHERE attempts.request_artifact_path IS NOT NULL
-      ORDER BY attempts.observed_at DESC
+      ORDER BY attempts.created_at DESC
       LIMIT ?
     `).all(artifactLimit) as typeof artifactsForAttempts;
   } catch (error) {
