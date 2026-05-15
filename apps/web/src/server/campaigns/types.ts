@@ -82,6 +82,7 @@ export type FeedEvent = {
   role: "alarm" | "signal" | "cyan" | "muted";
   message: string;
   detail: string;
+  href: string | null;
 };
 
 export type TargetHealth = {

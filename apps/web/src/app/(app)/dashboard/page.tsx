@@ -334,7 +334,7 @@ function Sparkline({ buckets }: { buckets: SparkBucket[] }) {
 }
 
 function TelemetryRow({ event }: { event: FeedEvent }) {
-  return (
+  const row = (
     <RunRow
       verdict={event.role === "alarm" ? "fail" : event.role === "signal" ? "pass" : "info"}
       title={
@@ -349,6 +349,13 @@ function TelemetryRow({ event }: { event: FeedEvent }) {
       meta={event.detail}
       right={<VerdictPill verdict={event.role === "alarm" ? "fail" : event.role === "signal" ? "pass" : "info"} />}
     />
+  );
+
+  if (!event.href) return row;
+  return (
+    <Link href={event.href} className="block cursor-pointer" aria-label={`Open ${event.detail}`}>
+      {row}
+    </Link>
   );
 }
 

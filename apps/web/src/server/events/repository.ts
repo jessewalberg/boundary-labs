@@ -23,7 +23,8 @@ export function listFeedEvents(): FeedEvent[] {
       agent: agentLabel(row.actorType, row.action),
       role: roleForOutcome(row.outcome),
       message: row.action,
-      detail: `${row.targetType}${row.targetId ? `/${row.targetId}` : ""} · ${row.outcome}`
+      detail: `${row.targetType}${row.targetId ? `/${row.targetId}` : ""} · ${row.outcome}`,
+      href: hrefForTarget(row.targetType, row.targetId)
     }));
   } catch (error) {
     if (error instanceof Error && /no such table/.test(error.message)) return [];
@@ -52,4 +53,44 @@ function roleForOutcome(outcome: string): FeedEvent["role"] {
   if (["ok", "queued", "completed", "pass"].includes(outcome)) return "signal";
   if (["running", "claimed"].includes(outcome)) return "cyan";
   return "muted";
+}
+
+function hrefForTarget(targetType: string, targetId: string | null): string | null {
+  if (!targetId) {
+    // For target-less actions (system, policy bootstrap, sweep), point at the audit log.
+    if (targetType === "system" || targetType === "policy" || targetType === "policy_value") {
+      return "/audit";
+    }
+    return null;
+  }
+  const id = encodeURIComponent(targetId);
+  switch (targetType) {
+    case "campaign":
+    case "campaign_job":
+    case "run":
+      return `/campaigns/${id}`;
+    case "finding":
+      return `/findings/${id}`;
+    case "seed":
+    case "seed_version":
+      return `/seeds/${id}`;
+    case "report":
+      return `/reports/${id}`;
+    case "regression_case":
+    case "regression_suite":
+    case "regression_suite_result":
+      return `/regressions/${id}`;
+    case "approval":
+      return `/approvals/${id}`;
+    case "operator":
+      return "/audit";
+    case "target":
+    case "target_version":
+      return "/targets";
+    case "policy_value":
+    case "policy":
+      return "/settings/policy";
+    default:
+      return "/audit";
+  }
 }
