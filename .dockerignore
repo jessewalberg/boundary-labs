@@ -7,7 +7,9 @@ apps/web/node_modules/
 apps/web/.next/
 apps/web/var/
 designs/screenshots/
-reports/
+# scope to repo-root reports only; do NOT exclude apps/web/src/server/reports/
+# (Docker matches bare "reports/" against any "reports/" subdirectory in the tree)
+# We actually want the root reports/ INCLUDED now so VULN markdown ships, so leave it unignored.
 *.tsbuildinfo
 .env
 .env.*
