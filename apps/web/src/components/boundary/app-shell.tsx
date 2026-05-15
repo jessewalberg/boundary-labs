@@ -13,6 +13,7 @@ import {
   Gauge,
   History,
   KeyRound,
+  LogOut,
   Radar,
   Repeat2,
   ScrollText,
@@ -25,6 +26,8 @@ import {
 import { Chip } from "@/components/boundary/chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 
 const navGroups = [
   {
@@ -69,7 +72,14 @@ const navGroups = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const crumb = breadcrumbFor(pathname);
+
+  const handleSignOut = async () => {
+    await authClient.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   return (
     <main className="min-h-screen bg-bl-graphite text-bl-bone">
@@ -168,6 +178,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Button>
             <Activity size={12} aria-hidden="true" /> Run
             <span className="ml-1 border border-bl-line-2 px-1 font-mono text-[10px] text-bl-bone-3">Enter</span>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleSignOut} aria-label="Sign out">
+            <LogOut size={12} aria-hidden="true" /> Sign out
           </Button>
         </div>
       </header>
